@@ -54,8 +54,8 @@ All contributors must agree to the following:
 
 ## Getting Help
 
-- Open a [GitHub Issue](https://github.com/Entrolution/codex-file-format-spec/issues) for questions
-- Use [GitHub Discussions](https://github.com/Entrolution/codex-file-format-spec/discussions) for general conversation and ideas
+- Open a [GitHub Issue](https://github.com/Entrolution/cdx-file-format-spec/issues) for questions
+- Use [GitHub Discussions](https://github.com/Entrolution/cdx-file-format-spec/discussions) for general conversation and ideas
 - Tag issues with `question` for specific inquiries
 - Email [greg.vonnessi@entrolution.ai](mailto:greg.vonnessi@entrolution.ai) for private matters
 

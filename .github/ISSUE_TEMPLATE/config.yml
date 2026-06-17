@@ -1,7 +1,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: Discussions
-    url: https://github.com/Entrolution/codex-file-format-spec/discussions
+    url: https://github.com/Entrolution/cdx-file-format-spec/discussions
     about: For general questions and community discussion
   - name: Reference Implementation
     url: https://github.com/Entrolution/cdx-core
