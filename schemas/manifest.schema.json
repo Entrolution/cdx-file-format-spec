@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/manifest.schema.json",
-  "title": "Codex Document Manifest",
-  "description": "Schema for the manifest.json file in a Codex document",
+  "$id": "https://cdx.dev/schemas/manifest.schema.json",
+  "title": "CDX Document Manifest",
+  "description": "Schema for the manifest.json file in a CDX document",
   "type": "object",
-  "required": ["codex", "id", "state", "created", "modified", "content", "metadata"],
+  "required": ["cdx", "id", "state", "created", "modified", "content", "metadata"],
   "properties": {
-    "codex": {
+    "cdx": {
       "type": "string",
       "description": "Specification version",
       "pattern": "^\\d+\\.\\d+$",

@@ -1,6 +1,6 @@
 # Design Decisions
 
-This document records key design decisions made during the Codex format specification development.
+This document records key design decisions made during the CDX format specification development.
 
 ## DD-001: ZIP Container Format
 
@@ -559,7 +559,7 @@ This section captures key strategic insights from early design discussions that 
 **Build Order**:
 1. **cdx-core** (Rust library) — Foundation everything else builds on
 2. **cdx-cli** — Dogfoods the core library, essential for tooling development
-3. **Pandoc writer** — Markdown → Codex (the academia unlock)
+3. **Pandoc writer** — Markdown → CDX (the academia unlock)
 4. **Web viewer** — cdx-core compiled to WASM (zero-install demonstration)
 
 **Why Pandoc**: Academics don't adopt new editors, they adopt new export targets. A Pandoc writer fits existing workflows with zero friction for authors.

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/phantoms.schema.json",
-  "title": "Codex Phantom Clusters",
-  "description": "Schema for the phantoms/clusters.json file in a Codex document",
+  "$id": "https://cdx.dev/schemas/phantoms.schema.json",
+  "title": "CDX Phantom Clusters",
+  "description": "Schema for the phantoms/clusters.json file in a CDX document",
   "type": "object",
   "required": ["version", "clusters"],
   "properties": {
@@ -29,7 +29,7 @@
           "description": "Unique cluster identifier"
         },
         "anchor": {
-          "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/contentAnchor",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchor",
           "description": "Anchor to document content"
         },
         "label": {
@@ -189,7 +189,7 @@
     "author": {
       "description": "Author identity extending base person",
       "allOf": [
-        { "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/person" }
+        { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" }
       ],
       "unevaluatedProperties": false
     }

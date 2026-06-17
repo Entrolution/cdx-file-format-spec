@@ -1,12 +1,12 @@
 # Security Extension
 
-**Extension ID**: `codex.security`
+**Extension ID**: `cdx.security`
 **Version**: 0.1
 **Status**: Draft
 
 ## 1. Overview
 
-The Security Extension provides cryptographic capabilities for Codex documents:
+The Security Extension provides cryptographic capabilities for CDX documents:
 
 - Digital signatures for document authentication and integrity
 - Encryption for confidentiality
@@ -20,7 +20,7 @@ To use this extension, declare it in the manifest:
 {
   "extensions": [
     {
-      "id": "codex.security",
+      "id": "cdx.security",
       "version": "0.1",
       "required": true
     }

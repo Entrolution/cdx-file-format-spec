@@ -11,7 +11,7 @@
       "type": "paragraph",
       "id": "p-intro-1",
       "children": [
-        { "type": "text", "value": "This document demonstrates the advanced presentation features available in the Codex format. The presentation layer provides fine-grained control over typography, layout, and print output." }
+        { "type": "text", "value": "This document demonstrates the advanced presentation features available in the CDX format. The presentation layer provides fine-grained control over typography, layout, and print output." }
       ]
     },
     {

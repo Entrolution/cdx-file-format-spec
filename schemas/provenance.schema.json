@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/provenance.schema.json",
-  "title": "Codex Provenance Record",
-  "description": "Schema for provenance/record.json in a Codex document",
+  "$id": "https://cdx.dev/schemas/provenance.schema.json",
+  "title": "CDX Provenance Record",
+  "description": "Schema for provenance/record.json in a CDX document",
   "type": "object",
   "required": ["version", "documentId", "created"],
   "properties": {

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/forms.schema.json",
-  "title": "Codex Forms Extension",
-  "description": "Schema for forms extension blocks and data files in a Codex document",
+  "$id": "https://cdx.dev/schemas/forms.schema.json",
+  "title": "CDX Forms Extension",
+  "description": "Schema for forms extension blocks and data files in a CDX document",
   "$defs": {
     "validatorType": {
       "type": "string",

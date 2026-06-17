@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Metadata provides descriptive information about a document: its title, author, subject, dates, and other properties. Codex uses Dublin Core as the foundation, with support for extensions.
+Metadata provides descriptive information about a document: its title, author, subject, dates, and other properties. CDX uses Dublin Core as the foundation, with support for extensions.
 
 ## 2. Metadata Layers
 
@@ -37,7 +37,7 @@ Location: `metadata/extended.json` (or custom paths)
 
 ### 3.1 File Format
 
-The `version` field in Dublin Core metadata refers to the Dublin Core Metadata Element Set standard version (currently 1.1), not the Codex specification version. The Codex specification version is declared in the manifest's `specVersion` field.
+The `version` field in Dublin Core metadata refers to the Dublin Core Metadata Element Set standard version (currently 1.1), not the CDX specification version. The CDX specification version is declared in the manifest's `specVersion` field.
 
 ```json
 {
@@ -51,7 +51,7 @@ The `version` field in Dublin Core metadata refers to the Dublin Core Metadata E
     "contributor": ["Finance Team", "Legal Team"],
     "date": "2025-01-15",
     "type": "Text",
-    "format": "application/vnd.codex+json",
+    "format": "application/vnd.cdx+json",
     "identifier": "sha256:3a7bd3e2...",
     "source": null,
     "language": "en",
@@ -278,7 +278,7 @@ Extended metadata supports domain-specific needs not covered by Dublin Core.
 
 ```json
 {
-  "namespace": "https://codex.document/metadata/academic",
+  "namespace": "https://cdx.dev/metadata/academic",
   "terms": {
     "doi": "10.1234/example.2025.001",
     "journal": "Journal of Document Engineering",
@@ -295,7 +295,7 @@ Extended metadata supports domain-specific needs not covered by Dublin Core.
 
 ```json
 {
-  "namespace": "https://codex.document/metadata/legal",
+  "namespace": "https://cdx.dev/metadata/legal",
   "terms": {
     "caseNumber": "2025-CV-12345",
     "jurisdiction": "California",
@@ -310,7 +310,7 @@ Extended metadata supports domain-specific needs not covered by Dublin Core.
 
 ```json
 {
-  "namespace": "https://codex.document/metadata/business",
+  "namespace": "https://cdx.dev/metadata/business",
   "terms": {
     "department": "Finance",
     "confidentiality": "Internal",
@@ -483,7 +483,7 @@ Implementations SHOULD support metadata-based search:
     "contributor": ["Research Team", "Policy Advisory Board"],
     "date": "2025-01-15",
     "type": "Text",
-    "format": "application/vnd.codex+json",
+    "format": "application/vnd.cdx+json",
     "identifier": "sha256:abc123...",
     "source": "https://doi.org/10.1234/previous-study",
     "language": "en",
@@ -513,7 +513,7 @@ Extended (`metadata/legal.json`):
 ```json
 {
   "version": "0.1",
-  "namespace": "https://codex.document/metadata/legal",
+  "namespace": "https://cdx.dev/metadata/legal",
   "terms": {
     "contractType": "Service Agreement",
     "parties": ["Acme Corp", "XYZ Services"],

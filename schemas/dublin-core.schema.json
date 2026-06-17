@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/dublin-core.schema.json",
+  "$id": "https://cdx.dev/schemas/dublin-core.schema.json",
   "title": "Dublin Core Metadata",
-  "description": "Schema for Dublin Core metadata in a Codex document",
+  "description": "Schema for Dublin Core metadata in a CDX document",
   "type": "object",
   "required": ["version", "terms"],
   "properties": {

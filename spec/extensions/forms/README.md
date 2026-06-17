@@ -1,6 +1,6 @@
 # Forms Extension
 
-**Extension ID**: `codex.forms`
+**Extension ID**: `cdx.forms`
 **Version**: 0.1
 **Status**: Draft
 
@@ -20,7 +20,7 @@ The Forms Extension enables interactive form fields within documents:
 {
   "extensions": [
     {
-      "id": "codex.forms",
+      "id": "cdx.forms",
       "version": "0.1",
       "required": false
     }

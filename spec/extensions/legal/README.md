@@ -1,6 +1,6 @@
 # Legal Extension
 
-**Extension ID**: `codex.legal`
+**Extension ID**: `cdx.legal`
 **Version**: 0.1
 **Status**: Draft
 
@@ -18,7 +18,7 @@ The Legal Extension provides specialized blocks and marks for legal documents, i
 {
   "extensions": [
     {
-      "id": "codex.legal",
+      "id": "cdx.legal",
       "version": "0.1",
       "required": false
     }

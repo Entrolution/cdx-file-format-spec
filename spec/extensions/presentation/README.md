@@ -1,6 +1,6 @@
 # Presentation Extension
 
-**Extension ID**: `codex.presentation`
+**Extension ID**: `cdx.presentation`
 **Version**: 0.1
 **Status**: Draft
 
@@ -15,7 +15,7 @@ The Presentation Extension provides advanced layout and styling capabilities bey
 
 ### File Paths
 
-Presentation extension data is stored within the `presentation/` directory in the Codex archive:
+Presentation extension data is stored within the `presentation/` directory in the CDX archive:
 
 | File | Purpose |
 |------|---------|
@@ -31,7 +31,7 @@ These files are referenced from the manifest's extension declaration.
 {
   "extensions": [
     {
-      "id": "codex.presentation",
+      "id": "cdx.presentation",
       "version": "0.1",
       "required": false
     }

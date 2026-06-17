@@ -7,7 +7,7 @@
     "description": "A demonstration of semantic extension features including citations, footnotes, glossary terms, and entity annotations.",
     "date": "2025-01-28",
     "type": "Text",
-    "format": "application/vnd.codex+zip",
+    "format": "application/vnd.cdx+zip",
     "language": "en",
     "rights": "CC BY 4.0"
   }

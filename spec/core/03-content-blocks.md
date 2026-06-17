@@ -1138,7 +1138,7 @@ Before comparison or hashing, content SHOULD be normalized:
       "type": "paragraph",
       "children": [
         { "type": "text", "value": "This document describes the " },
-        { "type": "text", "value": "Codex", "marks": ["bold"] },
+        { "type": "text", "value": "CDX", "marks": ["bold"] },
         { "type": "text", "value": " format." }
       ]
     },

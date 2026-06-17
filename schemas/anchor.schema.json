@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/anchor.schema.json",
-  "title": "Codex Content Anchor and Person Definitions",
+  "$id": "https://cdx.dev/schemas/anchor.schema.json",
+  "title": "CDX Content Anchor and Person Definitions",
   "description": "Reusable schema definitions for ContentAnchor, ContentAnchorUri, and Person, used by collaboration, phantoms, security, and other extensions.",
   "$defs": {
     "person": {

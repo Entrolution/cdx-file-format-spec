@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Codex documents have explicit lifecycle states that govern their mutability and signature requirements. This state machine addresses a fundamental limitation of PDF and other formats: the lack of clear semantics around document finalization.
+CDX documents have explicit lifecycle states that govern their mutability and signature requirements. This state machine addresses a fundamental limitation of PDF and other formats: the lack of clear semantics around document finalization.
 
 ## 2. Design Goals
 
@@ -364,8 +364,8 @@ There are three annotation storage locations, each serving a different purpose:
 | Layer | Location | Purpose | Extension Required |
 |-------|----------|---------|--------------------|
 | Core annotations | `security/annotations.json` | Minimal annotation support for frozen/published documents. Lightweight format for implementations that don't support extensions. | No (core) |
-| Collaboration | `collaboration/comments.json` | Full-featured comments, suggestions, change tracking, presence. Supersedes core annotations when active. | `codex.collaboration` |
-| Phantoms | `phantoms/clusters.json` | Spatially-organized off-page annotation clusters. Orthogonal to inline annotations. | `codex.phantoms` |
+| Collaboration | `collaboration/comments.json` | Full-featured comments, suggestions, change tracking, presence. Supersedes core annotations when active. | `cdx.collaboration` |
+| Phantoms | `phantoms/clusters.json` | Spatially-organized off-page annotation clusters. Orthogonal to inline annotations. | `cdx.phantoms` |
 
 When the collaboration extension is active, implementations SHOULD use `collaboration/comments.json` rather than `security/annotations.json` for new annotations. Core annotations exist as a fallback for minimal implementations.
 
@@ -379,7 +379,7 @@ The state is stored in the manifest:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "state": "frozen",
   "id": "sha256:..."
 }
@@ -475,7 +475,7 @@ For frozen documents:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "created": "2025-01-10T08:00:00Z",
@@ -494,7 +494,7 @@ For frozen documents:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "sha256:3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
   "state": "frozen",
   "created": "2025-01-10T08:00:00Z",
@@ -507,7 +507,7 @@ For frozen documents:
     "signatures": "security/signatures.json"
   },
   "extensions": [
-    { "id": "codex.security", "version": "0.1", "required": true }
+    { "id": "cdx.security", "version": "0.1", "required": true }
   ],
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
@@ -523,7 +523,7 @@ For frozen documents:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "created": "2025-01-16T09:00:00Z",

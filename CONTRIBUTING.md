@@ -1,6 +1,6 @@
-# Contributing to Codex Document Format
+# Contributing to CDX
 
-Thank you for your interest in contributing to the Codex Document Format specification.
+Thank you for your interest in contributing to the CDX specification.
 
 ## How to Contribute
 

@@ -1,9 +1,9 @@
-# Codex Document Format
+# CDX
 
 [![Validate Schemas](https://github.com/Entrolution/codex-file-format-spec/actions/workflows/validate-schemas.yml/badge.svg)](https://github.com/Entrolution/codex-file-format-spec/actions/workflows/validate-schemas.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**An open specification for documents that unify viewing and editing, with modern security and machine readability.**
+**CDX — Content-addressed Document eXchange.** An open specification for documents that unify viewing and editing, with modern security and machine readability.
 
 > Status: Draft Specification (v0.1)
 
@@ -85,7 +85,7 @@ This divide creates workflow friction, format conversion overhead, and lost fide
 
 ## Key Feature: Verifiable Provenance
 
-Codex documents form a **cryptographic hash chain** — each document's identity IS its content hash, and each document can reference its parent by hash:
+CDX documents form a **cryptographic hash chain** — each document's identity IS its content hash, and each document can reference its parent by hash:
 
 ```
 doc-v1 (sha256:aaa)  ←──  doc-v2 (sha256:bbb)  ←──  doc-v3 (sha256:ccc)
@@ -103,7 +103,7 @@ This enables:
 
 ## Key Feature: State-Aware Presentation
 
-Codex uses **progressive enhancement** for presentation — the level of layout precision evolves with document maturity:
+CDX uses **progressive enhancement** for presentation — the level of layout precision evolves with document maturity:
 
 | Document State | Presentation Requirement | What's Frozen |
 |----------------|-------------------------|---------------|
@@ -164,7 +164,7 @@ The specification is modular:
 
 ### Document Structure
 
-A Codex document is a ZIP archive with this structure:
+A CDX document is a ZIP archive with this structure:
 
 ```
 document.cdx
@@ -195,7 +195,7 @@ document.cdx
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "sha256:a1b2c3...",
   "state": "draft",
   "content": {
@@ -209,7 +209,7 @@ document.cdx
         "type": "paragraph",
         "children": [
           { "type": "text", "value": "This is a " },
-          { "type": "text", "value": "Codex", "marks": ["bold"] },
+          { "type": "text", "value": "CDX", "marks": ["bold"] },
           { "type": "text", "value": " document." }
         ]
       }
@@ -221,8 +221,8 @@ document.cdx
 ## File Extension and MIME Type
 
 - **Extension**: `.cdx`
-- **MIME Type**: `application/vnd.codex+json` (canonical JSON form)
-- **Alternative**: `application/vnd.codex` (binary/packed form)
+- **MIME Type**: `application/vnd.cdx+json` (canonical JSON form)
+- **Alternative**: `application/vnd.cdx` (binary/packed form)
 
 ## Roadmap
 

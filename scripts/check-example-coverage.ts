@@ -65,7 +65,7 @@ function exampleUsesExtension(exampleDir: string, extensionId: string): boolean 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const extensions = manifest.extensions || [];
     return extensions.some((ext: { id: string }) =>
-      ext.id === `codex.${extensionId}` || ext.id === extensionId
+      ext.id === `cdx.${extensionId}` || ext.id === extensionId
     );
   } catch {
     return false;
