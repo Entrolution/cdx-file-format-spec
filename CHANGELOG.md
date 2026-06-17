@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Codex file format specification.
+All notable changes to the CDX file format specification.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -19,14 +19,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Highlight annotation documentation in collaboration extension (Section 4.7)
 
 #### Extensions
-- **Academic** (`codex.academic`) - Theorems, proofs, exercises, algorithms, equation groups
-- **Collaboration** (`codex.collaboration` v0.2) - CRDT integration, comments, change tracking, presence
-- **Forms** (`codex.forms`) - Interactive form fields with validation
-- **Legal** (`codex.legal`) - Citations, Table of Authorities, court captions, signature blocks
-- **Phantoms** (`codex.phantoms`) - Invisible structural elements for complex layouts
-- **Presentation** (`codex.presentation`) - Advanced typography, master pages, print features
-- **Security** (`codex.security`) - Digital signatures, encryption, redaction, scoped signatures
-- **Semantic** (`codex.semantic`) - Bibliography, footnotes, glossary, entity markup, JSON-LD
+- **Academic** (`cdx.academic`) - Theorems, proofs, exercises, algorithms, equation groups
+- **Collaboration** (`cdx.collaboration` v0.2) - CRDT integration, comments, change tracking, presence
+- **Forms** (`cdx.forms`) - Interactive form fields with validation
+- **Legal** (`cdx.legal`) - Citations, Table of Authorities, court captions, signature blocks
+- **Phantoms** (`cdx.phantoms`) - Invisible structural elements for complex layouts
+- **Presentation** (`cdx.presentation`) - Advanced typography, master pages, print features
+- **Security** (`cdx.security`) - Digital signatures, encryption, redaction, scoped signatures
+- **Semantic** (`cdx.semantic`) - Bibliography, footnotes, glossary, entity markup, JSON-LD
 
 #### Profiles
 - Simple Documents profile for recreational reading

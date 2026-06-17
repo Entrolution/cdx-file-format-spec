@@ -1,12 +1,12 @@
-# Codex Document Format Specification
+# CDX Specification
 
 **Version**: 0.1 (Draft)
 **Status**: Working Draft
-**Editors**: Codex Specification Team
+**Editors**: CDX Specification Team
 
 ## Abstract
 
-This specification defines the Codex Document Format, an open format for documents that unifies viewing and editing modes while providing modern security, efficient compression, and native machine readability.
+This specification defines CDX (Content-addressed Document eXchange), an open format for documents that unifies viewing and editing modes while providing modern security, efficient compression, and native machine readability.
 
 ## Status of This Document
 
@@ -32,7 +32,7 @@ Additionally, existing formats suffer from:
 
 ### 1.2 Design Goals
 
-The Codex format addresses these issues through the following design goals:
+The CDX format addresses these issues through the following design goals:
 
 1. **Semantic-First Architecture**: Content is stored as semantic blocks (headings, paragraphs, lists, etc.) rather than visual instructions. Presentation is derived from semantics, not the other way around.
 
@@ -97,7 +97,7 @@ This section defines key terms used throughout the specification.
 
 ### 1.5 Document Structure Overview
 
-A Codex document is a ZIP archive containing:
+A CDX document is a ZIP archive containing:
 
 ```
 document.cdx
@@ -131,13 +131,13 @@ document.cdx
 
 ### 1.6 Annotation Layers
 
-Codex provides three annotation storage locations, each serving different purposes:
+CDX provides three annotation storage locations, each serving different purposes:
 
 | Layer | Location | Purpose | Extension Required |
 |-------|----------|---------|--------------------|
 | Core annotations | `security/annotations.json` | Minimal annotation support for frozen/published documents. Lightweight format for implementations that don't support extensions. | No (core) |
-| Collaboration | `collaboration/comments.json` | Full-featured comments, suggestions, change tracking, presence awareness. Supersedes core annotations when active. | `codex.collaboration` |
-| Phantoms | `phantoms/clusters.json` | Spatially-organized off-page annotation clusters (margin notes, mind maps). Orthogonal to inline annotations. | `codex.phantoms` |
+| Collaboration | `collaboration/comments.json` | Full-featured comments, suggestions, change tracking, presence awareness. Supersedes core annotations when active. | `cdx.collaboration` |
+| Phantoms | `phantoms/clusters.json` | Spatially-organized off-page annotation clusters (margin notes, mind maps). Orthogonal to inline annotations. | `cdx.phantoms` |
 
 **When to use each layer:**
 

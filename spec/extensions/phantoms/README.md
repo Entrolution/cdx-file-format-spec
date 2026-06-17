@@ -1,6 +1,6 @@
 # Phantom Extension
 
-**Extension ID**: `codex.phantoms`
+**Extension ID**: `cdx.phantoms`
 **Version**: 0.1
 **Status**: Draft
 
@@ -21,7 +21,7 @@ Phantom clusters are groups of annotation objects that the rendering application
 {
   "extensions": [
     {
-      "id": "codex.phantoms",
+      "id": "cdx.phantoms",
       "version": "0.1",
       "required": false
     }

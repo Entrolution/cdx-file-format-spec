@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Assets are binary resources embedded within a Codex document. This includes images, fonts, and other files that are referenced by content blocks or presentation layers.
+Assets are binary resources embedded within a CDX document. This includes images, fonts, and other files that are referenced by content blocks or presentation layers.
 
 ## 2. Asset Categories
 
@@ -354,7 +354,7 @@ sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 ### 9.1 Policy
 
-By default, Codex documents SHOULD be self-contained. External references:
+By default, CDX documents SHOULD be self-contained. External references:
 
 - MAY be allowed for non-critical assets
 - MUST NOT be required for core content

@@ -7,7 +7,7 @@
     "description": "A demonstration of phantoms extension features including annotation clusters with different scopes (shared, role-based, private), phantom connections, and nested content.",
     "date": "2025-01-28",
     "type": "Text",
-    "format": "application/vnd.codex+zip",
+    "format": "application/vnd.cdx+zip",
     "language": "en",
     "rights": "Internal Use Only"
   }

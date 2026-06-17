@@ -1,6 +1,6 @@
 # Semantic Extension
 
-**Extension ID**: `codex.semantic`
+**Extension ID**: `cdx.semantic`
 **Version**: 0.1
 **Status**: Draft
 
@@ -19,7 +19,7 @@ The Semantic Extension enhances documents with rich semantic markup:
 {
   "extensions": [
     {
-      "id": "codex.semantic",
+      "id": "cdx.semantic",
       "version": "0.1",
       "required": false
     }
@@ -390,7 +390,7 @@ The semantic extension provides `semantic:measurement` for measurements with lin
 
 #### 6.2.1 Core vs Semantic Measurements
 
-The Codex format defines two measurement types for different use cases:
+The CDX format defines two measurement types for different use cases:
 
 | Type | Location | Purpose |
 |------|----------|---------|

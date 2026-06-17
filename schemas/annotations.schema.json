@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/annotations.schema.json",
-  "title": "Codex Core Annotations",
-  "description": "Schema for the security/annotations.json file in a Codex document. Provides minimal annotation support for implementations that don't use the collaboration extension.",
+  "$id": "https://cdx.dev/schemas/annotations.schema.json",
+  "title": "CDX Core Annotations",
+  "description": "Schema for the security/annotations.json file in a CDX document. Provides minimal annotation support for implementations that don't use the collaboration extension.",
   "type": "object",
   "required": ["annotations"],
   "properties": {
@@ -35,7 +35,7 @@
           "enum": ["comment", "highlight", "note", "reaction"]
         },
         "anchor": {
-          "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/contentAnchor",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchor",
           "description": "Anchor to document content"
         },
         "author": {

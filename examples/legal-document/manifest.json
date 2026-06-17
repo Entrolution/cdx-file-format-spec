@@ -1,12 +1,12 @@
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "created": "2025-01-30T10:00:00Z",
   "modified": "2025-01-30T10:00:00Z",
   "extensions": [
     {
-      "id": "codex.legal",
+      "id": "cdx.legal",
       "version": "0.1",
       "required": false
     }

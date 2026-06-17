@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/asset-index.schema.json",
+  "$id": "https://cdx.dev/schemas/asset-index.schema.json",
   "title": "Asset Index",
-  "description": "Schema for asset index files in a Codex document",
+  "description": "Schema for asset index files in a CDX document",
   "type": "object",
   "required": ["version", "assets"],
   "properties": {

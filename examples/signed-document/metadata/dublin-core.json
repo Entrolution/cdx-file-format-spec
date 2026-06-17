@@ -7,7 +7,7 @@
     "description": "Service agreement between Acme Corporation and XYZ Enterprises for consulting services.",
     "date": "2025-01-15",
     "type": "Text",
-    "format": "application/vnd.codex+json",
+    "format": "application/vnd.cdx+json",
     "language": "en",
     "rights": "Confidential. All rights reserved."
   }

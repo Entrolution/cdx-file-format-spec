@@ -1,6 +1,6 @@
-# Codex JSON Schemas
+# CDX JSON Schemas
 
-This directory contains JSON Schema definitions for validating Codex document components.
+This directory contains JSON Schema definitions for validating CDX document components.
 
 ## Schema Files
 
@@ -89,7 +89,7 @@ for schema_file in ['anchor.schema.json', 'phantoms.schema.json']:
         schema = json.load(f)
         schema_store[schema['$id']] = schema
 
-resolver = RefResolver.from_schema(schema_store['https://codex.document/schemas/phantoms.schema.json'], store=schema_store)
+resolver = RefResolver.from_schema(schema_store['https://cdx.dev/schemas/phantoms.schema.json'], store=schema_store)
 validate(instance=document, schema=phantoms_schema, resolver=resolver)
 ```
 

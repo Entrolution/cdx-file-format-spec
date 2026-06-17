@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Generates minimal valid Codex document templates.
+ * Generates minimal valid CDX document templates.
  *
  * Usage:
  *   npx tsx scripts/generate-template.ts --extensions academic,semantic --output ./my-doc
@@ -23,7 +23,7 @@ interface ExtensionConfig {
 
 const extensionConfigs: Record<string, ExtensionConfig> = {
   academic: {
-    id: 'codex.academic',
+    id: 'cdx.academic',
     version: '0.1',
     required: false,
     directories: ['academic'],
@@ -38,7 +38,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   semantic: {
-    id: 'codex.semantic',
+    id: 'cdx.semantic',
     version: '0.1',
     required: false,
     directories: ['semantic'],
@@ -54,7 +54,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   forms: {
-    id: 'codex.forms',
+    id: 'cdx.forms',
     version: '0.1',
     required: false,
     directories: ['forms'],
@@ -66,7 +66,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   security: {
-    id: 'codex.security',
+    id: 'cdx.security',
     version: '0.1',
     required: false,
     directories: ['security'],
@@ -78,7 +78,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   collaboration: {
-    id: 'codex.collaboration',
+    id: 'cdx.collaboration',
     version: '0.2',
     required: false,
     directories: ['collaboration'],
@@ -94,7 +94,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   presentation: {
-    id: 'codex.presentation',
+    id: 'cdx.presentation',
     version: '0.1',
     required: false,
     directories: ['presentation'],
@@ -111,7 +111,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   phantoms: {
-    id: 'codex.phantoms',
+    id: 'cdx.phantoms',
     version: '0.1',
     required: false,
     directories: ['phantoms'],
@@ -142,7 +142,7 @@ function generateManifest(extensions: string[]): Record<string, unknown> {
   const now = new Date().toISOString();
 
   const manifest: Record<string, unknown> = {
-    codex: '0.1',
+    cdx: '0.1',
     id: 'pending',
     state: 'draft',
     created: now,
@@ -213,7 +213,7 @@ function generateDublinCore(): Record<string, unknown> {
     description: 'Document description',
     date: new Date().toISOString().split('T')[0],
     type: 'Text',
-    format: 'application/vnd.codex+zip',
+    format: 'application/vnd.cdx+zip',
     language: 'en'
   };
 }
@@ -267,7 +267,7 @@ function generateTemplate(outputDir: string, extensions: string[]): void {
 function parseArgs(): { extensions: string[]; output: string; listPresets: boolean } {
   const args = process.argv.slice(2);
   let extensions: string[] = [];
-  let output = './codex-document';
+  let output = './cdx-document';
   let listPresets = false;
 
   for (let i = 0; i < args.length; i++) {
@@ -293,7 +293,7 @@ function parseArgs(): { extensions: string[]; output: string; listPresets: boole
       output = args[++i] || output;
     } else if (arg === '--help' || arg === '-h') {
       console.log(`
-Codex Document Template Generator
+CDX Document Template Generator
 
 Usage:
   npx tsx scripts/generate-template.ts [options]
@@ -301,7 +301,7 @@ Usage:
 Options:
   --extensions, -e <list>  Comma-separated list of extensions to include
   --preset, -p <name>      Use a named preset (see --list-presets)
-  --output, -o <dir>       Output directory (default: ./codex-document)
+  --output, -o <dir>       Output directory (default: ./cdx-document)
   --list-presets, -l       List available presets
   --help, -h               Show this help
 

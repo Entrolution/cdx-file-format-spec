@@ -303,16 +303,16 @@ The anchor system is defined in the core specification but is primarily consumed
 
 | Extension | Anchor Usage |
 |-----------|-------------|
-| Collaboration (`codex.collaboration`) | Comments, suggestions, change tracking, cursor/selection positions use ContentAnchor objects |
-| Phantoms (`codex.phantoms`) | Phantom clusters anchor to content via ContentAnchor objects |
-| Presentation (`codex.presentation`) | Cross-reference `target` fields use Content Anchor URI syntax |
-| Semantic (`codex.semantic`) | Internal `semantic:ref` `target` fields use Content Anchor URI syntax |
+| Collaboration (`cdx.collaboration`) | Comments, suggestions, change tracking, cursor/selection positions use ContentAnchor objects |
+| Phantoms (`cdx.phantoms`) | Phantom clusters anchor to content via ContentAnchor objects |
+| Presentation (`cdx.presentation`) | Cross-reference `target` fields use Content Anchor URI syntax |
+| Semantic (`cdx.semantic`) | Internal `semantic:ref` `target` fields use Content Anchor URI syntax |
 
 See the respective extension specifications for details.
 
 ## 11. Cross-Reference Mechanism Selection
 
-Multiple mechanisms exist for cross-referencing within Codex documents. Use the following guidance:
+Multiple mechanisms exist for cross-referencing within CDX documents. Use the following guidance:
 
 | Mechanism | Extension | Use When |
 |-----------|-----------|----------|

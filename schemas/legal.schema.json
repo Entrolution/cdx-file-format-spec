@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/legal.schema.json",
-  "title": "Codex Legal Extension",
-  "description": "Schema for legal extension blocks and marks in a Codex document",
+  "$id": "https://cdx.dev/schemas/legal.schema.json",
+  "title": "CDX Legal Extension",
+  "description": "Schema for legal extension blocks and marks in a CDX document",
   "$defs": {
     "citationCategory": {
       "type": "string",

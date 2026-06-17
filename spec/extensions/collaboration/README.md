@@ -1,6 +1,6 @@
 # Collaboration Extension
 
-**Extension ID**: `codex.collaboration`
+**Extension ID**: `cdx.collaboration`
 **Version**: 0.2
 **Status**: Draft
 
@@ -19,7 +19,7 @@ The Collaboration Extension enables multi-user editing and feedback:
 {
   "extensions": [
     {
-      "id": "codex.collaboration",
+      "id": "cdx.collaboration",
       "version": "0.2",
       "required": false
     }
@@ -41,7 +41,7 @@ Conflict-free Replicated Data Types (CRDTs) enable:
 
 ### 3.2 Integration Model
 
-The Codex format doesn't mandate a specific CRDT implementation. Instead, it defines:
+The CDX format doesn't mandate a specific CRDT implementation. Instead, it defines:
 
 - How CRDT state maps to content blocks
 - Synchronization protocol hooks
@@ -172,7 +172,7 @@ When exchanging documents between implementations using different CRDT formats, 
 {
   "action": "materialized",
   "timestamp": "2025-01-15T12:00:00Z",
-  "agent": "codex-tool/2.0",
+  "agent": "cdx-tool/2.0",
   "details": {
     "fromCrdtFormat": "yjs",
     "toCrdtFormat": "automerge",

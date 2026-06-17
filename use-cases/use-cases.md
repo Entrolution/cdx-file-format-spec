@@ -1,6 +1,6 @@
-# Codex Format Use Cases
+# CDX Format Use Cases
 
-This document describes concrete scenarios where the Codex format provides value over existing solutions.
+This document describes concrete scenarios where the CDX format provides value over existing solutions.
 
 ## 1. Legal Contracts and Agreements
 
@@ -13,9 +13,9 @@ A law firm drafts contracts that require signatures from multiple parties, must 
 - No clear "frozen" state — uncertainty about what was actually signed
 - Format conversion loses fidelity
 
-### Codex Solution
+### CDX Solution
 ```
-1. Draft contract in Codex editor (state: draft)
+1. Draft contract in CDX editor (state: draft)
 2. Submit for review (state: review) — all parties can comment
 3. Final version frozen with signatures (state: frozen)
    - Document ID cryptographically binds content to signatures
@@ -44,7 +44,7 @@ A researcher publishes a paper with figures, citations, and supplementary data. 
 - Supplementary materials require separate downloads
 - Text extraction for meta-analysis is unreliable
 
-### Codex Solution
+### CDX Solution
 ```
 Paper structure:
 ├── Semantic content with structured headings
@@ -78,7 +78,7 @@ A company produces quarterly financial reports that must be:
 - Accessibility often an afterthought
 - Updates require republishing entire document
 
-### Codex Solution
+### CDX Solution
 ```
 Single source document with:
 ├── Content layer: semantic financial data
@@ -109,7 +109,7 @@ A government agency publishes regulations, forms, and public records that must b
 - Long-term preservation uncertain
 - Citizen data extraction for research is blocked
 
-### Codex Solution
+### CDX Solution
 ```
 Public regulation document:
 ├── Content: semantic legal text with section references
@@ -138,7 +138,7 @@ A software company maintains documentation that includes code samples, diagrams,
 - Code samples go stale
 - Cross-references break on restructuring
 
-### Codex Solution
+### CDX Solution
 ```
 Documentation structure:
 ├── Content: semantic docs with code blocks
@@ -174,7 +174,7 @@ A hospital generates patient records that must be:
 - Patient portals show images of documents
 - Long-term format stability uncertain
 
-### Codex Solution
+### CDX Solution
 ```
 Medical record:
 ├── Content: clinical notes as semantic blocks
@@ -207,7 +207,7 @@ A university creates course materials including syllabi, lecture notes, and assi
 - No version tracking for materials
 - Students print some, view others digitally
 
-### Codex Solution
+### CDX Solution
 ```
 Course syllabus:
 ├── Content:
@@ -239,7 +239,7 @@ A news organization publishes investigative reports with primary sources, must p
 - No way to cryptographically prove document unchanged
 - Archive.org not reliable for sensitive materials
 
-### Codex Solution
+### CDX Solution
 ```
 Investigative report:
 ├── Content: article with citations to sources
@@ -272,11 +272,11 @@ A real estate closing involves dozens of documents requiring signatures from mul
 - Document packages unwieldy
 - Long-term validity of e-signatures uncertain
 
-### Codex Solution
+### CDX Solution
 ```
 Closing package:
 ├── Manifest: list of all documents
-├── Documents (each a Codex):
+├── Documents (each a CDX):
 │   ├── Purchase agreement
 │   ├── Deed
 │   ├── Title insurance
@@ -307,7 +307,7 @@ An individual wants to create, sign, and preserve personal documents (wills, dir
 - No easy way to self-sign
 - Cloud storage may not exist in 50 years
 
-### Codex Solution
+### CDX Solution
 ```
 Personal document:
 ├── Content: the document itself
@@ -328,7 +328,7 @@ Personal document:
 
 ## Summary: Format Selection Guide
 
-| Use Case | Key Codex Advantage |
+| Use Case | Key CDX Advantage |
 |----------|---------------------|
 | Legal | Clear freeze semantics, modern signatures |
 | Academic | Semantic citations, machine analysis |

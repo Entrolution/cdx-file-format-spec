@@ -15,7 +15,7 @@
       "children": [
         { "type": "text", "value": "This document demonstrates " },
         { "type": "text", "value": "all block types", "marks": ["bold"] },
-        { "type": "text", "value": " supported by the Codex format. It serves as both documentation and a validation test case." }
+        { "type": "text", "value": " supported by the CDX format. It serves as both documentation and a validation test case." }
       ]
     },
     {
@@ -273,7 +273,7 @@
             {
               "type": "definitionTerm",
               "children": [
-                { "type": "text", "value": "Codex" }
+                { "type": "text", "value": "CDX" }
               ]
             },
             {
@@ -332,7 +332,7 @@
       "children": [
         {
           "type": "text",
-          "value": "interface CodexDocument {\n  version: string;\n  blocks: Block[];\n}\n\nfunction validate(doc: CodexDocument): boolean {\n  return doc.blocks.every(block => block.type !== undefined);\n}"
+          "value": "interface CdxDocument {\n  version: string;\n  blocks: Block[];\n}\n\nfunction validate(doc: CdxDocument): boolean {\n  return doc.blocks.every(block => block.type !== undefined);\n}"
         }
       ]
     },
@@ -607,7 +607,7 @@
         {
           "type": "figcaption",
           "children": [
-            { "type": "text", "value": "Figure: Codex document architecture showing the relationship between content, presentation, and metadata layers." }
+            { "type": "text", "value": "Figure: CDX document architecture showing the relationship between content, presentation, and metadata layers." }
           ]
         }
       ]
@@ -624,8 +624,8 @@
       "type": "barcode",
       "id": "qr-demo",
       "format": "qr",
-      "data": "https://codex.document/spec",
-      "alt": "QR code linking to Codex specification",
+      "data": "https://cdx.dev/spec",
+      "alt": "QR code linking to CDX specification",
       "errorCorrection": "M",
       "size": 150
     },
@@ -701,7 +701,7 @@
       "signer": {
         "name": "Jane Smith",
         "title": "Technical Lead",
-        "organization": "Codex Foundation",
+        "organization": "CDX Foundation",
         "email": "jane.smith@example.com"
       },
       "timestamp": "2025-01-28T14:00:00Z",
@@ -905,7 +905,7 @@
       "type": "paragraph",
       "id": "conclusion",
       "children": [
-        { "type": "text", "value": "This document demonstrates all block types defined in the Codex content schema. Each block type serves a specific semantic purpose, enabling reliable machine processing and consistent rendering across implementations." }
+        { "type": "text", "value": "This document demonstrates all block types defined in the CDX content schema. Each block type serves a specific semantic purpose, enabling reliable machine processing and consistent rendering across implementations." }
       ]
     }
   ]

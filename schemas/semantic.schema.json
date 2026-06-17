@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/semantic.schema.json",
-  "title": "Codex Semantic Extension",
-  "description": "Schema for semantic extension blocks and marks in a Codex document",
+  "$id": "https://cdx.dev/schemas/semantic.schema.json",
+  "title": "CDX Semantic Extension",
+  "description": "Schema for semantic extension blocks and marks in a CDX document",
   "$defs": {
     "citationMark": {
       "type": "object",

@@ -7,7 +7,7 @@
     "description": "A demonstration of the legal extension features including caption, Table of Authorities, legal citations, and signature block.",
     "date": "2025-01-30",
     "type": "Text",
-    "format": "application/vnd.codex+zip",
+    "format": "application/vnd.cdx+zip",
     "language": "en",
     "rights": "Confidential - Attorney Work Product"
   }

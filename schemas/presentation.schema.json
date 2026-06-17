@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/presentation.schema.json",
-  "title": "Codex Presentation Layer",
-  "description": "Schema for presentation layer files in a Codex document",
+  "$id": "https://cdx.dev/schemas/presentation.schema.json",
+  "title": "CDX Presentation Layer",
+  "description": "Schema for presentation layer files in a CDX document",
   "type": "object",
   "required": ["version", "type", "defaults", "styles"],
   "properties": {

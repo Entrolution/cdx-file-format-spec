@@ -1,12 +1,12 @@
 {
   "version": "1.1",
   "terms": {
-    "title": "Welcome to Codex",
+    "title": "Welcome to CDX",
     "creator": "Documentation Team",
     "subject": ["Documentation", "Getting Started", "Tutorial"],
-    "description": "A simple introductory document demonstrating the basic structure of the Codex format.",
+    "description": "A simple introductory document demonstrating the basic structure of the CDX format.",
     "type": "Text",
-    "format": "application/vnd.codex+json",
+    "format": "application/vnd.cdx+json",
     "language": "en"
   }
 }

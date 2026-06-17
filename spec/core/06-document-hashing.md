@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Codex documents use content-addressable hashing as a core identity mechanism. The document's hash serves as its canonical identifier, enabling:
+CDX documents use content-addressable hashing as a core identity mechanism. The document's hash serves as its canonical identifier, enabling:
 
 - Integrity verification
 - Version identification
@@ -68,7 +68,7 @@ Documents MAY specify their hash algorithm in the manifest:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "hashAlgorithm": "sha256",
   "id": "sha256:..."
 }

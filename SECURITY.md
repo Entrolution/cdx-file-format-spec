@@ -20,7 +20,7 @@ If you find a security issue in the reference implementation ([cdx-core](https:/
 
 This security policy covers:
 
-- The Codex Document Format specification
+- The CDX specification
 - JSON schemas in this repository
 - Example documents in this repository
 

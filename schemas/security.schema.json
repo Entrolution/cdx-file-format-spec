@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/security.schema.json",
-  "title": "Codex Security Extension",
-  "description": "Schema for security extension files in a Codex document",
+  "$id": "https://cdx.dev/schemas/security.schema.json",
+  "title": "CDX Security Extension",
+  "description": "Schema for security extension files in a CDX document",
   "$defs": {
     "signatureAlgorithm": {
       "type": "string",
@@ -70,7 +70,7 @@
     "signer": {
       "description": "Signer identity information extending base person",
       "allOf": [
-        { "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/person" },
+        { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" },
         {
           "type": "object",
           "properties": {

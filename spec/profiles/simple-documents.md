@@ -6,14 +6,14 @@
 
 ## 1. Overview
 
-The Simple Documents profile defines a minimal subset of Codex for recreational reading, basic articles, and straightforward prose documents. It is designed to be:
+The Simple Documents profile defines a minimal subset of CDX for recreational reading, basic articles, and straightforward prose documents. It is designed to be:
 
 - **Lightweight** — minimal required files and structure
 - **Easy to create** — no extensions, no presentation layers, no precise layouts
-- **Universally renderable** — any Codex reader can display these documents
+- **Universally renderable** — any CDX reader can display these documents
 - **EPUB-comparable** — similar complexity for similar use cases
 
-This profile is non-normative guidance. Documents conforming to this profile are fully valid Codex documents that happen to use only a subset of available features.
+This profile is non-normative guidance. Documents conforming to this profile are fully valid CDX documents that happen to use only a subset of available features.
 
 ## 2. Use Cases
 
@@ -77,7 +77,7 @@ Simple Documents do not need:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "content": {
@@ -93,7 +93,7 @@ Simple Documents do not need:
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| `codex` | Yes | Specification version |
+| `cdx` | Yes | Specification version |
 | `id` | Yes | Use `"pending"` for drafts |
 | `state` | Yes | Typically `"draft"` for simple documents |
 | `content` | Yes | Path to content file |
@@ -106,7 +106,7 @@ Simple Documents do not need:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "content": {
@@ -325,15 +325,15 @@ JSON is more verbose than XHTML for prose:
 | Format | Example paragraph |
 |--------|-------------------|
 | XHTML | `<p>"Hello," she said.</p>` (27 bytes) |
-| Codex | `{"type":"paragraph","children":[{"type":"text","value":"\"Hello,\" she said."}]}` (81 bytes) |
+| CDX | `{"type":"paragraph","children":[{"type":"text","value":"\"Hello,\" she said."}]}` (81 bytes) |
 
 Raw JSON is approximately 3× larger than XHTML for prose content.
 
 ### 9.2 Compression
 
-With Zstandard compression (Codex default), the size difference is minimal:
+With Zstandard compression (CDX default), the size difference is minimal:
 
-| Document | EPUB (deflate) | Codex (zstd) | Difference |
+| Document | EPUB (deflate) | CDX (zstd) | Difference |
 |----------|----------------|--------------|------------|
 | 100KB novel | ~35KB | ~40KB | +14% |
 | 500KB novel | ~170KB | ~190KB | +12% |
@@ -353,7 +353,7 @@ The JSON verbosity provides:
 
 ### 10.1 Structure Mapping
 
-| EPUB | Codex Simple |
+| EPUB | CDX Simple |
 |------|--------------|
 | `mimetype` | (not needed) |
 | `META-INF/container.xml` | (not needed) |
@@ -365,7 +365,7 @@ The JSON verbosity provides:
 
 ### 10.2 Content Mapping
 
-| XHTML | Codex Block |
+| XHTML | CDX Block |
 |-------|-------------|
 | `<h1>` - `<h6>` | `heading` (level 1-6) |
 | `<p>` | `paragraph` |
@@ -380,7 +380,7 @@ The JSON verbosity provides:
 
 ### 10.3 Conversion Notes
 
-1. **Consolidate chapters** — EPUB splits content across files; Codex uses one file
+1. **Consolidate chapters** — EPUB splits content across files; CDX uses one file
 2. **Flatten CSS** — Convert CSS classes to presentation styles or omit
 3. **Extract metadata** — Move Dublin Core from OPF to separate JSON file
 4. **Simplify navigation** — Table of contents is generated from headings
@@ -394,7 +394,7 @@ A minimal novel in three files:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "content": {
@@ -499,7 +499,7 @@ A minimal novel in three files:
 
 ### 12.3 For Converters
 
-1. EPUB → Codex conversion should be straightforward
+1. EPUB → CDX conversion should be straightforward
 2. Consolidate multiple XHTML files into single document.json
 3. Preserve reading order from EPUB spine
 4. Extract Dublin Core metadata

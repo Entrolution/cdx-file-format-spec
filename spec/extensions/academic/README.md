@@ -1,6 +1,6 @@
 # Academic Extension
 
-**Extension ID**: `codex.academic`
+**Extension ID**: `cdx.academic`
 **Version**: 0.1
 **Status**: Draft
 
@@ -23,7 +23,7 @@ The Academic Extension provides structured support for academic and scientific d
 {
   "extensions": [
     {
-      "id": "codex.academic",
+      "id": "cdx.academic",
       "version": "0.1",
       "required": false
     }
@@ -1045,7 +1045,7 @@ The `resetOn` field accepts heading level identifiers: `heading1` through `headi
 
 ## 12. Author Identification
 
-For scholarly documents, author identification is critical for attribution and citation. The Codex specification uses a base `person` object defined in `anchor.schema.json` that includes an `identifier` field for persistent identifiers.
+For scholarly documents, author identification is critical for attribution and citation. The CDX specification uses a base `person` object defined in `anchor.schema.json` that includes an `identifier` field for persistent identifiers.
 
 ### 12.1 ORCID Recommendation
 

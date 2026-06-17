@@ -2,16 +2,16 @@
   "version": "1.1",
   "terms": {
     "title": "Comprehensive Block Type Reference",
-    "creator": "Codex Specification Team",
+    "creator": "CDX Specification Team",
     "subject": [
       "Documentation",
       "Specification",
       "Block Types",
       "Reference"
     ],
-    "description": "A comprehensive example document demonstrating all block types supported by the Codex format, including text content, lists, tables, code blocks, mathematics, media, measurements, signatures, and internationalization features.",
+    "description": "A comprehensive example document demonstrating all block types supported by the CDX format, including text content, lists, tables, code blocks, mathematics, media, measurements, signatures, and internationalization features.",
     "type": "Text",
-    "format": "application/vnd.codex+json",
+    "format": "application/vnd.cdx+json",
     "language": "en",
     "date": "2025-01-28",
     "rights": "Public Domain"

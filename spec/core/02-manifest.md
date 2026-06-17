@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-The manifest (`manifest.json`) is the root metadata structure of a Codex document. It describes the document's identity, version, state, structure, and processing requirements.
+The manifest (`manifest.json`) is the root metadata structure of a CDX document. It describes the document's identity, version, state, structure, and processing requirements.
 
 ## 2. Location and Format
 
@@ -22,7 +22,7 @@ The manifest MUST be:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "sha256:a1b2c3d4e5f6...",
   "state": "draft",
   "created": "2025-01-15T10:30:00Z",
@@ -44,7 +44,7 @@ The manifest MUST be:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `codex` | string | Specification version (e.g., "0.1") |
+| `cdx` | string | Specification version (e.g., "0.1") |
 | `id` | string | Content-addressable document identifier |
 | `state` | string | Document state (see State Machine spec) |
 | `created` | string | ISO 8601 creation timestamp |
@@ -65,13 +65,13 @@ The manifest MUST be:
 
 ## 4. Field Definitions
 
-### 4.1 `codex` (Required)
+### 4.1 `cdx` (Required)
 
 The specification version this document conforms to.
 
 ```json
 {
-  "codex": "0.1"
+  "cdx": "0.1"
 }
 ```
 
@@ -249,12 +249,12 @@ Array of active extensions beyond the core specification.
 {
   "extensions": [
     {
-      "id": "codex.security",
+      "id": "cdx.security",
       "version": "0.1",
       "required": true
     },
     {
-      "id": "codex.collaboration",
+      "id": "cdx.collaboration",
       "version": "0.1",
       "required": false
     }
@@ -336,7 +336,7 @@ Implementations MUST verify:
 
 1. All required fields are present
 2. Field types match specification
-3. `codex` version is supported
+3. `cdx` version is supported
 4. Referenced files exist in archive
 5. File hashes match when present
 
@@ -363,7 +363,7 @@ The manifest state MUST be consistent with other indicators:
 
 1. Extract `manifest.json` from archive
 2. Parse as JSON
-3. Validate `codex` version
+3. Validate `cdx` version
 4. Check required fields
 5. Load referenced files as needed
 
@@ -391,7 +391,7 @@ When modifying a document:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "pending",
   "state": "draft",
   "created": "2025-01-15T10:30:00Z",
@@ -410,7 +410,7 @@ When modifying a document:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "sha256:3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
   "state": "frozen",
   "created": "2025-01-10T08:00:00Z",
@@ -441,7 +441,7 @@ When modifying a document:
   },
   "extensions": [
     {
-      "id": "codex.security",
+      "id": "cdx.security",
       "version": "0.1",
       "required": true
     }

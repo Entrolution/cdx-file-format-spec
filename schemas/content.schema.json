@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/content.schema.json",
-  "title": "Codex Document Content",
-  "description": "Schema for the content/document.json file in a Codex document",
+  "$id": "https://cdx.dev/schemas/content.schema.json",
+  "title": "CDX Document Content",
+  "description": "Schema for the content/document.json file in a CDX document",
   "type": "object",
   "required": ["version", "blocks"],
   "properties": {
@@ -154,7 +154,7 @@
           "description": "Named style to apply"
         },
         "semantic": {
-          "$ref": "https://codex.document/schemas/semantic.schema.json#/$defs/jsonLdAnnotation",
+          "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/jsonLdAnnotation",
           "description": "JSON-LD semantic annotation for this block"
         }
       }
@@ -180,15 +180,15 @@
               { "$ref": "#/$defs/linkMark" },
               { "$ref": "#/$defs/anchorMark" },
               { "$ref": "#/$defs/mathMark" },
-              { "$ref": "https://codex.document/schemas/semantic.schema.json#/$defs/citationMark" },
-              { "$ref": "https://codex.document/schemas/semantic.schema.json#/$defs/footnoteMark" },
-              { "$ref": "https://codex.document/schemas/semantic.schema.json#/$defs/entityMark" },
-              { "$ref": "https://codex.document/schemas/semantic.schema.json#/$defs/glossaryMark" },
-              { "$ref": "https://codex.document/schemas/academic.schema.json#/$defs/theoremRefMark" },
-              { "$ref": "https://codex.document/schemas/academic.schema.json#/$defs/equationRefMark" },
-              { "$ref": "https://codex.document/schemas/academic.schema.json#/$defs/algorithmRefMark" },
-              { "$ref": "https://codex.document/schemas/presentation.schema.json#/$defs/indexMark" },
-              { "$ref": "https://codex.document/schemas/legal.schema.json#/$defs/legalCiteMark" }
+              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/citationMark" },
+              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/footnoteMark" },
+              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/entityMark" },
+              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/glossaryMark" },
+              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/theoremRefMark" },
+              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/equationRefMark" },
+              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/algorithmRefMark" },
+              { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/indexMark" },
+              { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/legalCiteMark" }
             ]
           }
         }

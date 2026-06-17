@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/collaboration.schema.json",
-  "title": "Codex Collaboration Extension",
-  "description": "Schema for collaboration extension files in a Codex document",
+  "$id": "https://cdx.dev/schemas/collaboration.schema.json",
+  "title": "CDX Collaboration Extension",
+  "description": "Schema for collaboration extension files in a CDX document",
   "$defs": {
     "crdtFormat": {
       "type": "string",
@@ -12,7 +12,7 @@
     "author": {
       "description": "Comment/change author information extending base person",
       "allOf": [
-        { "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/person" },
+        { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" },
         {
           "type": "object",
           "properties": {
@@ -81,7 +81,7 @@
           "$ref": "#/$defs/commentType"
         },
         "anchor": {
-          "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/contentAnchor",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchor",
           "description": "Anchor to content (see Anchors and References spec)"
         },
         "author": {
@@ -228,7 +228,7 @@
           "$ref": "#/$defs/changeType"
         },
         "anchor": {
-          "$ref": "https://codex.document/schemas/anchor.schema.json#/$defs/contentAnchor",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchor",
           "description": "Anchor to affected content"
         },
         "position": {

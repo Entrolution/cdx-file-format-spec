@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Codex documents form a cryptographic chain through content-addressable hashing and lineage pointers. This enables:
+CDX documents form a cryptographic chain through content-addressable hashing and lineage pointers. This enables:
 
 - Tamper-evident document history
 - Verifiable ancestry ("this document descended from that one")
@@ -17,7 +17,7 @@ Codex documents form a cryptographic chain through content-addressable hashing a
 
 ### 2.1 Documents as a Hash Chain
 
-Each Codex document's identity IS its content hash. When a document references its parent by hash, it creates an immutable link:
+Each CDX document's identity IS its content hash. When a document references its parent by hash, it creates an immutable link:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -514,7 +514,7 @@ If intermediate documents are unavailable:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "id": "sha256:abc123...",
   "state": "frozen",
   "lineage": {

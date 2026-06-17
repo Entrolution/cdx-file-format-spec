@@ -6,7 +6,7 @@
       "id": "title",
       "level": 1,
       "children": [
-        { "type": "text", "value": "Welcome to Codex" }
+        { "type": "text", "value": "Welcome to CDX" }
       ]
     },
     {
@@ -14,7 +14,7 @@
       "id": "intro",
       "children": [
         { "type": "text", "value": "This is a simple " },
-        { "type": "text", "value": "Codex", "marks": ["bold"] },
+        { "type": "text", "value": "CDX", "marks": ["bold"] },
         { "type": "text", "value": " document demonstrating the basic structure of the format." }
       ]
     },
@@ -30,7 +30,7 @@
       "type": "paragraph",
       "id": "features-intro",
       "children": [
-        { "type": "text", "value": "The Codex format offers several advantages:" }
+        { "type": "text", "value": "The CDX format offers several advantages:" }
       ]
     },
     {
@@ -88,7 +88,7 @@
       "type": "paragraph",
       "id": "code-intro",
       "children": [
-        { "type": "text", "value": "Here's how you might validate a Codex document:" }
+        { "type": "text", "value": "Here's how you might validate a CDX document:" }
       ]
     },
     {
@@ -98,7 +98,7 @@
       "children": [
         {
           "type": "text",
-          "value": "import { validate } from '@codex/validator';\n\nconst result = await validate('./document.cdx');\nif (result.valid) {\n  console.log('Document is valid!');\n} else {\n  console.error('Validation errors:', result.errors);\n}"
+          "value": "import { validate } from '@cdx/validator';\n\nconst result = await validate('./document.cdx');\nif (result.valid) {\n  console.log('Document is valid!');\n} else {\n  console.error('Validation errors:', result.errors);\n}"
         }
       ]
     },
@@ -113,12 +113,12 @@
         { "type": "text", "value": "Learn more at the " },
         {
           "type": "text",
-          "value": "Codex Documentation",
+          "value": "CDX Documentation",
           "marks": [
             {
               "type": "link",
-              "href": "https://codex.document",
-              "title": "Codex Documentation"
+              "href": "https://cdx.dev",
+              "title": "CDX Documentation"
             }
           ]
         },

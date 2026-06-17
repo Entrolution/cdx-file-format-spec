@@ -1,6 +1,6 @@
-# Codex Profiles
+# CDX Profiles
 
-Profiles define subsets of the Codex format optimized for specific use cases. They provide guidance on which features to use (and avoid) for particular document types.
+Profiles define subsets of the CDX format optimized for specific use cases. They provide guidance on which features to use (and avoid) for particular document types.
 
 ## Available Profiles
 
@@ -22,23 +22,23 @@ Profiles do NOT:
 - Create new features or block types
 - Override the core specification
 - Require special handling by implementations
-- Restrict what a valid Codex document can contain
+- Restrict what a valid CDX document can contain
 
 ## Profile Conformance
 
-Documents are not required to declare profile conformance. A document conforming to a profile is simply a valid Codex document that happens to use only the features recommended by that profile.
+Documents are not required to declare profile conformance. A document conforming to a profile is simply a valid CDX document that happens to use only the features recommended by that profile.
 
 However, documents MAY declare their intended profile in the manifest for tooling purposes:
 
 ```json
 {
-  "codex": "0.1",
+  "cdx": "0.1",
   "profile": "simple",
   ...
 }
 ```
 
-Implementations SHOULD ignore unrecognized profile values and treat the document as a standard Codex document.
+Implementations SHOULD ignore unrecognized profile values and treat the document as a standard CDX document.
 
 ## Future Profiles
 

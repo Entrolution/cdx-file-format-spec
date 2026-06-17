@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-A Codex document is packaged as a ZIP archive with the file extension `.cdx`. This approach provides:
+A CDX document is packaged as a ZIP archive with the file extension `.cdx`. This approach provides:
 
 - Familiar tooling and broad platform support
 - Built-in compression at the container level
@@ -16,14 +16,14 @@ A Codex document is packaged as a ZIP archive with the file extension `.cdx`. Th
 
 ### 2.1 File Extension
 
-Codex documents MUST use the file extension `.cdx`.
+CDX documents MUST use the file extension `.cdx`.
 
 ### 2.2 MIME Types
 
 | Form | MIME Type | Use |
 |------|-----------|-----|
-| Canonical (JSON) | `application/vnd.codex+json` | Primary format |
-| Binary | `application/vnd.codex` | Future optimization |
+| Canonical (JSON) | `application/vnd.cdx+json` | Primary format |
+| Binary | `application/vnd.cdx` | Future optimization |
 
 Implementations SHOULD register these MIME types with the operating system for proper file association.
 
@@ -31,7 +31,7 @@ Implementations SHOULD register these MIME types with the operating system for p
 
 ### 3.1 ZIP Format Requirements
 
-Codex documents MUST be valid ZIP archives conforming to [APPNOTE.TXT](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT) version 6.3.3 or later.
+CDX documents MUST be valid ZIP archives conforming to [APPNOTE.TXT](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT) version 6.3.3 or later.
 
 The following ZIP features are REQUIRED:
 
@@ -40,7 +40,7 @@ The following ZIP features are REQUIRED:
 
 The following ZIP features MUST NOT be used:
 
-- ZIP encryption (use Codex security extension instead)
+- ZIP encryption (use CDX security extension instead)
 - Multi-volume archives
 
 ### 3.2 Compression Methods
@@ -112,7 +112,7 @@ All file and directory names within the archive:
 The archive MAY include a ZIP comment containing:
 
 ```
-Codex Document Format v0.1
+CDX v0.1
 ```
 
 This enables format identification without extracting content.
@@ -179,7 +179,7 @@ Implementations MUST ignore unrecognized files and directories. This enables:
 
 ### 8.1 Creating Archives
 
-When creating a Codex document:
+When creating a CDX document:
 
 1. Write `manifest.json` as the first entry
 2. Add required content and metadata files
@@ -191,7 +191,7 @@ When creating a Codex document:
 
 ### 8.2 Reading Archives
 
-When reading a Codex document:
+When reading a CDX document:
 
 1. Verify the archive is a valid ZIP
 2. Read `manifest.json` first to determine version and structure

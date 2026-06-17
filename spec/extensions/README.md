@@ -1,19 +1,19 @@
-# Codex Extensions
+# CDX Extensions
 
-This directory contains specifications for Codex extensions. Each extension adds specialized functionality to the core Codex document format.
+This directory contains specifications for CDX extensions. Each extension adds specialized functionality to the core CDX specification.
 
 ## Available Extensions
 
 | Extension | ID | Version | Status | Purpose |
 |-----------|----|---------|----|---------|
-| [Semantic](semantic/README.md) | `codex.semantic` | 0.1 | Draft | Citations, footnotes, glossary, entity annotations |
-| [Academic](academic/README.md) | `codex.academic` | 0.1 | Draft | Theorems, proofs, exercises, algorithms, equations |
-| [Forms](forms/README.md) | `codex.forms` | 0.1 | Draft | Interactive form fields and validation |
-| [Collaboration](collaboration/README.md) | `codex.collaboration` | 0.2 | Draft | Comments, track changes, real-time collaboration |
-| [Security](security/README.md) | `codex.security` | 0.1 | Draft | Digital signatures, encryption, access control |
-| [Phantoms](phantoms/README.md) | `codex.phantoms` | 0.1 | Draft | Off-page annotation clusters |
-| [Presentation](presentation/README.md) | `codex.presentation` | 0.1 | Draft | Layout templates and rendering hints |
-| [Legal](legal/README.md) | `codex.legal` | 0.1 | Draft | Legal citations, clause references, jurisdiction metadata |
+| [Semantic](semantic/README.md) | `cdx.semantic` | 0.1 | Draft | Citations, footnotes, glossary, entity annotations |
+| [Academic](academic/README.md) | `cdx.academic` | 0.1 | Draft | Theorems, proofs, exercises, algorithms, equations |
+| [Forms](forms/README.md) | `cdx.forms` | 0.1 | Draft | Interactive form fields and validation |
+| [Collaboration](collaboration/README.md) | `cdx.collaboration` | 0.2 | Draft | Comments, track changes, real-time collaboration |
+| [Security](security/README.md) | `cdx.security` | 0.1 | Draft | Digital signatures, encryption, access control |
+| [Phantoms](phantoms/README.md) | `cdx.phantoms` | 0.1 | Draft | Off-page annotation clusters |
+| [Presentation](presentation/README.md) | `cdx.presentation` | 0.1 | Draft | Layout templates and rendering hints |
+| [Legal](legal/README.md) | `cdx.legal` | 0.1 | Draft | Legal citations, clause references, jurisdiction metadata |
 
 ## Extension Compatibility
 
@@ -47,7 +47,7 @@ Extensions are declared in the manifest:
 {
   "extensions": [
     {
-      "id": "codex.semantic",
+      "id": "cdx.semantic",
       "version": "0.1",
       "required": false
     }
@@ -82,7 +82,7 @@ Extensions share common definitions from the core specification:
 
 ## Implementation Guidance
 
-When implementing Codex support, consider the following priority order:
+When implementing CDX support, consider the following priority order:
 
 ### Required for Basic Support
 1. Core content blocks

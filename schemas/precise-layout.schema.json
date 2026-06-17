@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://codex.document/schemas/precise-layout.schema.json",
-  "title": "Codex Precise Layout",
-  "description": "Schema for precise layout files (presentation/layouts/*.json) in a Codex document. Required for FROZEN and PUBLISHED states.",
+  "$id": "https://cdx.dev/schemas/precise-layout.schema.json",
+  "title": "CDX Precise Layout",
+  "description": "Schema for precise layout files (presentation/layouts/*.json) in a CDX document. Required for FROZEN and PUBLISHED states.",
   "type": "object",
   "required": ["version", "presentationType", "targetFormat", "pageSize", "contentHash", "generatedAt", "pages"],
   "properties": {
