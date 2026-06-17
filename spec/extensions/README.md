@@ -1,6 +1,6 @@
 # CDX Extensions
 
-This directory contains specifications for CDX extensions. Each extension adds specialized functionality to the core CDX document format.
+This directory contains specifications for CDX extensions. Each extension adds specialized functionality to the core CDX specification.
 
 ## Available Extensions
 
