@@ -37,3 +37,11 @@ npm-debug.log*
 tmp/
 temp/
 *.tmp
+
+# Local remediation artifacts (bug-hunt cycles, session handoffs) — not part of the spec
+bug-hunt/
+QUALITY.md
+HANDOFF.md
+
+# generate-template default output directory
+cdx-document/
