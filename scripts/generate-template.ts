@@ -9,8 +9,16 @@
  *   npx tsx scripts/generate-template.ts --list-presets
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getValidator, ruleFor } from './lib/part-schema.js';
+
+// Placeholder document id for a generated security/signatures.json. A real
+// signing flow replaces this with the canonical document content hash; the
+// all-zero digest is an unmistakable "fill me in" sentinel that still satisfies
+// the documentId pattern (^(sha256|...):[a-f0-9]+$).
+const PLACEHOLDER_DOCUMENT_ID = 'sha256:' + '0'.repeat(64);
 
 // Extension configurations
 interface ExtensionConfig {
@@ -30,10 +38,10 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     files: {
       'academic/numbering.json': {
         version: '0.1',
-        equations: { style: 'chapter.number', resetOn: 'chapter' },
+        equations: { style: 'chapter.number', resetOn: 'heading1' },
         theorems: { style: 'chapter.number' },
-        algorithms: { style: 'number', resetOn: 'chapter' },
-        exercises: { style: 'chapter.number', resetOn: 'chapter' }
+        algorithms: { style: 'number', resetOn: 'heading1' },
+        exercises: { style: 'chapter.number', resetOn: 'heading1' }
       }
     }
   },
@@ -73,6 +81,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     files: {
       'security/signatures.json': {
         version: '0.1',
+        documentId: PLACEHOLDER_DOCUMENT_ID,
         signatures: []
       }
     }
@@ -85,7 +94,7 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     files: {
       'collaboration/comments.json': {
         version: '0.2',
-        threads: []
+        comments: []
       },
       'collaboration/changes.json': {
         version: '0.2',
@@ -137,8 +146,9 @@ const presets: Record<string, string[]> = {
   all: Object.keys(extensionConfigs)
 };
 
-// Generate base manifest
-function generateManifest(extensions: string[]): Record<string, unknown> {
+// Generate base manifest. `hashes` maps each hash-referenced part path to its
+// real SHA-256 (computed from the exact bytes written to disk).
+function generateManifest(extensions: string[], hashes: Record<string, string>): Record<string, unknown> {
   const now = new Date().toISOString();
 
   const manifest: Record<string, unknown> = {
@@ -149,7 +159,7 @@ function generateManifest(extensions: string[]): Record<string, unknown> {
     modified: now,
     content: {
       path: 'content/document.json',
-      hash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      hash: hashes['content/document.json']
     },
     metadata: {
       dublinCore: 'metadata/dublin-core.json'
@@ -169,7 +179,7 @@ function generateManifest(extensions: string[]): Record<string, unknown> {
     manifest.presentation = [{
       type: 'paginated',
       path: 'presentation/paginated.json',
-      hash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      hash: hashes['presentation/paginated.json'],
       default: true
     }];
   }
@@ -178,6 +188,15 @@ function generateManifest(extensions: string[]): Record<string, unknown> {
   if (extensions.includes('phantoms')) {
     manifest.phantoms = {
       clusters: 'phantoms/clusters.json'
+    };
+  }
+
+  // Reference the signatures file when the security extension is present, so the
+  // emitted file is wired into the manifest (mirrors the signed-document example).
+  if (extensions.includes('security')) {
+    manifest.security = {
+      signatures: 'security/signatures.json',
+      encryption: null
     };
   }
 
@@ -204,18 +223,32 @@ function generateContent(): Record<string, unknown> {
   };
 }
 
-// Generate Dublin Core metadata
+// Generate Dublin Core metadata. The schema nests the descriptive fields under
+// `terms` and requires a `version`.
 function generateDublinCore(): Record<string, unknown> {
   return {
-    title: 'Untitled Document',
-    creator: 'Author Name',
-    subject: 'Subject',
-    description: 'Document description',
-    date: new Date().toISOString().split('T')[0],
-    type: 'Text',
-    format: 'application/vnd.cdx+zip',
-    language: 'en'
+    version: '1.1',
+    terms: {
+      title: 'Untitled Document',
+      creator: 'Author Name',
+      subject: 'Subject',
+      description: 'Document description',
+      date: new Date().toISOString().split('T')[0],
+      type: 'Text',
+      format: 'application/vnd.cdx+zip',
+      language: 'en'
+    }
   };
+}
+
+// Serialize a part to the exact bytes written to disk (the same string is hashed
+// and written, so manifest hashes can never drift from file contents).
+function serializeJson(value: unknown): string {
+  return JSON.stringify(value, null, 2) + '\n';
+}
+
+function sha256(bytes: string | Buffer): string {
+  return 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
 // Generate template
@@ -238,29 +271,98 @@ function generateTemplate(outputDir: string, extensions: string[]): void {
     console.log(`  Created: ${dir}/`);
   }
 
-  // Generate files
-  const files: Record<string, unknown> = {
-    'manifest.json': generateManifest(extensions),
+  // Build every part except the manifest, then serialize each to its on-disk
+  // bytes so the manifest can carry their real SHA-256 hashes.
+  const parts: Record<string, unknown> = {
     'content/document.json': generateContent(),
     'metadata/dublin-core.json': generateDublinCore()
   };
-
-  // Add extension-specific files
   for (const ext of extensions) {
     const config = extensionConfigs[ext];
     if (config.files) {
-      Object.assign(files, config.files);
+      Object.assign(parts, config.files);
     }
   }
 
-  // Write files
-  for (const [filePath, content] of Object.entries(files)) {
-    const fullPath = path.join(outputDir, filePath);
-    fs.writeFileSync(fullPath, JSON.stringify(content, null, 2) + '\n');
+  const serialized: Record<string, string> = {};
+  for (const [filePath, content] of Object.entries(parts)) {
+    serialized[filePath] = serializeJson(content);
+  }
+
+  // Only content and (when present) the paginated presentation are referenced by
+  // hash in the manifest; hash their exact serialized bytes (§5.1).
+  const hashes: Record<string, string> = {
+    'content/document.json': sha256(serialized['content/document.json'])
+  };
+  if (serialized['presentation/paginated.json']) {
+    hashes['presentation/paginated.json'] = sha256(serialized['presentation/paginated.json']);
+  }
+
+  serialized['manifest.json'] = serializeJson(generateManifest(extensions, hashes));
+
+  // Write each file from the same string that was hashed.
+  for (const [filePath, text] of Object.entries(serialized)) {
+    fs.writeFileSync(path.join(outputDir, filePath), text);
     console.log(`  Created: ${filePath}`);
   }
 
-  console.log('\nTemplate generated successfully!');
+  console.log('\nValidating generated template...');
+  selfValidate(outputDir, Object.keys(serialized));
+}
+
+// Validate every emitted part against the same rule table the corpus validator
+// uses, and confirm each declared file hash matches the bytes on disk. A failure
+// here means the generator produced a non-conforming document — exit non-zero
+// rather than print success over an invalid template.
+function selfValidate(outputDir: string, relPaths: string[]): void {
+  let ok = true;
+
+  for (const relPath of [...relPaths].sort()) {
+    const rule = ruleFor(relPath);
+    if (!rule) {
+      console.error(`  ✗ ${relPath} — no schema rule matched (cannot self-validate)`);
+      ok = false;
+      continue;
+    }
+    const data = JSON.parse(fs.readFileSync(path.join(outputDir, relPath), 'utf8'));
+    const validate = getValidator(rule.schema, rule.ref);
+    if (validate(data)) {
+      console.log(`  ${rule.note ? '⚠' : '✓'} ${relPath}${rule.note ? ` — ${rule.note}` : ''}`);
+    } else {
+      ok = false;
+      console.error(`  ✗ ${relPath}`);
+      for (const e of validate.errors ?? []) {
+        console.error(`    - ${e.instancePath || '/'}: ${e.message}`);
+      }
+    }
+  }
+
+  // Every declared file hash must equal the raw SHA-256 of the referenced bytes.
+  const manifest = JSON.parse(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8'));
+  const hashRefs: Array<[string, string, string]> = [];
+  if (manifest.content?.path && manifest.content?.hash) {
+    hashRefs.push(['content.hash', manifest.content.path, manifest.content.hash]);
+  }
+  (manifest.presentation ?? []).forEach((pr: { path?: string; hash?: string }, i: number) => {
+    if (pr.path && pr.hash) hashRefs.push([`presentation[${i}].hash`, pr.path, pr.hash]);
+  });
+  for (const [label, rel, declared] of hashRefs) {
+    const actual = sha256(fs.readFileSync(path.join(outputDir, rel)));
+    if (actual === declared) {
+      console.log(`  ✓ manifest ${label} (${rel})`);
+    } else {
+      ok = false;
+      console.error(`  ✗ manifest ${label} (${rel}) — hash mismatch`);
+      console.error(`      declared ${declared}`);
+      console.error(`      actual   ${actual}`);
+    }
+  }
+
+  if (!ok) {
+    console.error('\nSelf-validation FAILED: generated template does not conform to its schemas.');
+    process.exit(1);
+  }
+  console.log('\nTemplate generated successfully (self-validation passed).');
 }
 
 // Parse command line arguments
