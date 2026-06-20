@@ -131,10 +131,12 @@ Documents officially released for distribution.
 | From | To | Trigger | Requirements |
 |------|-----|---------|--------------|
 | DRAFT | REVIEW | `submitForReview()` | None |
-| REVIEW | DRAFT | `revertToDraft()` | No signatures |
+| REVIEW | DRAFT | `revertToDraft()` | No signatures; `id` reset to `pending` |
 | REVIEW | FROZEN | `sign()` | Valid signature |
 | FROZEN | PUBLISHED | `publish()` | None |
 | Any | DRAFT (new) | `fork()` | Creates new document |
+
+> **Note**: `revertToDraft()` MUST reset `id` to `pending`. A reverted draft is fully editable, so any previously computed ID is stale and MUST be recomputed on the next `draft → review` transition (see Document Hashing, section 7.2) — this prevents a stale ID from surviving edits into a signed, frozen document.
 
 ### 4.2 Submit for Review
 
@@ -250,7 +252,7 @@ When loading a frozen/published document:
 1. Verify document state is "frozen" or "published"
 2. Verify at least one signature exists
 3. Verify at least one signature is valid
-4. Verify document ID matches content hash
+4. Recompute the document ID from the canonical content and verify it matches `manifest.id` (this is distinct from the raw file hash in `content.hash`)
 5. If any verification fails, warn user
 
 ## 6. Signatures and State

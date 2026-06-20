@@ -141,15 +141,17 @@ This boundary ensures that the document's identity represents its **semantic con
 
 ### 4.3 Canonicalization Rules
 
-To ensure deterministic hashing:
+These rules are normative: every conformant implementation MUST produce identical bytes for identical canonical content.
 
-1. **JSON Canonicalization**: Use [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) (JCS) for JSON serialization:
-   - Sort object keys lexicographically
-   - No whitespace between tokens
-   - Numbers without unnecessary precision
-   - Strings with minimal escaping
+1. **JSON Canonicalization**: Serialize using [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) (JCS). In particular:
+   - Object keys are sorted by UTF-16 code unit, as mandated by JCS
+   - No insignificant whitespace
+   - Numbers are serialized per RFC 8785, which mandates the ECMAScript `Number.prototype.toString` algorithm over IEEE-754 double-precision values. Negative zero (`-0`) MUST be serialized as `0`. All hashed numbers are treated as IEEE-754 doubles, so producers MUST NOT rely on numeric precision beyond what a double round-trips; integers in hashed content MUST have magnitude at most 2^53 - 1 (the safe-integer limit).
+   - Strings are escaped per RFC 8785
 
-2. **Unicode Normalization**: All text content in NFC form
+2. **Unicode Normalization**: Producers MUST emit all object keys and string values in Normalization Form C (NFC). This applies to the concatenated text content of each block (see Anchors and References, section 3), not merely to individual text-node values: an NFC-combining sequence MUST NOT be split across text-node boundaries. NFC is a property of the stored bytes, not a hash-time transform — implementations MUST NOT normalize while computing a hash, so the stored and hashed bytes are always identical. Content that is not already NFC is non-conformant.
+
+3. **Duplicate Keys**: Any JSON object with duplicate keys MUST be rejected before hashing or verification, in every document state. RFC 8259 parsers disagree on duplicate keys (first wins, last wins, or reject), so an unrejected duplicate lets a signer and a consumer read different values from one signed document (a split-view substitution).
 
 > **Note**: Because JCS sorts all object keys, the order in which fields are written when authoring a document has no effect on its hash — content may be authored in any field order. The worked example below shows authored input being reordered into canonical JCS form.
 
@@ -282,9 +284,10 @@ This indicates the document is in active editing and the ID hasn't been computed
 
 ### 7.2 ID Computation Triggers
 
-The document ID SHOULD be computed when:
+The document ID MUST be (re)computed when the document state transitions from `draft` to `review`. A document MUST NOT enter `review` (or any later state) carrying a `pending` or stale ID.
 
-- Document state transitions from `draft` to `review`
+The document ID SHOULD additionally be computed when:
+
 - Document is signed
 - Document is exported for distribution
 - Explicitly requested by user/application
