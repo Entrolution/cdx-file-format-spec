@@ -7,17 +7,9 @@
   "modified": "2025-01-15T14:22:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:abc123def456789012345678901234567890123456789012345678901234567890",
+    "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7",
     "compression": "zstd"
   },
-  "presentation": [
-    {
-      "type": "paginated",
-      "path": "presentation/paginated.json",
-      "hash": "sha256:def456abc789012345678901234567890123456789012345678901234567890123",
-      "default": true
-    }
-  ],
   "security": {
     "signatures": "security/signatures.json",
     "encryption": null

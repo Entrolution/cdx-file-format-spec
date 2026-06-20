@@ -924,6 +924,18 @@
         "overprint": {
           "type": "boolean",
           "description": "Enable overprint for this element (print only)"
+        },
+        "borderTop": { "type": "string", "description": "Per-side top border (no long-hand equivalent)" },
+        "borderRight": { "type": "string", "description": "Per-side right border (no long-hand equivalent)" },
+        "borderBottom": { "type": "string", "description": "Per-side bottom border (no long-hand equivalent)" },
+        "borderLeft": { "type": "string", "description": "Per-side left border (no long-hand equivalent)" },
+        "borderCollapse": {
+          "type": "string",
+          "enum": ["collapse", "separate"]
+        },
+        "overflow": {
+          "type": "string",
+          "enum": ["visible", "hidden", "scroll", "auto"]
         }
       },
       "additionalProperties": false

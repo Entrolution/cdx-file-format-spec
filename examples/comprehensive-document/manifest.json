@@ -6,17 +6,18 @@
   "modified": "2025-01-28T14:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "hash": "sha256:66b9937e9f47b00d4b354abac9b4de6996d36a01f57482fcf6a8d443800a4231"
   },
   "presentation": [
     {
       "type": "continuous",
       "path": "presentation/continuous.json",
-      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hash": "sha256:357bb5b7b8540542ec95da8eb07e152111cea24080e8146b69475649150b925f",
       "default": true
     }
   ],
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
-  }
+  },
+  "provenance": "provenance/record.json"
 }

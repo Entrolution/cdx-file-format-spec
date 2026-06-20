@@ -6,13 +6,13 @@
   "modified": "2025-01-29T10:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "hash": "sha256:40e735ed0cc8b3bc73af0dc55025d159aaad8abaf555049ed34cf48dc7de130e"
   },
   "presentation": [
     {
       "type": "paginated",
       "path": "presentation/paginated.json",
-      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hash": "sha256:8e226eff3953676f23ed06c630cc6fe7ad6d96e305f1913bc688699685d86b3e",
       "default": true
     }
   ],

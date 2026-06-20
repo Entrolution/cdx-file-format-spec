@@ -2,7 +2,7 @@
   "version": "0.1",
   "equations": {
     "style": "number",
-    "resetOn": "chapter"
+    "resetOn": "heading1"
   },
   "theorems": {
     "style": "chapter.number",
@@ -17,6 +17,6 @@
   },
   "exercises": {
     "style": "chapter.number",
-    "resetOn": "chapter"
+    "resetOn": "heading1"
   }
 }

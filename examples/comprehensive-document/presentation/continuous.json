@@ -10,25 +10,23 @@
     "padding": "1rem"
   },
   "styles": {
-    "heading": {
-      "1": {
-        "fontSize": "2.5rem",
-        "fontWeight": "bold",
-        "marginTop": "2rem",
-        "marginBottom": "1rem"
-      },
-      "2": {
-        "fontSize": "2rem",
-        "fontWeight": "bold",
-        "marginTop": "1.5rem",
-        "marginBottom": "0.75rem"
-      },
-      "3": {
-        "fontSize": "1.5rem",
-        "fontWeight": "bold",
-        "marginTop": "1.25rem",
-        "marginBottom": "0.5rem"
-      }
+    "heading1": {
+      "fontSize": "2.5rem",
+      "fontWeight": "bold",
+      "marginTop": "2rem",
+      "marginBottom": "1rem"
+    },
+    "heading2": {
+      "fontSize": "2rem",
+      "fontWeight": "bold",
+      "marginTop": "1.5rem",
+      "marginBottom": "0.75rem"
+    },
+    "heading3": {
+      "fontSize": "1.5rem",
+      "fontWeight": "bold",
+      "marginTop": "1.25rem",
+      "marginBottom": "0.5rem"
     },
     "paragraph": {
       "marginBottom": "1rem"
@@ -37,7 +35,10 @@
       "fontFamily": "ui-monospace, monospace",
       "fontSize": "0.9rem",
       "backgroundColor": "#f5f5f5",
-      "padding": "1rem",
+      "paddingTop": "1rem",
+      "paddingRight": "1rem",
+      "paddingBottom": "1rem",
+      "paddingLeft": "1rem",
       "borderRadius": "4px",
       "overflow": "auto"
     },
@@ -53,22 +54,28 @@
       "marginBottom": "1rem"
     },
     "tableCell": {
-      "border": "1px solid #ddd",
-      "padding": "0.5rem"
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "borderColor": "#ddd",
+      "paddingTop": "0.5rem",
+      "paddingRight": "0.5rem",
+      "paddingBottom": "0.5rem",
+      "paddingLeft": "0.5rem"
     },
     "horizontalRule": {
-      "border": "none",
+      "borderStyle": "none",
       "borderTop": "1px solid #ccc",
-      "margin": "2rem 0"
+      "marginTop": "2rem",
+      "marginBottom": "2rem"
     },
     "math": {
-      "display": {
-        "textAlign": "center",
-        "margin": "1.5rem 0"
-      }
+      "textAlign": "center",
+      "marginTop": "1.5rem",
+      "marginBottom": "1.5rem"
     },
     "figure": {
-      "margin": "1.5rem 0",
+      "marginTop": "1.5rem",
+      "marginBottom": "1.5rem",
       "textAlign": "center"
     },
     "figcaption": {
@@ -79,13 +86,22 @@
     "measurement": {
       "fontFamily": "ui-monospace, monospace",
       "backgroundColor": "#f0f8ff",
-      "padding": "0.25rem 0.5rem",
+      "paddingTop": "0.25rem",
+      "paddingRight": "0.5rem",
+      "paddingBottom": "0.25rem",
+      "paddingLeft": "0.5rem",
       "borderRadius": "2px"
     },
     "signature": {
-      "border": "1px dashed #999",
-      "padding": "1rem",
-      "margin": "1rem 0",
+      "borderWidth": "1px",
+      "borderStyle": "dashed",
+      "borderColor": "#999",
+      "paddingTop": "1rem",
+      "paddingRight": "1rem",
+      "paddingBottom": "1rem",
+      "paddingLeft": "1rem",
+      "marginTop": "1rem",
+      "marginBottom": "1rem",
       "backgroundColor": "#fafafa"
     },
     "definitionList": {
