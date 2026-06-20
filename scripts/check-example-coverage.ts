@@ -194,7 +194,7 @@ console.log(`  Schemas: ${coveredSchemas.length}/${schemaResults.length} covered
 
 if (uncoveredExtensions.length > 0 || uncoveredSchemas.length > 0) {
   console.log('\nMissing coverage detected.');
-  // Don't exit with error - this is informational
+  process.exit(1);
 } else {
   console.log('\nAll extensions and schemas have example coverage.');
 }

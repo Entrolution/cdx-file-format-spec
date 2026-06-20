@@ -265,8 +265,7 @@ console.log('\n' + '='.repeat(60));
 
 if (report.broken.length > 0) {
   console.log('\nCross-reference validation found issues.');
-  // Don't fail - this is informational for now
-  // process.exit(1);
+  process.exit(1);
 } else {
   console.log('\nAll cross-references are valid.');
 }
