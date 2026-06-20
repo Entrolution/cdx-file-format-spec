@@ -316,8 +316,7 @@ console.log('\n' + '='.repeat(60));
 // Exit with error if there are discrepancies
 if (report.specOnly.length > 0 || report.schemaOnly.length > 0) {
   console.log('\nSpec-schema sync check found discrepancies.');
-  // Don't fail - this is informational for now
-  // process.exit(1);
+  process.exit(1);
 } else {
   console.log('\nAll documented types have schema definitions.');
 }
