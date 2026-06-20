@@ -37,12 +37,12 @@
           "pattern": "^[a-zA-Z0-9_-]+$"
         },
         "path": {
-          "type": "string",
-          "description": "File path relative to category directory"
+          "description": "File path relative to category directory",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "type": {
-          "type": "string",
-          "description": "MIME type"
+          "description": "MIME type",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/mimeType"
         },
         "size": {
           "type": "integer",
@@ -148,8 +148,8 @@
       "required": ["path", "width", "size"],
       "properties": {
         "path": {
-          "type": "string",
-          "description": "Variant file path"
+          "description": "Variant file path",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "width": {
           "type": "integer",

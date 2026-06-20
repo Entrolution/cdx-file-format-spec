@@ -67,12 +67,18 @@
       "description": "Security layer reference",
       "properties": {
         "signatures": {
-          "type": ["string", "null"],
-          "description": "Path to signatures file"
+          "description": "Path to signatures file",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            { "type": "null" }
+          ]
         },
         "encryption": {
-          "type": ["string", "null"],
-          "description": "Path to encryption metadata"
+          "description": "Path to encryption metadata",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            { "type": "null" }
+          ]
         }
       }
     },
@@ -89,8 +95,8 @@
       "required": ["dublinCore"],
       "properties": {
         "dublinCore": {
-          "type": "string",
-          "description": "Path to Dublin Core metadata"
+          "description": "Path to Dublin Core metadata",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "custom": {
           "type": "object",
@@ -105,8 +111,8 @@
       "required": ["clusters"],
       "properties": {
         "clusters": {
-          "type": "string",
-          "description": "Path to phantom clusters file"
+          "description": "Path to phantom clusters file",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       }
     },
@@ -152,8 +158,8 @@
       }
     },
     "provenance": {
-      "type": "string",
-      "description": "Path to provenance record file"
+      "description": "Path to provenance record file",
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
     }
   },
   "$defs": {
@@ -162,8 +168,8 @@
       "required": ["path", "hash"],
       "properties": {
         "path": {
-          "type": "string",
-          "description": "Relative path within archive"
+          "description": "Relative path within archive",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "hash": {
           "description": "Hash of file contents",
@@ -195,8 +201,8 @@
           "enum": ["paginated", "continuous", "responsive"]
         },
         "path": {
-          "type": "string",
-          "description": "Relative path within archive"
+          "description": "Relative path within archive",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "hash": {
           "description": "Hash of file contents",
@@ -232,8 +238,8 @@
           "description": "Total size in bytes"
         },
         "index": {
-          "type": "string",
-          "description": "Path to index file"
+          "description": "Path to index file",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       }
     },

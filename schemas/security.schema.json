@@ -107,8 +107,8 @@
           "description": "ISO 8601 timestamp from the authority"
         },
         "token": {
-          "type": "string",
-          "description": "Base64-encoded timestamp token"
+          "description": "Base64-encoded timestamp token",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "algorithm": {
           "type": "string",
@@ -130,6 +130,9 @@
         "layouts": {
           "type": "object",
           "description": "Map of layout path to layout file hash for visual attestation",
+          "propertyNames": {
+            "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+          },
           "additionalProperties": {
             "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
           }
@@ -143,20 +146,20 @@
       "required": ["credentialId", "authenticatorData", "clientDataJSON", "signature"],
       "properties": {
         "credentialId": {
-          "type": "string",
-          "description": "Base64-encoded credential ID"
+          "description": "Base64-encoded credential ID",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "authenticatorData": {
-          "type": "string",
-          "description": "Base64-encoded authenticator data"
+          "description": "Base64-encoded authenticator data",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "clientDataJSON": {
-          "type": "string",
-          "description": "Base64-encoded client data JSON"
+          "description": "Base64-encoded client data JSON",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "signature": {
-          "type": "string",
-          "description": "Base64-encoded signature"
+          "description": "Base64-encoded signature",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         }
       },
       "additionalProperties": false
@@ -182,8 +185,8 @@
           "$ref": "#/$defs/signer"
         },
         "value": {
-          "type": "string",
-          "description": "Base64-encoded signature value"
+          "description": "Base64-encoded signature value",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "certificateChain": {
           "type": "array",
@@ -249,12 +252,12 @@
           "description": "Recipient's public key identifier"
         },
         "encryptedKey": {
-          "type": "string",
-          "description": "Base64-encoded encrypted content encryption key"
+          "description": "Base64-encoded encrypted content encryption key",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "ephemeralPublicKey": {
-          "type": "string",
-          "description": "Base64-encoded ephemeral public key (for ECDH)"
+          "description": "Base64-encoded ephemeral public key (for ECDH)",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         }
       },
       "additionalProperties": false
@@ -265,16 +268,16 @@
       "required": ["iv", "tag", "path"],
       "properties": {
         "iv": {
-          "type": "string",
-          "description": "Base64-encoded initialization vector"
+          "description": "Base64-encoded initialization vector",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "tag": {
-          "type": "string",
-          "description": "Base64-encoded authentication tag"
+          "description": "Base64-encoded authentication tag",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "path": {
-          "type": "string",
-          "description": "Path to encrypted file (typically with .enc suffix)"
+          "description": "Path to encrypted file (typically with .enc suffix)",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       },
       "additionalProperties": false

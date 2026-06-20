@@ -78,8 +78,8 @@
           ]
         },
         "format": {
-          "type": "string",
-          "description": "MIME type"
+          "description": "MIME type",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/mimeType"
         },
         "identifier": {
           "type": "string",

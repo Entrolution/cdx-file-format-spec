@@ -132,8 +132,8 @@
           "description": "Timestamp authority URL (for rfc3161)"
         },
         "token": {
-          "type": "string",
-          "description": "Timestamp token (for rfc3161)"
+          "description": "Timestamp token (for rfc3161)",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "chain": {
           "type": "string",
