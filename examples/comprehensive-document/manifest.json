@@ -18,5 +18,6 @@
   ],
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
-  }
+  },
+  "provenance": "provenance/record.json"
 }
