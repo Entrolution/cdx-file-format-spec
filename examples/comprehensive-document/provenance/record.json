@@ -23,7 +23,7 @@
       "time": "2025-01-28T14:05:00Z",
       "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "authority": "http://timestamp.digicert.com",
-      "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0..."
+      "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0"
     }
   ],
   "derivedFrom": [

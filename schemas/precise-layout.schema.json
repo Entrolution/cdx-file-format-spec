@@ -35,9 +35,8 @@
       }
     },
     "contentHash": {
-      "type": "string",
       "description": "Hash of content when layout was generated. Must match current content hash for FROZEN/PUBLISHED.",
-      "pattern": "^[a-z0-9-]+:[a-f0-9]+$"
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
     },
     "generatedAt": {
       "type": "string",

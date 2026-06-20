@@ -16,7 +16,7 @@
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
         "time": "2025-01-15T10:00:05Z",
-        "token": "MIIEpgYJKoZIhvcNAQcCoIIElzCCBJMCAQExDTALBglghkgBZQMEAgEw..."
+        "token": "MIIEpgYJKoZIhvcNAQcCoIIElzCCBJMCAQExDTALBglghkgBZQMEAgEw"
       }
     },
     {
@@ -33,7 +33,7 @@
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
         "time": "2025-01-15T14:22:05Z",
-        "token": "MIIEqQYJKoZIhvcNAQcCoIIEmjCCBJYCAQExDTALBglghkgBZQMEAgEw..."
+        "token": "MIIEqQYJKoZIhvcNAQcCoIIEmjCCBJYCAQExDTALBglghkgBZQMEAgEw"
       }
     }
   ]

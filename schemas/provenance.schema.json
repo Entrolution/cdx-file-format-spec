@@ -12,9 +12,8 @@
       "pattern": "^\\d+\\.\\d+$"
     },
     "documentId": {
-      "type": "string",
       "description": "Document identifier (hash)",
-      "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
     },
     "created": {
       "type": "string",
@@ -30,13 +29,16 @@
       "description": "Document lineage information",
       "properties": {
         "parent": {
-          "type": ["string", "null"],
-          "description": "Parent document hash"
+          "description": "Parent document hash",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+            { "type": "null" }
+          ]
         },
         "ancestors": {
           "type": "array",
           "description": "Chain of ancestor hashes",
-          "items": { "type": "string" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
         },
         "depth": {
           "type": "integer",
@@ -50,7 +52,7 @@
         "mergedFrom": {
           "type": "array",
           "description": "Merged document hashes",
-          "items": { "type": "string" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
         }
       }
     },
@@ -59,9 +61,8 @@
       "description": "Merkle tree information",
       "properties": {
         "root": {
-          "type": "string",
           "description": "Merkle root hash",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "blockCount": {
           "type": "integer",
@@ -123,16 +124,16 @@
           "description": "Timestamp time"
         },
         "hash": {
-          "type": "string",
-          "description": "Hash that was timestamped"
+          "description": "Hash that was timestamped",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "authority": {
           "type": "string",
           "description": "Timestamp authority URL (for rfc3161)"
         },
         "token": {
-          "type": "string",
-          "description": "Timestamp token (for rfc3161)"
+          "description": "Timestamp token (for rfc3161)",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "chain": {
           "type": "string",
@@ -168,7 +169,7 @@
           "type": "object",
           "description": "Proof of inclusion in aggregate (for aggregated type)",
           "properties": {
-            "documentHash": { "type": "string" },
+            "documentHash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
             "path": {
               "type": "array",
               "items": { "$ref": "#/$defs/merklePathElement" }
@@ -191,8 +192,8 @@
       "required": ["documentId", "relationship"],
       "properties": {
         "documentId": {
-          "type": "string",
-          "description": "Source document hash"
+          "description": "Source document hash",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "relationship": {
           "type": "string",
@@ -216,8 +217,8 @@
           "description": "Position of sibling in hash computation"
         },
         "hash": {
-          "type": "string",
-          "description": "Sibling hash"
+          "description": "Sibling hash",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         }
       }
     }

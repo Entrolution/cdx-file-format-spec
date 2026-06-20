@@ -4,6 +4,27 @@
   "title": "CDX Content Anchor and Person Definitions",
   "description": "Reusable schema definitions for ContentAnchor, ContentAnchorUri, and Person, used by collaboration, phantoms, security, and other extensions.",
   "$defs": {
+    "contentHash": {
+      "type": "string",
+      "description": "Algorithm-prefixed content digest in 'algorithm:hexdigest' form. The hex length is fixed per algorithm (sha256/sha3-256/blake3 = 64, sha384 = 96, sha512/sha3-512 = 128). Shared definition for every content-hash field; do not inline a hash pattern elsewhere.",
+      "pattern": "^(sha256:[a-f0-9]{64}|sha384:[a-f0-9]{96}|sha512:[a-f0-9]{128}|sha3-256:[a-f0-9]{64}|sha3-512:[a-f0-9]{128}|blake3:[a-f0-9]{64})$"
+    },
+    "base64": {
+      "type": "string",
+      "description": "Base64-encoded binary value (standard or URL-safe alphabet, optional padding). Shared definition for base64 fields; do not inline a base64 pattern elsewhere. Multi-line PEM (certificates) is NOT covered by this.",
+      "pattern": "^[A-Za-z0-9+/_-]+={0,2}$",
+      "minLength": 4
+    },
+    "relativePath": {
+      "type": "string",
+      "description": "Archive-relative file path: forward-slash separated, no leading slash, no '..'/'.' traversal segments (Zip-Slip safe). Restricted to ASCII [A-Za-z0-9._-] for portability; note the container spec MUSTs UTF-8 but only SHOULDs URL-safe characters, so this is intentionally stricter. Shared definition; do not inline a path pattern elsewhere.",
+      "pattern": "^(?!\\.\\.?(?:/|$))(?!.*/\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "mimeType": {
+      "type": "string",
+      "description": "Media type in lowercase 'type/subtype' form (canonical, no parameters). Shared definition; do not inline a MIME pattern elsewhere.",
+      "pattern": "^[a-z]+/[a-zA-Z0-9.+-]+$"
+    },
     "person": {
       "type": "object",
       "description": "Base person/agent identity. Extensions may add additional properties via allOf composition.",
@@ -51,9 +72,8 @@
           "description": "Range end (exclusive, zero-based)"
         },
         "contentHash": {
-          "type": "string",
           "description": "Hash of the target block's text content at anchor creation time, for stale detection",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "#/$defs/contentHash"
         }
       },
       "oneOf": [

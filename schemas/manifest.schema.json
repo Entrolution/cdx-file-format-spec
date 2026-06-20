@@ -17,7 +17,7 @@
       "description": "Content-addressable document identifier",
       "oneOf": [
         { "const": "pending" },
-        { "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$" }
+        { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
       ]
     },
     "state": {
@@ -67,12 +67,18 @@
       "description": "Security layer reference",
       "properties": {
         "signatures": {
-          "type": ["string", "null"],
-          "description": "Path to signatures file"
+          "description": "Path to signatures file",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            { "type": "null" }
+          ]
         },
         "encryption": {
-          "type": ["string", "null"],
-          "description": "Path to encryption metadata"
+          "description": "Path to encryption metadata",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            { "type": "null" }
+          ]
         }
       }
     },
@@ -89,8 +95,8 @@
       "required": ["dublinCore"],
       "properties": {
         "dublinCore": {
-          "type": "string",
-          "description": "Path to Dublin Core metadata"
+          "description": "Path to Dublin Core metadata",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "custom": {
           "type": "object",
@@ -105,8 +111,8 @@
       "required": ["clusters"],
       "properties": {
         "clusters": {
-          "type": "string",
-          "description": "Path to phantom clusters file"
+          "description": "Path to phantom clusters file",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       }
     },
@@ -115,13 +121,16 @@
       "description": "Version history and parent reference",
       "properties": {
         "parent": {
-          "type": ["string", "null"],
-          "description": "Document ID of parent version"
+          "description": "Document ID of parent version",
+          "anyOf": [
+            { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+            { "type": "null" }
+          ]
         },
         "ancestors": {
           "type": "array",
           "description": "Chain of ancestor hashes (nearest first)",
-          "items": { "type": "string" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
         },
         "version": {
           "type": "integer",
@@ -140,7 +149,7 @@
         "mergedFrom": {
           "type": "array",
           "description": "Document hashes merged into this version",
-          "items": { "type": "string" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
         },
         "note": {
           "type": "string",
@@ -149,8 +158,8 @@
       }
     },
     "provenance": {
-      "type": "string",
-      "description": "Path to provenance record file"
+      "description": "Path to provenance record file",
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
     }
   },
   "$defs": {
@@ -159,13 +168,12 @@
       "required": ["path", "hash"],
       "properties": {
         "path": {
-          "type": "string",
-          "description": "Relative path within archive"
+          "description": "Relative path within archive",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "hash": {
-          "type": "string",
           "description": "Hash of file contents",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "compression": {
           "type": "string",
@@ -173,9 +181,8 @@
           "enum": ["none", "deflate", "zstd"]
         },
         "merkleRoot": {
-          "type": "string",
           "description": "Merkle root of content blocks",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "blockCount": {
           "type": "integer",
@@ -194,20 +201,20 @@
           "enum": ["paginated", "continuous", "responsive"]
         },
         "path": {
-          "type": "string",
-          "description": "Relative path within archive"
+          "description": "Relative path within archive",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
         "hash": {
-          "type": "string",
-          "description": "Hash of file contents"
+          "description": "Hash of file contents",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "default": {
           "type": "boolean",
           "description": "Whether this is the default presentation"
         },
         "contentHash": {
-          "type": "string",
-          "description": "Content hash when presentation was generated"
+          "description": "Content hash when presentation was generated",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "generated": {
           "type": "string",
@@ -231,8 +238,8 @@
           "description": "Total size in bytes"
         },
         "index": {
-          "type": "string",
-          "description": "Path to index file"
+          "description": "Path to index file",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       }
     },

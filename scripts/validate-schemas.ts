@@ -15,23 +15,25 @@ interface DependentSchema {
 const standaloneSchemas: string[] = [
   'academic.schema.json',
   'anchor.schema.json',
-  'asset-index.schema.json',
-  'dublin-core.schema.json',
   'forms.schema.json',
   'legal.schema.json',
-  'manifest.schema.json',
-  'precise-layout.schema.json',
   'presentation.schema.json',
-  'provenance.schema.json',
   'semantic.schema.json',
 ];
 
-// Schemas that reference other schemas
+// Schemas that reference other schemas. manifest/asset-index/provenance/
+// precise-layout reference anchor.schema.json#/$defs/contentHash (the shared
+// content-hash definition).
 const dependentSchemas: DependentSchema[] = [
   { schema: 'annotations.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'asset-index.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'collaboration.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'content.schema.json', refs: ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json'] },
+  { schema: 'dublin-core.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'manifest.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'phantoms.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'precise-layout.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'provenance.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'security.schema.json', refs: ['anchor.schema.json'] },
 ];
 

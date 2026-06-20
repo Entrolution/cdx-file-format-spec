@@ -18,6 +18,15 @@ const schemaDependencies: Record<string, string[]> = {
   'phantoms.schema.json': ['anchor.schema.json'],
   'security.schema.json': ['anchor.schema.json'],
   'annotations.schema.json': ['anchor.schema.json'],
+  // dublin-core references anchor.schema.json#/$defs/mimeType (the shared
+  // MIME-type definition) for its terms.format field.
+  'dublin-core.schema.json': ['anchor.schema.json'],
+  // manifest/asset-index/provenance/precise-layout reference
+  // anchor.schema.json#/$defs/contentHash (the shared content-hash definition).
+  'manifest.schema.json': ['anchor.schema.json'],
+  'asset-index.schema.json': ['anchor.schema.json'],
+  'provenance.schema.json': ['anchor.schema.json'],
+  'precise-layout.schema.json': ['anchor.schema.json'],
 };
 
 // Validators compiled once, cached per (schema, ref) pair. The ref must be part
