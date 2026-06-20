@@ -151,11 +151,7 @@ To ensure deterministic hashing:
 
 2. **Unicode Normalization**: All text content in NFC form
 
-3. **Field Ordering**: Within content blocks:
-   - `type` first
-   - `id` second (if present)
-   - `children` or `value` third
-   - Other fields in alphabetical order
+> **Note**: Because JCS sorts all object keys, the order in which fields are written when authoring a document has no effect on its hash — content may be authored in any field order. The worked example below shows authored input being reordered into canonical JCS form.
 
 ### 4.4 Computation Steps
 
@@ -424,8 +420,8 @@ Canonical form (no metadata, no assets):
   },
   "content": { /* ... */ },
   "metadata": {
-    "title": "Annual Report",
-    "creator": "Finance Team"
+    "creator": "Finance Team",
+    "title": "Annual Report"
   },
   "version": "0.1"
 }
