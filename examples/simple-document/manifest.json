@@ -6,7 +6,7 @@
   "modified": "2025-01-15T10:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "hash": "sha256:68548d95df1cffa8f679516bad96a4ceec7717187491c48ce6d47fec70b4ad08"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

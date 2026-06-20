@@ -13,7 +13,7 @@
   ],
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "hash": "sha256:780a76dbfa501d2a704d51ba396635b3f0a2c7c13a585e525cafcf0e837a843a"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

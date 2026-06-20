@@ -13,6 +13,7 @@
  */
 
 import { ValidateFunction } from 'ajv/dist/2020';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createAjv, loadSchema } from './lib/ajv-utils.js';
@@ -152,6 +153,67 @@ for (const exampleName of exampleDirs) {
       hasErrors = true;
     }
   }
+
+  // Manifest-level checks: every declared file reference resolves on disk, and
+  // every declared file hash equals the raw SHA-256 of the referenced file bytes.
+  // Per spec §5.1 file hashes are over the DECOMPRESSED bytes; the examples store
+  // parts uncompressed, so the on-disk bytes are the decompressed bytes (a part
+  // declared with a `compression` codec would need decompressing first). The
+  // document id / canonical content hash is a separate field, out of scope here.
+  const manifestPath = path.join(examplePath, 'manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const algo: string = manifest.hashAlgorithm ?? 'sha256';
+
+    // Path-only references that must resolve on disk.
+    const pathRefs: Array<[string, unknown]> = [
+      ['metadata.dublinCore', manifest.metadata?.dublinCore],
+      ['provenance', manifest.provenance],
+      ['security.signatures', manifest.security?.signatures],
+      ['security.encryption', manifest.security?.encryption],
+      ['phantoms.clusters', manifest.phantoms?.clusters],
+    ];
+    for (const [label, rel] of pathRefs) {
+      if (typeof rel !== 'string') continue;
+      if (!fs.existsSync(path.join(examplePath, rel))) {
+        console.log(`  ✗ manifest ${label} -> ${rel} (file missing)`);
+        hasErrors = true;
+      }
+    }
+
+    // Hashed references: the file must resolve AND its hash must match.
+    const hashRefs: Array<[string, string, string]> = [];
+    if (manifest.content?.path && manifest.content?.hash) {
+      hashRefs.push(['content.hash', manifest.content.path, manifest.content.hash]);
+    }
+    (manifest.presentation ?? []).forEach((pr: { path?: string; hash?: string }, i: number) => {
+      if (pr.path && pr.hash) hashRefs.push([`presentation[${i}].hash`, pr.path, pr.hash]);
+    });
+    for (const [label, rel, declared] of hashRefs) {
+      if (!fs.existsSync(path.join(examplePath, rel))) {
+        console.log(`  ✗ manifest ${label} -> ${rel} (file missing)`);
+        hasErrors = true;
+        continue;
+      }
+      let actual: string;
+      try {
+        actual = `${algo}:${crypto.createHash(algo).update(fs.readFileSync(path.join(examplePath, rel))).digest('hex')}`;
+      } catch (err) {
+        console.log(`  ✗ manifest ${label} (${rel}) — cannot hash with '${algo}': ${err instanceof Error ? err.message : String(err)}`);
+        hasErrors = true;
+        continue;
+      }
+      if (actual === declared) {
+        console.log(`  ✓ manifest ${label} (${rel})`);
+      } else {
+        console.log(`  ✗ manifest ${label} (${rel}) — hash mismatch`);
+        console.log(`      declared ${declared}`);
+        console.log(`      actual   ${actual}`);
+        hasErrors = true;
+      }
+    }
+  }
+
   console.log('');
 }
 
