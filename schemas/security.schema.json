@@ -124,16 +124,14 @@
       "required": ["documentId"],
       "properties": {
         "documentId": {
-          "type": "string",
           "description": "Content hash (must match top-level documentId)",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "layouts": {
           "type": "object",
           "description": "Map of layout path to layout file hash for visual attestation",
           "additionalProperties": {
-            "type": "string",
-            "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+            "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
           }
         }
       },
@@ -220,9 +218,8 @@
           "pattern": "^\\d+\\.\\d+$"
         },
         "documentId": {
-          "type": "string",
           "description": "Document content hash being signed",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "signatures": {
           "type": "array",

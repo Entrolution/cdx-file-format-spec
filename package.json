@@ -10,6 +10,7 @@
     "check:sync": "npx tsx scripts/check-spec-schema-sync.ts",
     "check:refs": "npx tsx scripts/validate-cross-refs.ts",
     "check:coverage": "npx tsx scripts/check-example-coverage.ts",
+    "check:hash-centralization": "npx tsx scripts/check-hash-centralization.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

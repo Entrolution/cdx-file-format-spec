@@ -54,3 +54,6 @@ jobs:
 
       - name: Check example coverage
         run: npm run check:coverage
+
+      - name: Check hash centralization
+        run: npm run check:hash-centralization

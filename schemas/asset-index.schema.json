@@ -50,9 +50,8 @@
           "description": "File size in bytes"
         },
         "hash": {
-          "type": "string",
           "description": "Content hash",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "aliasOf": {
           "type": "string",

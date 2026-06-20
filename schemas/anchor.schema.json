@@ -4,6 +4,11 @@
   "title": "CDX Content Anchor and Person Definitions",
   "description": "Reusable schema definitions for ContentAnchor, ContentAnchorUri, and Person, used by collaboration, phantoms, security, and other extensions.",
   "$defs": {
+    "contentHash": {
+      "type": "string",
+      "description": "Algorithm-prefixed content digest in 'algorithm:hexdigest' form. The hex length is fixed per algorithm (sha256/sha3-256/blake3 = 64, sha384 = 96, sha512/sha3-512 = 128). Shared definition for every content-hash field; do not inline a hash pattern elsewhere.",
+      "pattern": "^(sha256:[a-f0-9]{64}|sha384:[a-f0-9]{96}|sha512:[a-f0-9]{128}|sha3-256:[a-f0-9]{64}|sha3-512:[a-f0-9]{128}|blake3:[a-f0-9]{64})$"
+    },
     "person": {
       "type": "object",
       "description": "Base person/agent identity. Extensions may add additional properties via allOf composition.",
@@ -51,9 +56,8 @@
           "description": "Range end (exclusive, zero-based)"
         },
         "contentHash": {
-          "type": "string",
           "description": "Hash of the target block's text content at anchor creation time, for stale detection",
-          "pattern": "^(sha256|sha384|sha512|sha3-256|sha3-512|blake3):[a-f0-9]+$"
+          "$ref": "#/$defs/contentHash"
         }
       },
       "oneOf": [
