@@ -1,12 +1,31 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Checks for drift between spec documentation and JSON schemas.
+ * Checks for drift between the spec documentation and the JSON schemas.
  *
- * This script:
- * 1. Parses spec markdown files for documented block types
- * 2. Parses JSON schemas for defined block types
- * 3. Reports discrepancies between documented and implemented types
+ * This is a NAMES-PRESENT gate, not a structure-equivalence check. It verifies
+ * that every type discriminator and every REQUIRED property a schema defines is
+ * at least mentioned somewhere in the spec prose, and surfaces (as warnings)
+ * optional fields and enum values the spec never mentions. It deliberately does
+ * NOT diff field types or required-ness structurally: the spec documents fields,
+ * enum values, units and type names in the same `| `x` |` table format with no
+ * reliable way to tell them apart, so gating on that direction produces false
+ * positives — which is how the previous version's 78-name exclusion denylist
+ * grew, and why field-level drift previously went undetected.
+ *
+ * Directions:
+ *   schema -> spec (gated):  a type.const or required property absent from the
+ *                            spec corpus is drift.
+ *   spec  -> schema (gated): a block/mark type the spec formally declares via the
+ *                            `Always `"<type>"`` table idiom with no schema is drift.
+ *   schema -> spec (warned): optional properties / enum values absent from the spec.
+ *
+ * Matching is exact-token (see specTokens), so `config` does not spuriously match
+ * `configuration`. The token class includes ':' so namespaced discriminators like
+ * `academic:theorem` are matched whole.
+ *
+ * Future: generate the spec's field tables from the schemas so drift is
+ * impossible by construction rather than detected after the fact.
  */
 
 import * as fs from 'fs';
@@ -16,307 +35,214 @@ const rootDir = path.join(__dirname, '..');
 const specDir = path.join(rootDir, 'spec');
 const schemasDir = path.join(rootDir, 'schemas');
 
-interface BlockType {
-  type: string;
-  source: string;
-  line?: number;
-}
-
-interface SyncReport {
-  specOnly: BlockType[];
-  schemaOnly: BlockType[];
-  synced: string[];
-}
-
-// Patterns for types that appear in spec JSON examples but are NOT block/mark types
-// These are excluded from sync checking as they are:
-// - MIME types (asset types, not content blocks)
-// - Presentation layer types (layout types, not content blocks)
-// - Syntax highlighting token types (code formatting, not blocks)
-// - State/enum values (document states, annotation types, etc.)
-const EXCLUDED_PATTERNS: RegExp[] = [
-  // MIME types (assets, not blocks)
-  /^image\//, /^font\//, /^application\//, /^text\//, /^audio\//, /^video\//,
-  // Presentation layer types (not content blocks)
-  /^(paginated|continuous|responsive|flow|precise)$/,
-  // Syntax highlighting token types (note: 'comment' is NOT excluded as it's also a collaboration annotation type)
-  /^(keyword|function|class|variable|parameter|string|number|boolean|null|docstring|operator|punctuation|delimiter|type|namespace|decorator|plain)$/,
-  // Document state values
-  /^(draft|review|frozen|published)$/,
-  // Collaboration change types (modification action types, not annotation blocks)
-  /^(insert|modify|delete)$/,
-  // Form field types that appear in examples as values (not block types themselves)
-  /^(textInput|checkbox|select|date|number|radio|email)$/,
-  // Dublin Core metadata values (not block types)
-  /^(Text|Image|Sound|Collection|Dataset|Event|InteractiveResource|MovingImage|PhysicalObject|Service|Software|StillImage)$/,
-  // JSON Schema type values
-  /^(object|array|string|integer|number|boolean|null)$/,
-  // Provenance evidence types (enum values)
-  /^(inclusion|exclusion|rfc3161|blockchain|aggregated|reference)$/,
-  // Presentation layout types (not content blocks)
-  /^(columns|grid|spot)$/,
-  // Citation format types (CSL types, not blocks)
-  /^(article-journal|article|book|chapter|paper-conference|thesis|report|webpage|entry-encyclopedia)$/,
-  // HTML/markdown styling (not block types)
-  /^(strong|em|code|sub|sup)$/,
-  // Other enum values that aren't block types
-  /^(attachment|embedded|external|required|optional)$/,
-];
-
-// Check if a type name should be excluded from sync checking
-function isExcludedType(typeName: string): boolean {
-  return EXCLUDED_PATTERNS.some(pattern => pattern.test(typeName));
-}
-
-// Extract block types from spec markdown files
-function extractTypesFromSpec(filePath: string): BlockType[] {
-  const types: BlockType[] = [];
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split('\n');
-  const filename = path.relative(rootDir, filePath);
-
-  // Pattern: "type": "<name>" in JSON examples
-  const typePattern = /"type":\s*"([^"]+)"/g;
-
-  // Pattern: `"type": "xxx"` in inline code
-  const inlinePattern = /`"type":\s*"([^"]+)"`/g;
-
-  lines.forEach((line, index) => {
-    let match;
-
-    // Match JSON examples
-    while ((match = typePattern.exec(line)) !== null) {
-      const typeName = match[1];
-      // Skip "text" as it's always present and not a block type
-      // Also skip excluded patterns (MIME types, presentation layer types, etc.)
-      if (typeName !== 'text' && !isExcludedType(typeName) && !types.find(t => t.type === typeName)) {
-        types.push({
-          type: typeName,
-          source: filename,
-          line: index + 1
-        });
-      }
-    }
-
-    // Match inline code references
-    while ((match = inlinePattern.exec(line)) !== null) {
-      const typeName = match[1];
-      if (typeName !== 'text' && !isExcludedType(typeName) && !types.find(t => t.type === typeName)) {
-        types.push({
-          type: typeName,
-          source: filename,
-          line: index + 1
-        });
-      }
-    }
-  });
-
-  return types;
-}
-
-// Recursively extract type constants from a schema object
-function extractTypeConstFromObject(obj: unknown, types: string[]): void {
-  if (!obj || typeof obj !== 'object') return;
-
-  const record = obj as Record<string, unknown>;
-
-  // Check if this object has properties.type.const
-  if (record.properties && typeof record.properties === 'object') {
-    const props = record.properties as Record<string, unknown>;
-    if (props.type && typeof props.type === 'object') {
-      const typeProp = props.type as Record<string, unknown>;
-      if (typeProp.const && typeof typeProp.const === 'string') {
-        const typeName = typeProp.const;
-        // Skip 'text' as it's ubiquitous (matches spec extraction behavior)
-        if (typeName !== 'text' && !types.includes(typeName)) {
-          types.push(typeName);
-        }
-      }
-    }
-  }
-
-  // Recurse into allOf, anyOf, oneOf arrays
-  for (const key of ['allOf', 'anyOf', 'oneOf']) {
-    if (Array.isArray(record[key])) {
-      for (const item of record[key] as unknown[]) {
-        extractTypeConstFromObject(item, types);
-      }
-    }
-  }
-
-  // Recurse into if/then/else
-  for (const key of ['if', 'then', 'else']) {
-    if (record[key] && typeof record[key] === 'object') {
-      extractTypeConstFromObject(record[key], types);
-    }
-  }
-}
-
-// Extract block types from JSON schema files
-function extractTypesFromSchema(filePath: string): BlockType[] {
-  const types: BlockType[] = [];
-  const content = fs.readFileSync(filePath, 'utf8');
-  const filename = path.relative(rootDir, filePath);
-  const extractedTypes: string[] = [];
-
-  try {
-    const schema = JSON.parse(content);
-
-    // Look for const types in $defs
-    if (schema.$defs) {
-      for (const [_defName, defValue] of Object.entries(schema.$defs)) {
-        extractTypeConstFromObject(defValue, extractedTypes);
-      }
-    }
-
-    // Also check allOf conditionals in block definitions
-    if (schema.$defs?.block?.allOf) {
-      const allOf = schema.$defs.block.allOf as Array<{
-        if?: { properties?: { type?: { const?: string } } };
-        then?: unknown;
-      }>;
-      for (const condition of allOf) {
-        if (condition.if?.properties?.type?.const) {
-          const typeName = condition.if.properties.type.const;
-          // Skip 'text' as it's ubiquitous (matches spec extraction behavior)
-          if (typeName !== 'text' && !extractedTypes.includes(typeName)) {
-            extractedTypes.push(typeName);
-          }
-        }
-      }
-    }
-
-    // Convert to BlockType objects
-    for (const typeName of extractedTypes) {
-      types.push({
-        type: typeName,
-        source: filename
-      });
-    }
-  } catch (err) {
-    console.error(`Error parsing ${filename}: ${err}`);
-  }
-
-  return types;
-}
-
-// Recursively find all markdown files
+// Recursively find all markdown files under a directory.
 function findMarkdownFiles(dir: string): string[] {
   const files: string[] = [];
-
-  if (!fs.existsSync(dir)) {
-    return files;
+  if (!fs.existsSync(dir)) return files;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...findMarkdownFiles(full));
+    else if (entry.name.endsWith('.md')) files.push(full);
   }
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...findMarkdownFiles(fullPath));
-    } else if (entry.name.endsWith('.md')) {
-      files.push(fullPath);
-    }
-  }
-
   return files;
 }
 
-// Find all schema files
+// Find all schema files (flat directory).
 function findSchemaFiles(dir: string): string[] {
-  const files: string[] = [];
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter(e => e.isFile() && e.name.endsWith('.schema.json'))
+    .map(e => path.join(dir, e.name));
+}
 
-  if (!fs.existsSync(dir)) {
-    return files;
+// Tokenize spec text into the set of identifier-ish tokens it contains. The
+// character class includes ':' (namespaced types `academic:theorem`), '@'
+// (JSON-LD keys `@context`), '-' and '.' (hyphenated/dotted names); leading and
+// trailing '.'/':' are stripped so prose "...month." yields the token `month`.
+// Membership is exact, never substring.
+function specTokens(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const raw of text.match(/[A-Za-z0-9_@.:-]+/g) ?? []) {
+    const t = raw.replace(/^[.:]+/, '').replace(/[.:]+$/, '');
+    if (t) out.add(t);
   }
+  return out;
+}
 
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+// Block/mark types the spec formally declares via the `Always `"<type>"`` table
+// idiom (the quoted form is hyphen-safe and never collides with enum values or
+// units, unlike a bare `"type": "x"` scan).
+function specDeclaredTypes(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/Always\s+`"([^"]+)"`/g)) out.add(m[1]);
+  return out;
+}
 
-  for (const entry of entries) {
-    if (entry.isFile() && entry.name.endsWith('.schema.json')) {
-      files.push(path.join(dir, entry.name));
+// Facts collected from the schemas. Each name maps to the first schema file that
+// declared it (for human-readable drift messages).
+interface SchemaFacts {
+  typeConsts: Map<string, string>; // discriminator const under properties.type
+  required: Map<string, string>;   // required property names
+  props: Map<string, string>;      // all property names
+  enums: Map<string, string>;      // enum string values
+}
+
+function relSchema(file: string): string {
+  return path.relative(rootDir, file);
+}
+
+// Recursively collect facts from one schema document. `const` is only treated as
+// a type discriminator when it sits under properties.type — collecting every
+// `const` would pull in status/format enums (pending, experimental, precise, ...)
+// and cause false drift. Required names are collected unconditionally (some
+// `required` arrays have no sibling `properties`).
+function collectFacts(node: unknown, file: string, facts: SchemaFacts): void {
+  if (Array.isArray(node)) {
+    for (const v of node) collectFacts(v, file, facts);
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+
+  const props = obj.properties;
+  if (props && typeof props === 'object') {
+    const typeProp = (props as Record<string, unknown>).type;
+    if (typeProp && typeof typeProp === 'object') {
+      const c = (typeProp as Record<string, unknown>).const;
+      if (typeof c === 'string' && !facts.typeConsts.has(c)) facts.typeConsts.set(c, relSchema(file));
+    }
+    for (const key of Object.keys(props as Record<string, unknown>)) {
+      if (!facts.props.has(key)) facts.props.set(key, relSchema(file));
     }
   }
 
-  return files;
-}
-
-// Main sync check
-function checkSync(): SyncReport {
-  console.log('Checking spec-schema synchronization...\n');
-
-  // Collect types from specs
-  const specTypes: BlockType[] = [];
-  const specFiles = findMarkdownFiles(specDir);
-  console.log(`Found ${specFiles.length} spec files`);
-
-  for (const file of specFiles) {
-    const types = extractTypesFromSpec(file);
-    specTypes.push(...types);
+  if (Array.isArray(obj.required)) {
+    for (const r of obj.required) {
+      if (typeof r === 'string' && !facts.required.has(r)) facts.required.set(r, relSchema(file));
+    }
   }
 
-  // Collect types from schemas
-  const schemaTypes: BlockType[] = [];
-  const schemaFiles = findSchemaFiles(schemasDir);
-  console.log(`Found ${schemaFiles.length} schema files`);
-
-  for (const file of schemaFiles) {
-    const types = extractTypesFromSchema(file);
-    schemaTypes.push(...types);
+  if (Array.isArray(obj.enum)) {
+    for (const e of obj.enum) {
+      if (typeof e === 'string' && !facts.enums.has(e)) facts.enums.set(e, relSchema(file));
+    }
   }
 
-  // Deduplicate
-  const specTypeNames = [...new Set(specTypes.map(t => t.type))];
-  const schemaTypeNames = [...new Set(schemaTypes.map(t => t.type))];
-
-  console.log(`\nSpec documents ${specTypeNames.length} unique block types`);
-  console.log(`Schemas define ${schemaTypeNames.length} unique block types\n`);
-
-  // Find discrepancies
-  const specOnly = specTypes.filter(t => !schemaTypeNames.includes(t.type));
-  const schemaOnly = schemaTypes.filter(t => !specTypeNames.includes(t.type));
-  const synced = specTypeNames.filter(t => schemaTypeNames.includes(t));
-
-  return {
-    specOnly: specOnly.filter((t, i, arr) => arr.findIndex(x => x.type === t.type) === i),
-    schemaOnly: schemaOnly.filter((t, i, arr) => arr.findIndex(x => x.type === t.type) === i),
-    synced
-  };
+  for (const v of Object.values(obj)) collectFacts(v, file, facts);
 }
 
-// Run check
-const report = checkSync();
+// Names from `names` whose token is absent from the spec, sorted, with source.
+function undocumented(names: Map<string, string>, tokens: Set<string>): Array<[string, string]> {
+  return [...names.entries()]
+    .filter(([name]) => !tokens.has(name))
+    .sort((a, b) => a[0].localeCompare(b[0]));
+}
 
-// Report results
+function printList(items: Array<[string, string]>): void {
+  for (const [name, source] of items) {
+    console.log(`    ${name}`);
+    console.log(`      ${source}`);
+  }
+}
+
+// ---- run --------------------------------------------------------------------
+
+console.log('Checking spec ↔ schema synchronization...\n');
+
+const specFiles = findMarkdownFiles(specDir);
+const schemaFiles = findSchemaFiles(schemasDir);
+const specText = specFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+const tokens = specTokens(specText);
+const declaredTypes = specDeclaredTypes(specText);
+
+const facts: SchemaFacts = {
+  typeConsts: new Map(),
+  required: new Map(),
+  props: new Map(),
+  enums: new Map(),
+};
+let parseFailed = false;
+for (const file of schemaFiles) {
+  try {
+    collectFacts(JSON.parse(fs.readFileSync(file, 'utf8')), file, facts);
+  } catch (err) {
+    console.error(`Error parsing ${relSchema(file)}: ${err}`);
+    parseFailed = true;
+  }
+}
+
+const optional = new Map(
+  [...facts.props.entries()].filter(([name]) => !facts.required.has(name))
+);
+
+console.log(`Found ${specFiles.length} spec files (${tokens.size} tokens), ${schemaFiles.length} schemas.`);
+console.log(
+  `Schema surface: ${facts.typeConsts.size} type discriminators, ${facts.required.size} required props, ` +
+  `${optional.size} optional props, ${facts.enums.size} enum values.\n`
+);
+
+// Gated drift (schema -> spec): discriminators / required props with no mention.
+const undocumentedTypes = undocumented(facts.typeConsts, tokens);
+const undocumentedRequired = undocumented(facts.required, tokens);
+
+// Gated drift (spec -> schema): a type the spec declares via the idiom but no
+// schema implements.
+const declaredWithoutSchema = [...declaredTypes]
+  .filter(t => !facts.typeConsts.has(t))
+  .sort()
+  .map(t => [t, 'spec via `Always "<type>"` idiom'] as [string, string]);
+
+// Warnings (schema -> spec): optional fields / enum values with no mention.
+const undocumentedOptional = undocumented(optional, tokens);
+const undocumentedEnums = undocumented(facts.enums, tokens);
+
+const gatedCount =
+  undocumentedTypes.length + undocumentedRequired.length + declaredWithoutSchema.length;
+
 console.log('='.repeat(60));
 
-if (report.synced.length > 0) {
-  console.log(`\n✓ ${report.synced.length} types are synchronized:`);
-  report.synced.sort().forEach(t => console.log(`    ${t}`));
+if (undocumentedTypes.length > 0) {
+  console.log(`\n✗ ${undocumentedTypes.length} type discriminator(s) defined in a schema but absent from the spec:`);
+  printList(undocumentedTypes);
+}
+if (undocumentedRequired.length > 0) {
+  console.log(`\n✗ ${undocumentedRequired.length} required propert${undocumentedRequired.length === 1 ? 'y' : 'ies'} absent from the spec:`);
+  printList(undocumentedRequired);
+}
+if (declaredWithoutSchema.length > 0) {
+  console.log(`\n✗ ${declaredWithoutSchema.length} type(s) declared in the spec but defined by no schema:`);
+  printList(declaredWithoutSchema);
 }
 
-if (report.specOnly.length > 0) {
-  console.log(`\n⚠ ${report.specOnly.length} types documented in spec but not in schema:`);
-  report.specOnly.forEach(t => {
-    console.log(`    ${t.type}`);
-    console.log(`      Source: ${t.source}${t.line ? `:${t.line}` : ''}`);
-  });
+if (undocumentedOptional.length > 0) {
+  console.log(`\n⚠ ${undocumentedOptional.length} optional schema field(s) not mentioned in the spec (review: document or remove):`);
+  printList(undocumentedOptional);
+}
+if (undocumentedEnums.length > 0) {
+  console.log(`\n⚠ ${undocumentedEnums.length} enum value(s) not found in the spec (informational; values containing '/' or '+' may be tokenization artifacts):`);
+  printList(undocumentedEnums);
 }
 
-if (report.schemaOnly.length > 0) {
-  console.log(`\n⚠ ${report.schemaOnly.length} types in schema but not documented in spec:`);
-  report.schemaOnly.forEach(t => {
-    console.log(`    ${t.type}`);
-    console.log(`      Source: ${t.source}`);
-  });
-}
+// Coverage note (no silent caps): the spec->schema check only sees types declared
+// via the `Always "<type>"` idiom; types using other doc conventions are checked
+// only schema->spec.
+const idiomUncovered = facts.typeConsts.size - [...declaredTypes].filter(t => facts.typeConsts.has(t)).length;
+console.log(
+  `\nNote: spec→schema type drift is checked only for the ${declaredTypes.size} types ` +
+  `declared via the \`Always "<type>"\` idiom; ${idiomUncovered} schema type(s) use other ` +
+  `doc conventions and are checked only schema→spec. This is a names-present gate, not a ` +
+  `structural-equivalence check (see header; the future fix is to generate the tables from the schemas).`
+);
 
 console.log('\n' + '='.repeat(60));
 
-// Exit with error if there are discrepancies
-if (report.specOnly.length > 0 || report.schemaOnly.length > 0) {
-  console.log('\nSpec-schema sync check found discrepancies.');
+if (gatedCount > 0 || parseFailed) {
+  if (parseFailed) console.log('\nOne or more schemas could not be parsed (see errors above).');
+  if (gatedCount > 0) console.log(`\nSpec-schema sync found ${gatedCount} gated drift issue(s); document or remove them.`);
   process.exit(1);
 } else {
-  console.log('\nAll documented types have schema definitions.');
+  console.log('\nAll type discriminators and required properties are documented in the spec.');
+  if (undocumentedOptional.length + undocumentedEnums.length > 0) {
+    console.log(`(${undocumentedOptional.length + undocumentedEnums.length} non-gating warning(s) above.)`);
+  }
 }
