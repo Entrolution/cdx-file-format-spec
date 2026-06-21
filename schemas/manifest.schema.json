@@ -160,6 +160,10 @@
     "provenance": {
       "description": "Path to provenance record file",
       "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+    },
+    "signaturePolicy": {
+      "description": "Document signature policy: the required-signer set that binds the signature set against stripping and downgrade (Security Extension §3.12). Bound by the signed manifest projection (§9.7).",
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/signaturePolicy"
     }
   },
   "$defs": {

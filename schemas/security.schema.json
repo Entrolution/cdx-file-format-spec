@@ -171,6 +171,10 @@
         "lineage": {
           "type": "object",
           "description": "Lineage, bound verbatim from the manifest"
+        },
+        "signaturePolicy": {
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/signaturePolicy",
+          "description": "Required-signer set, projected verbatim from manifest.signaturePolicy (§3.12). Present iff the manifest declares one; binds the signature set against stripping and downgrade."
         }
       },
       "additionalProperties": false
@@ -325,7 +329,8 @@
         },
         "signatures": {
           "type": "array",
-          "description": "Array of signatures",
+          "description": "Array of signatures (at least one — an empty set is a document that claims to be signed but is not)",
+          "minItems": 1,
           "items": {
             "$ref": "#/$defs/signature"
           }

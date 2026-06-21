@@ -27,5 +27,10 @@
   "lineage": {
     "parent": null,
     "version": 1
+  },
+  "signaturePolicy": {
+    "requiredSigners": [
+      { "did": "did:web:acme.example.com:notary" }
+    ]
   }
 }

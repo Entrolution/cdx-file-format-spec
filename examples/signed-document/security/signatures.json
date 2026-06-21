@@ -18,7 +18,12 @@
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
           ],
-          "lineage": { "parent": null, "version": 1 }
+          "lineage": { "parent": null, "version": 1 },
+          "signaturePolicy": {
+            "requiredSigners": [
+              { "did": "did:web:acme.example.com:notary" }
+            ]
+          }
         }
       },
       "signer": {
@@ -49,7 +54,12 @@
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
           ],
-          "lineage": { "parent": null, "version": 1 }
+          "lineage": { "parent": null, "version": 1 },
+          "signaturePolicy": {
+            "requiredSigners": [
+              { "did": "did:web:acme.example.com:notary" }
+            ]
+          }
         }
       },
       "signer": {
@@ -80,7 +90,12 @@
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
           ],
-          "lineage": { "parent": null, "version": 1 }
+          "lineage": { "parent": null, "version": 1 },
+          "signaturePolicy": {
+            "requiredSigners": [
+              { "did": "did:web:acme.example.com:notary" }
+            ]
+          }
         }
       },
       "signer": {
@@ -104,7 +119,12 @@
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
           ],
-          "lineage": { "parent": null, "version": 1 }
+          "lineage": { "parent": null, "version": 1 },
+          "signaturePolicy": {
+            "requiredSigners": [
+              { "did": "did:web:acme.example.com:notary" }
+            ]
+          }
         }
       },
       "signer": {
@@ -118,13 +138,13 @@
         "algorithm": "ES256",
         "credentialId": "-btRhpY94UG2pYrf8Ajj3A",
         "authenticatorData": "RLl_Z0ZqxOU4Nj9R6wQVdIVxJnNdRIKOUS-3jAZDfv0FAAAAAA",
-        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiTEpsSnRRR0lBSFAwRGVVbDUyNlNWWV9YcGdGSGxaalpCUnlhMXJBVm16QSIsIm9yaWdpbiI6Imh0dHBzOi8vY2R4LmRldiJ9",
-        "signature": "MEUCIQCh-KnZ7x-1vFZtOR4geZ5oQScQ1PkMunxcNrPU1LYzogIgE4E6YT8MwmuGzY6ENIlQ57TN9KhSicSpgEk-kOC5o0g",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWWRual9nc2RVbnJEZURMaDEyMzM2dDJPQTUyNFB3MGFVZHVtVmxTSHJ5VSIsIm9yaWdpbiI6Imh0dHBzOi8vY2R4LmRldiJ9",
+        "signature": "MEUCIBJANmG59EausyI-bV9s47cWlUO05Vg7wqgcNNlGKnVeAiEAr0jM-zR_O5lq3pUAlY4HthR9JCQzFC2mfZE7Iv3J3mA",
         "publicKey": {
           "kty": "EC",
           "crv": "P-256",
-          "x": "2KeqAPT4Wv_C-L8Ws7TrB3mzj91p8QsvHp74zlPRC9I",
-          "y": "itoZMU6UHcWSGERU1FeAF0HfDvQ0vwohFwPJ39U5wpQ"
+          "x": "Kp2F9OFZp6SMV8Aurv48VxBVv-GgQq8suJe-PxdGJUM",
+          "y": "EBb7-n5b0zFgHmPfqwSel-Jl0uLkz_ldkjMY3LGqTBc"
         }
       },
       "scope": {
@@ -139,7 +159,12 @@
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
           ],
-          "lineage": { "parent": null, "version": 1 }
+          "lineage": { "parent": null, "version": 1 },
+          "signaturePolicy": {
+            "requiredSigners": [
+              { "did": "did:web:acme.example.com:notary" }
+            ]
+          }
         }
       },
       "signer": {

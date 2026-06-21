@@ -83,3 +83,6 @@ jobs:
 
       - name: Check WebAuthn
         run: npm run check:webauthn
+
+      - name: Check signature set
+        run: npm run check:signature-set

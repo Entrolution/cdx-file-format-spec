@@ -46,6 +46,63 @@
       },
       "additionalProperties": true
     },
+    "requiredSigner": {
+      "type": "object",
+      "description": "One member of a document's required-signer set (Security Extension §3.12). It names a credential a verifier MUST find a valid signature from, in AUTHENTICATED terms — never an advisory signer field. Exactly one identity kind, each mapping to one credential path: `did` (the keyId path's `kid`, compared fragment-stripped and byte-for-byte), `x5tS256` (the X.509 path's leaf-certificate `x5t#S256` thumbprint), or `jkt` (the WebAuthn path's RFC 7638 public-key thumbprint). A required signer is NOT a trust anchor: the verifier's own pin still decides trust, so an entry naming an unpinned credential can never be satisfied.",
+      "oneOf": [
+        {
+          "required": ["did"],
+          "properties": {
+            "did": {
+              "type": "string",
+              "description": "keyId path: the DID (did:key, did:jwk or did:web) matched against a signature's signed `kid`, compared fragment-stripped and byte-for-byte. No fragment in the entry itself.",
+              "pattern": "^did:(key|jwk|web):[A-Za-z0-9._:%-]+$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["x5tS256"],
+          "properties": {
+            "x5tS256": {
+              "type": "string",
+              "description": "X.509 path: the base64url SHA-256 thumbprint of the signing leaf certificate's DER, matched against the signature's signed `x5t#S256`.",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 4
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["jkt"],
+          "properties": {
+            "jkt": {
+              "type": "string",
+              "description": "WebAuthn path: the base64url RFC 7638 SHA-256 thumbprint of the credential's COSE public key (as a JWK), matched against the thumbprint of a WebAuthn signature's `publicKey`.",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 4
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "signaturePolicy": {
+      "type": "object",
+      "description": "Document signature policy (Security Extension §3.12). Declares the required-signer set that binds the signature set against stripping and downgrade. Carried in the manifest and bound by the signed manifest projection (§9.7), so any manifest-covering signature attests it. Author-asserted: a document that declares no policy has no set integrity, and a verifier MUST warn on a frozen or published document that declares none.",
+      "required": ["requiredSigners"],
+      "properties": {
+        "requiredSigners": {
+          "type": "array",
+          "description": "The credentials that MUST each have a valid signature present. A verifier rejects a frozen or published document if any required signer is unsatisfied (stripped or downgraded). Order is not significant; entries are unique.",
+          "items": { "$ref": "#/$defs/requiredSigner" },
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
     "contentAnchor": {
       "type": "object",
       "description": "Structured content anchor referencing a block, point, or range within document content.",
