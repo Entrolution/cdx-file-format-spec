@@ -86,7 +86,7 @@ function exampleUsesSchema(exampleDir: string, schemaName: string): boolean {
     'phantoms.schema.json': ['phantoms/clusters.json'],
     'security.schema.json': ['security/signatures.json', 'security/annotations.json'],
     'provenance.schema.json': ['provenance/record.json'],
-    'asset-index.schema.json': ['assets/index.json'],
+    'asset-index.schema.json': ['assets/images/index.json', 'assets/fonts/index.json', 'assets/embeds/index.json'],
     'precise-layout.schema.json': ['presentation/layouts/letter.json', 'presentation/layouts/a4.json'],
     'presentation.schema.json': ['presentation/paginated.json', 'presentation/continuous.json', 'presentation/responsive.json'],
     'academic.schema.json': ['academic/numbering.json'],

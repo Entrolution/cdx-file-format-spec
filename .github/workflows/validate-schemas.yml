@@ -60,3 +60,6 @@ jobs:
 
       - name: Check hash centralization
         run: npm run check:hash-centralization
+
+      - name: Check document ids
+        run: npm run check:document-id

@@ -1,0 +1,33 @@
+{
+  "version": "0.1",
+  "assets": [
+    {
+      "id": "example",
+      "path": "example.png",
+      "type": "image/png",
+      "size": 69,
+      "hash": "sha256:a9560530c3ed0a5b0c8234bb8497f7474fac0aab304e649f74d4a4dd2ea4935b"
+    },
+    {
+      "id": "diagram",
+      "path": "diagram.png",
+      "type": "image/png",
+      "size": 69,
+      "hash": "sha256:f3bd84e26ae2604bcc564b85ae493b26d6726442d361709322892ef07d7c2ffd"
+    },
+    {
+      "id": "before",
+      "path": "before.png",
+      "type": "image/png",
+      "size": 69,
+      "hash": "sha256:2aca3757fd9a67926dd50d61fe3e2c6257794406393f866a84e8419b263e7dea"
+    },
+    {
+      "id": "after",
+      "path": "after.png",
+      "type": "image/png",
+      "size": 69,
+      "hash": "sha256:642d9703bcbc54345ab79e462fccf17f6edee42d005474a38d4b4e6f6223f63c"
+    }
+  ]
+}

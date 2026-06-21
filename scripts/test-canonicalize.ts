@@ -764,5 +764,22 @@ test('parse: a duplicate key in an asset index is rejected end-to-end', () => {
   );
 });
 
+test('asset: an aliasOf entry carrying its own path+hash still resolves', () => {
+  const blocks = canonContent({
+    manifestAssets: { images: { count: 2, totalSize: 2, index: 'assets/images/index.json' } },
+    assetIndexes: {
+      images: {
+        version: '0.1',
+        assets: [
+          { id: 'logo', path: 'logo.png', type: 'image/png', size: 1, hash: HASH256('a') },
+          { id: 'logo-copy', aliasOf: 'logo', path: 'logo-copy.png', type: 'image/png', size: 1, hash: HASH256('a') },
+        ],
+      },
+    },
+    content: { version: '0.1', blocks: [{ type: 'image', src: 'assets/images/logo-copy.png', alt: 'x' }] },
+  }).blocks;
+  assert.equal(blocks[0].src, HASH256('a'));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

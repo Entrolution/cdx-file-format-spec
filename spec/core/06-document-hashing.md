@@ -222,7 +222,7 @@ Canonical form (JCS serialized, shown formatted for readability):
 {"content":{"blocks":[{"children":[{"type":"text","value":"Hello"}],"level":1,"type":"heading"}],"version":"0.1"},"metadata":{"creator":["Jane Doe"],"title":"Test Document"}}
 ```
 
-Hash: `sha256:...` (computed from the JCS-serialized bytes)
+Hash: `sha256:12768052d53d60d457ab47514ddd8be3087dd7d66a1a9dcc984eceec83f6ae70` (computed from the JCS-serialized bytes)
 
 ## 5. File-Level Hashes
 
