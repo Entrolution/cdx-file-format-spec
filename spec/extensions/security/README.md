@@ -36,16 +36,19 @@ To use this extension, declare it in the manifest:
 
 ### 3.1 Signature Model
 
-Signatures bind to the document ID (content hash), not the raw file bytes:
+A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3):
 
 ```
-Signature = Sign(PrivateKey, DocumentID)
+content-only:   Signature = Sign(PrivateKey, DocumentID)
+scoped:         Signature = Sign(PrivateKey, JCS(scope))
 ```
 
 This means:
 - Signatures verify document content integrity
 - Multiple signatures can attest to the same content
 - Re-packaging doesn't invalidate signatures (only content changes do)
+
+The document ID binds the document's semantic content only. It does **not** bind the rest of the manifest — the lifecycle state, the content and presentation part hashes, the required-extension set, or the lineage — so a content-only signature leaves those unauthenticated. To authenticate them, a signature covers the **manifest projection** (Section 9.7). A signature on a `frozen` or `published` document MUST cover the manifest projection (Section 9.8).
 
 ### 3.2 Supported Algorithms
 
@@ -141,13 +144,14 @@ To verify a signature:
 
 1. Extract document ID from manifest
 2. Recompute document ID from content (verify integrity)
-3. For each signature:
+3. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
+4. For each signature:
    a. Decode the signature value
    b. If `scope` is absent: verify signature over document ID using signer's public key
-   c. If `scope` is present: verify using scoped signature algorithm (see section 9.5)
+   c. If `scope` is present: verify using the scoped signature algorithm (see section 9.5), which recomputes and checks the manifest projection when `scope.manifest` is present
    d. If certificate present, validate certificate chain
    e. If timestamp present, verify timestamp token
-4. Report verification results
+5. Report verification results
 
 ### 3.8 Signature States
 
@@ -415,9 +419,10 @@ The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.or
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `documentId` | string | Yes | Content hash (MUST match top-level `documentId`) |
+| `manifest` | object | Conditional | The manifest projection (Section 9.7). REQUIRED on a `frozen` or `published` document; otherwise optional. |
 | `layouts` | object | No | Map of layout path → layout file hash. Attests visual appearance. |
 
-The `scope` object is extensible — future fields can be added (e.g., `metadata`, `assets`) without breaking existing signatures.
+The `scope` object is **closed**: it is validated with `additionalProperties: false`, and a verifier MUST reject a scope carrying any member not defined here. New scope members may be introduced in future versions of this extension, but because the signature is computed over `JCS(scope)`, a signature's covered set is fixed at signing time — adding a member changes the signed bytes, so it does not retroactively extend a signature made before the member existed.
 
 ### 9.5 Verification Algorithm for Scoped Signatures
 
@@ -426,13 +431,68 @@ The verification algorithm (section 3.7) is extended to handle both legacy and s
 1. If `scope` is absent: `Verify(PublicKey, value, documentId)` — legacy content-only verification
 2. If `scope` is present:
    a. Verify `scope.documentId` matches top-level `documentId`
-   b. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
-   c. Serialize `scope` with JCS
-   d. `Verify(PublicKey, value, JCS(scope))`
+   b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
+   c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
+   d. Serialize `scope` with JCS
+   e. `Verify(PublicKey, value, JCS(scope))`
 
 ### 9.6 Use Case
 
 In legal contexts, a notary signs with `scope` including the letter layout, attesting: "I certify this content rendered in this exact layout." Another signer might sign content-only if appearance is not relevant to their attestation.
+
+### 9.7 Manifest Projection
+
+The document ID binds only the document's semantic content. The rest of the manifest — the lifecycle state, the content and presentation part hashes, the required-extension set, and the lineage — is otherwise unauthenticated. The **manifest projection** is the canonical, signable representation of those security-relevant manifest declarations; a signature attests them by including the projection as `scope.manifest`.
+
+The projection is a deterministic transform of `manifest.json`, serialized with JCS ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) — the same canonicalization the document ID uses — so a signer and a verifier compute identical bytes. It is defined only once the document ID is fixed; a manifest whose `id` is `pending` (a draft) has no projection.
+
+**Bound fields:**
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `cdx` | `manifest.cdx` | Specification version (prevents a silent version downgrade) |
+| `state` | `manifest.state` | Lifecycle state |
+| `content` | `manifest.content` | Projected to `{path, hash}` |
+| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds the presentation *declaration* (which parts, which is default), not visual rendering — visual attestation remains `scope.layouts` (Section 9.3) |
+| `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
+| `lineage` | `manifest.lineage` | Bound verbatim |
+
+**Construction rules** (mirroring the document-ID canonical form, 06 §4.3):
+
+- Absent or empty optional fields (`presentation`, `extensions`, `lineage`) are omitted, never materialized as `null` or `[]`.
+- An explicit `null` (e.g. `lineage.parent: null`) is preserved.
+- A non-default presentation carries no `default` member; the flag marks only the default entry (`default: false` is never materialized).
+- A non-required extension's `config` is omitted; a required extension's `config` is bound, because a required extension's configuration can change how the document is interpreted.
+- Arrays of declarations (`presentation`, `extensions`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
+- Keys and values obey the stored-byte invariants of 06 §4.3.2 (NFC, well-formed Unicode, safe integers).
+
+The document ID is **not** part of the projection — it is carried separately by `scope.documentId`, which a verifier already cross-checks against the top-level `documentId`.
+
+### 9.8 Coverage and Negative Coverage
+
+A signature's coverage is exactly:
+
+- The **document ID** (semantic content) — always.
+- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present.
+- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3).
+
+A signature does **not** cover, in this version of the extension:
+
+- Embedded **fonts** and other non-content assets (excluded from the document ID by design).
+- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. Only `content` and `presentation[]` carry hashes in the manifest and are bound by the projection.
+- The **set of signatures** itself: a signature cannot attest that another signature has not been removed, added, or downgraded.
+- Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
+- Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.
+- A **non-required** extension's `config` (only a required extension's `config` is bound, Section 9.7), and **any manifest member not enumerated in Section 9.7**: the manifest's top-level object is not closed, so an unrecognized member is dropped from the projection rather than signed.
+
+Implementations MUST NOT represent a signature as covering anything beyond the above.
+
+**Coverage requirement.** Because a content-only signature leaves the manifest unauthenticated, the manifest projection is mandatory wherever the manifest is final:
+
+- For a document in state `frozen` or `published`, every signature MUST include `scope.manifest`, and a verifier MUST reject the document if any signature omits it.
+- For a document in state `draft` or `review`, a signature MAY be content-only; such a signature does not attest the manifest, and an implementation MUST surface that limitation rather than implying manifest coverage.
+
+> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. Binding the signature set against stripping and downgrade is addressed in a later increment.
 
 ## 10. Examples
 

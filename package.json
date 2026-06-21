@@ -13,6 +13,7 @@
     "check:coverage": "npx tsx scripts/check-example-coverage.ts",
     "check:hash-centralization": "npx tsx scripts/check-hash-centralization.ts",
     "check:document-id": "npx tsx scripts/check-document-id.ts",
+    "check:manifest-projection": "npx tsx scripts/check-manifest-projection.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

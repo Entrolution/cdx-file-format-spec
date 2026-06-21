@@ -71,3 +71,6 @@ jobs:
 
       - name: Check document ids
         run: npm run check:document-id
+
+      - name: Check manifest projection
+        run: npm run check:manifest-projection
