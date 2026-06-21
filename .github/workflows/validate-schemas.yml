@@ -74,3 +74,6 @@ jobs:
 
       - name: Check manifest projection
         run: npm run check:manifest-projection
+
+      - name: Check JWS envelope
+        run: npm run check:jws-envelope

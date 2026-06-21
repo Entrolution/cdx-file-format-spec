@@ -36,11 +36,10 @@ To use this extension, declare it in the manifest:
 
 ### 3.1 Signature Model
 
-A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3):
+A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3). A signature is a detached JWS (Section 3.3) over the canonical bytes of that scope:
 
 ```
-content-only:   Signature = Sign(PrivateKey, DocumentID)
-scoped:         Signature = Sign(PrivateKey, JCS(scope))
+Signature = JWS(signing key, JCS(scope))      // scope.documentId is always present
 ```
 
 This means:
@@ -66,6 +65,10 @@ Implementations MUST support ES256. Support for other algorithms is RECOMMENDED.
 
 Location: `security/signatures.json`
 
+Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/rfc7515), JSON Serialization) with an **unencoded** payload ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797), `b64:false`). The signed payload is `JCS(scope)`; the readable `scope` object is carried as a sibling member and is reconstructed — not stored — as the detached payload (see section 3.4). The signed protected header binds the algorithm, the signing certificate, and the signing time.
+
+This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.org/standards)); it does not claim a JAdES baseline conformance level. It omits the JAdES `sigD` descriptor: the detached payload is reconstructed as `JCS(scope)` per this section.
+
 ```json
 {
   "version": "0.1",
@@ -73,55 +76,63 @@ Location: `security/signatures.json`
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": {
-        "name": "Jane Doe",
-        "email": "jane@example.com",
-        "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1Li4uIiwieDVjIjpbIk1JSUIuLi4iXSwieDV0I1MyNTYiOiIuLi4ifQ",
+      "signature": "MEUCIQDf9Ky7...",
+      "scope": {
+        "documentId": "sha256:3a7bd3e2..."
       },
-      "value": "MEUCIQDf9Ky7...",
-      "certificateChain": [...],
-      "timestamp": {...}
+      "signer": { "name": "Jane Doe", "email": "jane@example.com" },
+      "timestamp": {}
     }
   ]
 }
 ```
+
+> **Trust model status.** This version specifies the signature **envelope** only — the structure of the signed bytes. It does **not** yet specify a trust model (trust anchor, certificate-chain validation, revocation, or signature verification). A verifier MUST NOT report a signature as `valid` on the basis of this section alone; the trust model is specified in a subsequent version.
 
 ### 3.4 Signature Entry Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | string | Yes | Unique signature identifier |
-| `algorithm` | string | Yes | Signature algorithm |
-| `signedAt` | string | Yes | ISO 8601 signing timestamp |
-| `signer` | object | Yes | Signer information |
-| `value` | string | Yes | Base64-encoded signature |
-| `certificateChain` | array | No | Certificate chain for validation |
-| `timestamp` | object | No | Trusted timestamp |
-| `scope` | object | No | Scoped signature attestation (see section 9) |
+| `protected` | string | Yes | base64url-encoded signed JWS protected header (see below) |
+| `signature` | string | Yes | base64url-encoded JWS signature |
+| `scope` | object | Yes | The detached payload — what the signature covers (see section 9) |
+| `signer` | object | No | Advisory signer display information (see section 3.5) |
+| `timestamp` | object | No | Advisory trusted timestamp (see section 3.6) |
+
+**Protected header.** The base64url-decoded `protected` member is a JSON object with these parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `alg` | Yes | Signature algorithm (section 3.2) |
+| `b64` | Yes | MUST be `false` — the payload is unencoded (RFC 7797) |
+| `crit` | Yes | MUST be exactly `["b64"]` (a registered parameter such as `sigT` MUST NOT appear here) |
+| `x5c` | Yes | Signing certificate chain, base64 DER, leaf-first |
+| `x5t#S256` | Yes | base64url SHA-256 thumbprint of the signing certificate |
+| `sigT` | Yes | Signing time (ISO 8601 UTC), replacing the former unsigned `signedAt` |
+
+The signature is computed over the **signing input** `BASE64URL(UTF8(protected)) + '.' + JCS(scope)`. The protected header is signed as its exact stored bytes — a verifier MUST use the stored `protected` string and MUST NOT re-serialize the decoded header. The detached payload, by contrast, is recomputed: a verifier MUST derive it as `JCS(scope)` from the `scope` member it displays, so the bytes verified are always the bytes shown.
 
 ### 3.5 Signer Information
+
+The `signer` object carries **advisory** display information only. The authoritative signer identity is the subject of the validated signing certificate (the `x5c` chain in the protected header). A verifier MUST NOT treat these fields as authenticated and MUST NOT elevate `signer.name`/`email` above the certificate subject.
 
 ```json
 {
   "signer": {
     "name": "Jane Doe",
     "email": "jane@example.com",
-    "organization": "Acme Corporation",
-    "certificate": "-----BEGIN CERTIFICATE-----\n...",
-    "keyId": "did:web:example.com:jane"
+    "organization": "Acme Corporation"
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Signer's display name |
-| `email` | string | No | Signer's email |
-| `organization` | string | No | Signer's organization |
-| `certificate` | string | No | X.509 certificate (PEM) |
-| `keyId` | string | No | Key identifier (DID, URL, etc.) |
+| `name` | string | Yes | Signer's display name (advisory) |
+| `email` | string | No | Signer's email (advisory) |
+| `organization` | string | No | Signer's organization (advisory) |
 
 ### 3.6 Trusted Timestamps
 
@@ -142,16 +153,14 @@ For non-repudiation, signatures can include trusted timestamps:
 
 To verify a signature:
 
-1. Extract document ID from manifest
-2. Recompute document ID from content (verify integrity)
-3. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
-4. For each signature:
-   a. Decode the signature value
-   b. If `scope` is absent: verify signature over document ID using signer's public key
-   c. If `scope` is present: verify using the scoped signature algorithm (see section 9.5), which recomputes and checks the manifest projection when `scope.manifest` is present
-   d. If certificate present, validate certificate chain
-   e. If timestamp present, verify timestamp token
-5. Report verification results
+1. Extract the document ID from the manifest and recompute it from the content (integrity)
+2. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
+3. For each signature:
+   a. Decode the `protected` header and check its shape (section 3.4): `alg` supported, `b64` false, `crit` exactly `["b64"]`, and `x5c`/`x5t#S256`/`sigT` present
+   b. Reconstruct the detached payload as `JCS(scope)` from the `scope` member, and the signing input as `protected + "." + JCS(scope)`
+   c. Verify `scope.documentId` matches the top-level `documentId`, and when `scope.manifest`/`scope.layouts` are present perform the scoped checks (section 9.5)
+   d. **Trust evaluation — deferred.** Validating the `x5c` chain to a trust anchor, checking certificate validity and revocation, and verifying the JWS signature against the certified key are specified in a subsequent version. Until then a verifier MUST NOT report a signature as `valid`
+4. Report verification results
 
 ### 3.8 Signature States
 
@@ -299,6 +308,8 @@ Principals identify who permissions apply to:
 
 Documents can be signed using hardware security keys via WebAuthn.
 
+> **Status: deferred.** WebAuthn signatures are not available in this version. A WebAuthn assertion signs over `authenticatorData || hash(clientDataJSON)` rather than the JWS signing input of Section 3.3, so it cannot produce a scoped (manifest-covering) signature, and it carries no X.509 identity for the trust model. The `webauthn` member has therefore been removed from the signature schema pending a defined WebAuthn trust-and-binding profile in a subsequent version. The structure below is retained for reference only.
+
 ### 6.2 WebAuthn Signature
 
 ```json
@@ -313,9 +324,9 @@ Documents can be signed using hardware security keys via WebAuthn.
 }
 ```
 
-### 6.3 Verification
+### 6.3 Verification (reference only)
 
-WebAuthn signatures are verified using the WebAuthn verification procedure, with the document ID as the challenge.
+When reintroduced, WebAuthn signatures would be verified using the WebAuthn verification procedure. Binding the WebAuthn challenge to the JWS signing input of Section 3.3 — a WebAuthn assertion signs `authenticatorData || hash(clientDataJSON)`, not that input — is the open issue deferred per Section 6.1.
 
 ## 7. Key Management Guidance
 
@@ -372,45 +383,38 @@ Use well-audited cryptographic libraries that protect against side-channel attac
 
 ### 9.1 Overview
 
-By default, signatures cover the document ID (semantic content) only. For use cases that require attesting to visual appearance (e.g., legal documents, notarized contracts), signatures can include an optional `scope` object that makes explicit what the signature covers.
+Every signature carries a `scope` object — the detached JWS payload — that makes explicit what it covers. The minimal scope binds the document ID (semantic content) only; for use cases that require attesting to more (the manifest state, or the visual appearance of legal documents and notarized contracts), the scope additionally binds the manifest projection (Section 9.7) and/or precise-layout hashes.
 
-### 9.2 Content-Only Signature (Default)
+### 9.2 Content-Only Signature
 
-When `scope` is absent, the signature covers semantic content only. This is backward compatible with existing signatures:
+A content-only signature has a `scope` that binds just the document ID:
 
 ```json
 {
   "id": "sig-1",
-  "algorithm": "ES256",
-  "signedAt": "2025-01-15T10:00:00Z",
-  "signer": { "name": "Jane Doe", "email": "jane@example.com" },
-  "value": "MEUCIQDf9Ky7..."
+  "protected": "eyJhbGci...",
+  "signature": "MEUCIQDf9Ky7...",
+  "scope": { "documentId": "sha256:contenthash..." }
 }
 ```
 
-Verification: `Verify(PublicKey, value, DocumentID)`
-
 ### 9.3 Scoped Signature (Content + Layout Attestation)
 
-When `scope` is present, the signature covers both content identity and additional components specified in the scope:
+A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes:
 
 ```json
 {
   "id": "sig-2",
-  "algorithm": "ES256",
-  "signedAt": "2025-01-15T10:00:00Z",
-  "signer": { "name": "Bob Smith", "email": "bob@example.com" },
+  "protected": "eyJhbGci...",
+  "signature": "MEYCIQCa8Bx2...",
   "scope": {
     "documentId": "sha256:contenthash...",
     "layouts": {
       "presentation/layouts/letter.json": "sha256:layouthash..."
     }
-  },
-  "value": "MEYCIQCa8Bx2..."
+  }
 }
 ```
-
-Verification: `Verify(PublicKey, value, JCS(scope))`
 
 The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) to produce deterministic bytes for signing.
 
@@ -426,15 +430,12 @@ The `scope` object is **closed**: it is validated with `additionalProperties: fa
 
 ### 9.5 Verification Algorithm for Scoped Signatures
 
-The verification algorithm (section 3.7) is extended to handle both legacy and scoped modes:
+With `scope` always present, the scoped checks extend section 3.7 step 3:
 
-1. If `scope` is absent: `Verify(PublicKey, value, documentId)` — legacy content-only verification
-2. If `scope` is present:
-   a. Verify `scope.documentId` matches top-level `documentId`
+   a. Verify `scope.documentId` matches the top-level `documentId`
    b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
    c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
-   d. Serialize `scope` with JCS
-   e. `Verify(PublicKey, value, JCS(scope))`
+   d. The JWS signature is over the signing input `BASE64URL(protected) + "." + JCS(scope)` (section 3.4); the signature's trust evaluation is deferred per section 3.7
 
 ### 9.6 Use Case
 
@@ -492,7 +493,7 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 - For a document in state `frozen` or `published`, every signature MUST include `scope.manifest`, and a verifier MUST reject the document if any signature omits it.
 - For a document in state `draft` or `review`, a signature MAY be content-only; such a signature does not attest the manifest, and an implementation MUST surface that limitation rather than implying manifest coverage.
 
-> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. Binding the signature set against stripping and downgrade is addressed in a later increment.
+> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. The per-signature JWS protected header (Section 3.3) authenticates only that one signature's own algorithm, certificate and time — not the completeness of the signature set, so a stripped or downgraded set is not yet detectable. Binding the signature set against stripping and downgrade is addressed in a later increment.
 
 ## 10. Examples
 
@@ -505,13 +506,10 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": {
-        "name": "Jane Doe",
-        "email": "jane@example.com"
-      },
-      "value": "MEUCIQDf9Ky7BpL5Rj9E8JH3YqKPvXxNmVhKD5bXc4Qz1A2wAiEA7HjKLm8NoPq..."
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MEUCIQDf9Ky7BpL5Rj9E8JH3YqKPvXxNmVhKD5bXc4Qz1A2wAiEA7HjKLm8NoPq...",
+      "scope": { "documentId": "sha256:3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b" },
+      "signer": { "name": "Jane Doe", "email": "jane@example.com" }
     }
   ]
 }
@@ -526,17 +524,17 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": { "name": "Author", "email": "author@example.com" },
-      "value": "MEUCIQDf..."
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MEUCIQDf...",
+      "scope": { "documentId": "sha256:3a7bd3e2..." },
+      "signer": { "name": "Author", "email": "author@example.com" }
     },
     {
       "id": "sig-2",
-      "algorithm": "ES384",
-      "signedAt": "2025-01-16T14:30:00Z",
-      "signer": { "name": "Approver", "email": "approver@example.com" },
-      "value": "MGQCMA..."
+      "protected": "eyJhbGciOiJFUzM4NCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MGQCMA...",
+      "scope": { "documentId": "sha256:3a7bd3e2..." },
+      "signer": { "name": "Approver", "email": "approver@example.com" }
     }
   ]
 }

@@ -68,7 +68,7 @@
       "enum": ["valid", "invalid", "expired", "revoked", "untrusted", "unknown"]
     },
     "signer": {
-      "description": "Signer identity information extending base person",
+      "description": "Advisory signer display information extending base person. The authoritative identity is the signing-certificate (x5c) subject, not these fields.",
       "allOf": [
         { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" },
         {
@@ -77,14 +77,6 @@
             "organization": {
               "type": "string",
               "description": "Signer's organization"
-            },
-            "certificate": {
-              "type": "string",
-              "description": "X.509 certificate in PEM format"
-            },
-            "keyId": {
-              "type": "string",
-              "description": "Key identifier (DID, URL, or other identifier)"
             }
           }
         }
@@ -235,46 +227,36 @@
     },
     "signature": {
       "type": "object",
-      "description": "A digital signature entry",
-      "required": ["id", "algorithm", "signedAt", "signer", "value"],
+      "description": "A detached-JWS signature entry (section 3.3). The signed payload is JCS(scope); the signed protected header (base64url-encoded) carries alg, x5c, x5t#S256 and sigT.",
+      "required": ["id", "protected", "signature", "scope"],
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique signature identifier"
         },
-        "algorithm": {
-          "$ref": "#/$defs/signatureAlgorithm"
-        },
-        "signedAt": {
+        "protected": {
           "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 signing timestamp"
+          "description": "base64url-encoded signed JWS protected header (carries alg, x5c, x5t#S256, sigT)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
-        "signer": {
-          "$ref": "#/$defs/signer"
-        },
-        "value": {
-          "description": "Base64-encoded signature value",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
-        },
-        "certificateChain": {
-          "type": "array",
-          "description": "Certificate chain for validation",
-          "items": {
-            "type": "string",
-            "description": "X.509 certificate in PEM format"
-          }
-        },
-        "timestamp": {
-          "$ref": "#/$defs/trustedTimestamp"
+        "signature": {
+          "type": "string",
+          "description": "base64url-encoded JWS signature over BASE64URL(protected) + '.' + JCS(scope)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
         "scope": {
           "$ref": "#/$defs/signatureScope",
-          "description": "Scoped signature attestation (content + layout)"
+          "description": "The detached payload: what the signature covers (document id, manifest projection, layouts)"
         },
-        "webauthn": {
-          "$ref": "#/$defs/webauthnSignature",
-          "description": "WebAuthn signature data (alternative to value)"
+        "signer": {
+          "$ref": "#/$defs/signer",
+          "description": "Advisory signer display information; the authoritative identity is the signing-certificate subject"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/trustedTimestamp",
+          "description": "Advisory trusted timestamp"
         }
       },
       "additionalProperties": false
