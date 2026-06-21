@@ -16,6 +16,7 @@
     "check:manifest-projection": "npx tsx scripts/check-manifest-projection.ts",
     "check:jws-envelope": "npx tsx scripts/check-jws-envelope.ts",
     "check:trust-state": "npx tsx scripts/check-trust-state.ts",
+    "check:webauthn": "npx tsx scripts/check-webauthn.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

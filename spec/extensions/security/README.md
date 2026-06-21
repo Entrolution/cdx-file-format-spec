@@ -36,7 +36,7 @@ To use this extension, declare it in the manifest:
 
 ### 3.1 Signature Model
 
-A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3). A signature is a detached JWS (Section 3.3) over the canonical bytes of that scope:
+A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3). A signature is a detached JWS (Section 3.3) over the canonical bytes of that scope — or, for the WebAuthn credential path, an assertion that binds the same bytes through its challenge (Section 6):
 
 ```
 Signature = JWS(signing key, JCS(scope))      // scope.documentId is always present
@@ -65,7 +65,7 @@ Implementations MUST support ES256. Support for other algorithms is RECOMMENDED.
 
 Location: `security/signatures.json`
 
-Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/rfc7515), JSON Serialization) with an **unencoded** payload ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797), `b64:false`). The signed payload is `JCS(scope)`; the readable `scope` object is carried as a sibling member and is reconstructed — not stored — as the detached payload (see section 3.4). The signed protected header binds the algorithm, the signing certificate, and the signing time.
+Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/rfc7515), JSON Serialization) with an **unencoded** payload ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797), `b64:false`). The signed payload is `JCS(scope)`; the readable `scope` object is carried as a sibling member and is reconstructed — not stored — as the detached payload (see section 3.4). The signed protected header binds the algorithm, the signing credential (an X.509 chain or a keyId), and the signing time.
 
 This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.org/standards)); it does not claim a JAdES baseline conformance level. It omits the JAdES `sigD` descriptor: the detached payload is reconstructed as `JCS(scope)` per this section.
 
@@ -88,7 +88,7 @@ This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.or
 }
 ```
 
-> **Trust model status.** The X.509 certificate-chain trust model is specified in sections 3.7–3.10 and 7.4: a verifier validates the `x5c` chain to a verifier-configured trust store, checks revocation and validity, and assigns a state (section 3.8). The `keyId` and WebAuthn credential paths, and timestamp-based long-term validation, are specified in subsequent versions.
+> **Trust model status.** The X.509 certificate-chain trust model is specified in sections 3.7–3.10 and 7.4: a verifier validates the `x5c` chain to a verifier-configured trust store, checks revocation and validity, and assigns a state (section 3.8). The `keyId` (`kid`) credential path is specified for the self-certifying methods `did:key`/`did:jwk` and the out-of-band-resolved `did:web` method (section 3.11), each anchored by a verifier-configured pin. The **WebAuthn** credential path (section 6) is specified as a self-certifying COSE-key path, also anchored by a pin. Timestamp-based long-term validation is a subsequent version.
 
 ### 3.4 Signature Entry Fields
 
@@ -101,22 +101,26 @@ This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.or
 | `signer` | object | No | Advisory signer display information (see section 3.5) |
 | `timestamp` | object | No | Advisory trusted timestamp (see section 3.6) |
 
-**Protected header.** The base64url-decoded `protected` member is a JSON object with these parameters:
+These fields describe the **JWS shape** (the X.509 and keyId credential paths). A WebAuthn signature instead carries a `webauthn` member (section 6) in place of `protected`/`signature`/`timestamp`; `id`, `scope`, and `signer` are common to both. Exactly one shape per signature.
+
+**Protected header.** The base64url-decoded `protected` member is a JSON object. It carries `alg`, `b64`, `crit` and `sigT` on every signature, plus **exactly one credential path** — an X.509 certificate chain (`x5c` + `x5t#S256`) **or** a keyId (`kid`, plus `jkt` for `did:web`; section 3.11). Carrying both, or neither, is invalid.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `alg` | Yes | Signature algorithm (section 3.2) |
 | `b64` | Yes | MUST be `false` — the payload is unencoded (RFC 7797) |
-| `crit` | Yes | MUST be exactly `["b64"]` (a registered parameter such as `sigT` MUST NOT appear here) |
-| `x5c` | Yes | Signing certificate chain — standard base64 (RFC 4648 §4, padded; not base64url) of each certificate's DER, leaf-first |
-| `x5t#S256` | Yes | base64url SHA-256 thumbprint of the signing certificate |
+| `crit` | Yes | MUST be exactly `["b64"]` (a registered parameter such as `sigT` MUST NOT appear here; `jkt` is a profile parameter a CDX verifier processes despite its absence from `crit`) |
 | `sigT` | Yes | Signing time (ISO 8601 UTC), replacing the former unsigned `signedAt` |
+| `x5c` | X.509 path | Signing certificate chain — standard base64 (RFC 4648 §4, padded; not base64url) of each certificate's DER, leaf-first |
+| `x5t#S256` | X.509 path | base64url SHA-256 thumbprint of the signing certificate |
+| `kid` | keyId path | Key identifier — a `did:key`/`did:jwk`/`did:web` DID (section 3.11); mutually exclusive with `x5c`/`x5t#S256` |
+| `jkt` | did:web | base64url RFC 7638 SHA-256 thumbprint of the signing key — REQUIRED for `did:web` (it binds the out-of-band-resolved key); MUST NOT appear on any other path |
 
 The signature is computed over the **signing input** `BASE64URL(UTF8(protected)) + '.' + JCS(scope)`. The protected header is signed as its exact stored bytes — a verifier MUST use the stored `protected` string and MUST NOT re-serialize the decoded header. The detached payload, by contrast, is recomputed: a verifier MUST derive it as `JCS(scope)` from the `scope` member it displays, so the bytes verified are always the bytes shown.
 
 ### 3.5 Signer Information
 
-The `signer` object carries **advisory** display information only. The authoritative signer identity is the subject of the validated signing certificate (the `x5c` chain in the protected header). A verifier MUST NOT treat these fields as authenticated and MUST NOT elevate `signer.name`/`email` above the certificate subject.
+The `signer` object carries **advisory** display information only. The authoritative signer identity is the validated credential's identity — the subject of the signing certificate (`x5c`), or the resolved-and-anchored `kid` for the keyId path (sections 3.10, 3.11). A verifier MUST NOT treat these fields as authenticated and MUST NOT elevate `signer.name`/`email` above the credential identity.
 
 ```json
 {
@@ -155,12 +159,12 @@ To verify a signature and assign it a state (section 3.8):
 
 1. Extract the document ID from the manifest and recompute it from the content (integrity)
 2. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
-3. For each signature, compute the inputs to the state rules:
-   a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `x5c` present; the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10); and `sigT` well-formed and not after the reference time. A failure makes the state `invalid`
-   b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the public key of the leaf certificate `x5c[0]`. A failure makes the state `invalid`
+3. For each signature, compute the inputs to the state rules (a WebAuthn signature computes them per section 6.3 instead of steps a–e):
+   a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `sigT` well-formed and not after the reference time; and exactly one credential path that is internally consistent — for X.509, `x5c` present and the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10); for keyId, `kid` present and well-formed, the self-certifying methods' encoded key usable with `alg`, and a well-formed `jkt` for `did:web` (section 3.11). This is a header-shape check: for `did:web` it does **not** depend on resolution — an unresolvable key is decided at the trust path (step d), not here. A failure makes the state `invalid`
+   b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the credential's public key — the leaf certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or, for `did:web`, the resolved verification method whose thumbprint matches the signed `jkt` (section 3.11). A failure makes the state `invalid`. For `did:web`, if no matching key can be resolved the signature is not evaluated here — the credential is key-unavailable and decided at the trust path (step d)
    c. **Scope.** Verify `scope.documentId` matches the top-level `documentId`, and when `scope.manifest`/`scope.layouts` are present perform the scoped checks (section 9.5)
-   d. **Trust path.** Validate the `x5c` chain against the verifier's trust store (section 3.9), yielding `anchored`, `untrusted`, or `unknown`
-   e. **Revocation and validity.** Determine the certificate's revocation status and validity window (section 7.4)
+   d. **Trust path.** Anchor the credential to verifier-configured trust, yielding `anchored`, `untrusted`, or `unknown`: validate the `x5c` chain against the trust store (section 3.9), or anchor the resolved `kid` against the verifier's pin (section 3.11). For `did:web` this step performs the HTTPS resolution and the `jkt` key-match; an unresolvable or unmatched key is `unknown` (key-unavailable)
+   e. **Revocation and validity.** Determine the credential's revocation status and validity window (section 7.4)
 4. Combine these inputs into a state using the production rules of section 3.8, and report it
 
 This per-signature state carries no meaning about the completeness of the signature *set*; detecting a stripped or downgraded set is a separate, later concern (Section 9.8).
@@ -173,16 +177,16 @@ A verifier MUST assign each signature exactly one state. The inputs are the verd
 
 | # | Condition | State |
 |---|-----------|-------|
-| 1 | Header inconsistent, or the signature does not verify under `x5c[0]` | `invalid` |
-| 2 | A trusted timestamp shows the certificate was outside its validity when it signed | `invalid` |
-| 3 | The chain could not be evaluated | `unknown` |
-| 4 | The chain does not anchor to the trust store | `untrusted` |
-| 5 | The certificate is revoked | `revoked` |
+| 1 | Header/binding inconsistent, or the signature does not verify under the credential key (`x5c[0]`, the key resolved from `kid`, or the WebAuthn `publicKey`) | `invalid` |
+| 2 | A trusted timestamp shows the credential was outside its validity when it signed | `invalid` |
+| 3 | The credential could not be evaluated | `unknown` |
+| 4 | The credential does not anchor to verifier-configured trust | `untrusted` |
+| 5 | The credential is revoked | `revoked` |
 | 6 | Revocation could not be determined | `unknown` |
-| 7 | The certificate is expired at verification time | `expired` |
+| 7 | The credential is expired at verification time | `expired` |
 | 8 | Otherwise | `valid` |
 
-A verifier MUST NOT report `valid` for a signature whose chain does not anchor (`untrusted`) or whose revocation could not be confirmed (`unknown`). For any security decision a verifier MUST treat `unknown` as non-acceptance — no weaker than `untrusted` — and MUST NOT fail open. Because the `x5c` chain and any stapled revocation material are document-supplied, their incompleteness MUST NOT downgrade an otherwise-determinable adverse verdict: a verifier SHOULD obtain the missing material independently (fetch the intermediate, query the issuer's OCSP/CRL) rather than let a withheld intermediate or omitted revocation response turn a `revoked` or `untrusted` ground truth into a softer `unknown`.
+A verifier MUST NOT report `valid` for a signature whose credential does not anchor (`untrusted`) or whose revocation could not be confirmed (`unknown`). For any security decision a verifier MUST treat `unknown` as non-acceptance — no weaker than `untrusted` — and MUST NOT fail open. Because the `x5c` chain and any stapled revocation material are document-supplied, their incompleteness MUST NOT downgrade an otherwise-determinable adverse verdict: a verifier SHOULD obtain the missing material independently (fetch the intermediate, query the issuer's OCSP/CRL) rather than let a withheld intermediate or omitted revocation response turn a `revoked` or `untrusted` ground truth into a softer `unknown`.
 
 Rule 2 cannot fire until timestamp validation is specified (a subsequent version): until then the reference time is the self-asserted `sigT`, which is untrusted, so a `sigT` falling outside the certificate validity window is ignored rather than taken as proof of out-of-window signing. While the reference time is untrusted, a verifier MUST NOT present `sigT` as an attested signing time, and SHOULD warn when a signature reports `valid` yet its asserted `sigT` falls outside the certificate validity window.
 
@@ -193,6 +197,8 @@ A signature is trustworthy only relative to a **trust anchor the verifier config
 - A verifier MUST validate the `x5c` chain (leaf `x5c[0]` to a root) against a **verifier-configured trust store** — a set of trusted root certificates, or an equivalent trusted-list policy — supplied by the verifier's deployment. The trust store MUST NOT be derived from the document.
 - **Derivation rule (normative).** If the chain has a valid path to a configured anchor, `chainResult` is `anchored`. If it has no such path — including a self-signed certificate, or a chain rooted at an untrusted CA — `chainResult` is `untrusted`. If the path cannot be evaluated (e.g. a required intermediate is unavailable), `chainResult` is `unknown`.
 - A document MAY carry a trust-policy hint, but it is advisory: the authoritative anchor is always verifier-side.
+- The **keyId** credential path (section 3.11) anchors a resolved key by the same principle — a verifier-configured pin on the specific `kid` (or, for `did:web`, its exact domain), never the DID *method* and never document-supplied material; a key that is not pinned is `untrusted`. `did:web` additionally authenticates its HTTPS resolution against a **Web-PKI trust store** — a second trust store, distinct from these signature anchors (sections 3.11, 8.5).
+- The **WebAuthn** credential path (section 6) anchors by the same pin principle — a verifier pin on the self-asserted `publicKey` (plus the configured signing rpId and the UV policy); an unpinned or policy-unmet assertion is `untrusted`. `credentialId` is advisory, never the anchor.
 
 ### 3.10 Identity Authority
 
@@ -200,6 +206,36 @@ The authoritative signer identity is the **subject** (and subject-alternative na
 
 - A verifier MUST NOT treat `signer.name`, `signer.email`, or any other `signer` field as authenticated, and MUST NOT present them as the signer's identity in preference to the certificate subject. (Forging `signer.name` is otherwise free.)
 - The signing certificate is already bound by the signature: `x5c` is part of the signed protected header (section 3.4), so substituting any certificate changes the signing input and breaks verification (rule 1). The header additionally carries `x5t#S256`, which MUST equal `BASE64URL(SHA-256(DER(x5c[0])))` — the unpadded base64url SHA-256 of the DER bytes `x5c[0]` decodes to — as a JAdES-conformant, fail-fast consistency check identifying the leaf certificate. A verifier MUST reject (`invalid`) a signature whose `x5t#S256` does not match `x5c[0]`.
+- For the **keyId** credential path there is no certificate subject; the authoritative identity is the resolved-and-anchored `kid` itself (the DID, or its resolved controller — section 3.11). The same advisory rule applies: a verifier MUST NOT present `signer.name`/`email` as the identity in preference to the DID. A DID that appears only as an advisory identifier elsewhere — a `signer` field, or a provenance/author `identifier` — is **not** authenticated by being named; only a signature's resolved-and-anchored credential carries authenticated identity.
+- For the **WebAuthn** credential path the authoritative identity is the verifier's binding of the **pinned `publicKey`** (section 6). `credentialId` and `signer` fields are advisory only — a verifier MUST NOT present them as the authenticated identity.
+
+### 3.11 keyId Resolution
+
+A signature MAY carry a **keyId** (`kid`) in its protected header instead of an X.509 chain (`x5c`) — exactly one credential path per signature (section 3.4). The `kid` is a [Decentralized Identifier](https://www.w3.org/TR/did-core/) (DID). This version specifies two families: the **self-certifying** methods `did:key` and `did:jwk` (the verification key is encoded in the identifier itself), and the out-of-band-resolved **`did:web`** method (the key is fetched over HTTPS and bound by a signed `jkt` thumbprint — see *did:web resolution* below). The next subsections state the self-certifying rules; `did:web` adds the resolution, key-binding and transport obligations its fetched key requires.
+
+**Resolution (self-certifying).** A verifier resolves a `did:key`/`did:jwk` `kid` by decoding the public key directly from the identifier — no network fetch: for `did:key`, the multibase-encoded key; for `did:jwk`, the base64url-encoded JWK. The decoded key MUST be usable with the header's `alg`; a mismatch makes the header inconsistent (`invalid`, section 3.8 rule 1). A `kid` SHOULD be a DID URL whose fragment selects a single verification method; for `did:key`/`did:jwk` the bare DID already resolves to exactly one key.
+
+**Key binding (self-certifying).** The `kid` is part of the signed protected header, so substituting it changes the signing input and breaks verification (section 3.8 rule 1) — the identifier is bound to the signature exactly as `x5c` is. For these self-certifying methods the key *is* the identifier, so the signed `kid` also binds the key bytes themselves; no separate thumbprint is required, and a `jkt` MUST NOT be present (section 3.4). (The out-of-band `did:web` method returns a key that is **not** covered by the signature; it therefore binds the key with a signed `jkt` thumbprint — the keyId-path analogue of `x5t#S256` (section 3.10) — and checks the resolved key against it before acceptance, below.)
+
+**Trust anchoring — derivation rule (normative).** A resolved key is `anchored` (section 3.8) **iff the specific `kid` is pinned in the verifier's configuration**: an allowlist of trusted DIDs (or trusted controllers/issuers) supplied by the verifier's deployment, never derived from the document. A verifier MUST NOT trust a DID *method* wholesale — anyone can mint a `did:key`/`did:jwk`, so trusting the method trusts everyone and is a fail-open. A self-certifying key that is not pinned is `untrusted`: the in-`kid` key material is self-asserted and, like in-archive certificate material (section 3.9), is never self-authorizing — otherwise an attacker mints a DID, signs the genuine content, and a verifier reports `valid`. If the `kid` cannot be parsed or decoded into a usable key, `chainResult` is `unknown`.
+
+**Validity and revocation.** A self-certifying `did:key`/`did:jwk` key carries no validity window and no revocation responder:
+- It has no `[notBefore, notAfter]`, so it is never `expired`, and a signing time is never "outside validity" on this ground alone. By this rule the section 3.8 inputs are `certCurrentlyExpired = false` and `signingTimeWithinValidity = true` — a stated derivation, not a vacuous default.
+- Its revocation is governed entirely by the verifier's pin: a still-pinned key's `revocationStatus` is `good`, and an un-pinned key is already `untrusted` at the trust-path step (so revocation is never reached). Because the pin is current, verifier-controlled, and document-independent, treating an anchored self-certifying key as `good` is not a fail-open. To "revoke" such a key the verifier removes it from the allowlist; there is no OCSP/CRL analogue. This is a documented limitation of self-certifying credentials (`did:web`, below, has a genuine deactivation channel).
+
+**did:web resolution.** A `did:web` key is fetched, not encoded, so it carries obligations the self-certifying methods do not. A verifier:
+
+- **Resolves over validated HTTPS.** `did:web:<domain>` resolves to `https://<domain>/.well-known/did.json`; `did:web:<domain>:<a>:<b>` to `https://<domain>/<a>/<b>/did.json` (a `%3A`-encoded port is permitted in the domain). Resolution MUST use HTTPS with the server certificate validated against the verifier's **Web-PKI trust store** — a store distinct from the signature trust anchors (section 3.9). A verifier MUST reject `http://`; MUST NOT resolve a host that is an IP-literal, `localhost`, `*.local`, or that resolves to a private, loopback, or link-local address (an SSRF defence — the verifier fetches an identifier-controlled URL); and MUST NOT follow a redirect to a different origin (a cross-origin redirect is a resolution failure, and the *pinned* name — not the redirect target — always governs anchoring). To resist DNS rebinding it SHOULD pin the resolved address for the connection and re-check it against the deny ranges. These are verifier obligations the conformance gates cannot execute (section 8.5).
+
+- **Obtains the intended key by thumbprint.** The signed `jkt` is the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) SHA-256 thumbprint (for OKP/Ed25519 keys, the member set is [RFC 8037](https://www.rfc-editor.org/rfc/rfc8037) §2) of the signing key. A verifier MUST select the resolved verification method whose key thumbprints to `jkt`, recomputing the thumbprint over the **canonical** key — the required JWK members only (`{crv,kty,x,y}` for EC, `{crv,kty,x}` for OKP, `{e,kty,n}` for RSA), lexicographically ordered, no whitespace — never by hashing the served bytes verbatim (RFC 7638 §3.1). A verification method MAY publish its key as `publicKeyJwk` or `publicKeyMultibase` (the latter is converted to a JWK before thumbprinting); a method whose key cannot be expressed as a supported JWK is treated as non-matching. The `jkt` is authoritative: a `kid` fragment, if present, is only a resolution hint, and a verifier MUST NOT accept a fragment-named key whose thumbprint differs from `jkt`. The selected method's `controller` MUST be the resolved DID itself (an absent `controller` defaults to the document subject); a method controlled by a third party is not the signer's key.
+
+- **Binds the key (derivation rule, normative).** Because `jkt` is signed, it binds the key that out-of-band material cannot: substituting the served key changes its thumbprint, which then no longer matches. If **no** served verification method matches `jkt` — resolution failed, the key was rotated away, or a different key is served — the credential is **key-unavailable**: `chainResult` is `unknown` (state `unknown`, section 3.8), never `invalid` (a verifier cannot prove forgery without the key) and never `valid` (fail-closed). The signature is verified only once the matching key is in hand; key-unavailability is carried solely by `chainResult`, so rule 1 never misfires. Without a trusted timestamp (a subsequent version) only the **current** DID document is testable, so a key rotated away — rather than retained in the document — makes a historical signature `unknown` (the did:web analogue of long-term validation).
+
+- **Anchors to a pinned DID or domain (derivation rule, normative).** A resolved-and-matched key is `anchored` **iff the specific DID, or its exact domain, is pinned in the verifier's configuration** — never the `did:web` method as a whole (that trusts any domain holder: a fail-open). A trusted-domain policy anchors only DIDs under that exact host and port. Pin comparison is exact: the DID allowlist matches the full `kid` byte-for-byte (ignoring any fragment); a domain policy matches the ASCII-lowercased, percent-decoded host and the port exactly (no implicit `:443`). An unpinned key is `untrusted`. As in section 3.9, the anchor is always verifier-side and never derived from the document.
+
+- **Revocation (derivation rule, normative).** A `did:web` DID document MAY be **deactivated**. `revocationStatus` is `revoked` **only** when the resolved document is explicitly `deactivated: true`; an otherwise-resolvable, non-deactivated document is `good`. A document that is unreachable, or whose matching key is merely absent, is *not* `revoked` — it is key-unavailable (`unknown`, above). Because the document is served by the same origin as the key, `deactivated` is suppressible by a malicious or coerced origin: it is present-tense, advisory-grade revocation — weaker than OCSP/CRL — and, lacking trusted time, cannot answer "was it deactivated at signing time."
+
+- **Validity window.** A `did:web` key carries no `[notBefore, notAfter]` (its lifecycle is rotation/deactivation), so — as for the self-certifying methods — `certCurrentlyExpired = false` and `signingTimeWithinValidity = true` (section 3.8).
 
 ## 4. Encryption
 
@@ -334,27 +370,70 @@ Principals identify who permissions apply to:
 
 ### 6.1 Overview
 
-Documents can be signed using hardware security keys via WebAuthn.
+A signature MAY be a **WebAuthn/FIDO2 assertion** instead of a JWS (section 3.4) — a third credential path. Its purpose is narrow but real: it lets a signer use a **non-exportable hardware authenticator** (a passkey or security key that never releases its private key, so a `did:jwk` over that key is impossible — the authenticator only ever produces assertions).
 
-> **Status: deferred.** WebAuthn signatures are not available in this version. A WebAuthn assertion signs over `authenticatorData || hash(clientDataJSON)` rather than the JWS signing input of Section 3.3, so it cannot produce a scoped (manifest-covering) signature, and it carries no X.509 identity for the trust model. The `webauthn` member has therefore been removed from the signature schema pending a defined WebAuthn trust-and-binding profile in a subsequent version. The structure below is retained for reference only.
+A WebAuthn authenticator signs `authenticatorData || SHA-256(clientDataJSON)`, not `JCS(scope)`. CDX binds the document by setting the assertion's **challenge** to the scope commitment:
 
-### 6.2 WebAuthn Signature
+```
+clientDataJSON.challenge = BASE64URL(SHA-256(JCS(scope)))
+```
+
+so a WebAuthn signature attests the same `JCS(scope)` bytes the X.509/keyId paths sign — it is a scoped, manifest-covering signature (the `scope.manifest` coverage requirement for `frozen`/`published` documents, section 9.8, applies to the WebAuthn shape too).
+
+The trust model is the **self-certifying model of section 3.11**: the credential's public key is self-asserted (carried as `publicKey`) and is `untrusted` unless the verifier **pins** it. A WebAuthn credential is, in effect, a `did:key` whose key lives in a FIDO authenticator. This framing is deliberate — it makes three honest limitations expected rather than surprising (section 6.4): **no liveness**, **no phishing resistance**, and **no authenticator-model assurance**.
+
+### 6.2 Signature Structure
+
+A WebAuthn signature carries a `webauthn` member in place of the JWS `protected`/`signature`; the two shapes are mutually exclusive (section 3.4):
 
 ```json
 {
-  "algorithm": "ES256",
+  "id": "sig-fido",
   "webauthn": {
-    "credentialId": "base64...",
-    "authenticatorData": "base64...",
-    "clientDataJSON": "base64...",
-    "signature": "base64..."
-  }
+    "algorithm": "ES256",
+    "credentialId": "base64url… (advisory)",
+    "authenticatorData": "base64url…",
+    "clientDataJSON": "base64url…",
+    "signature": "base64url…",
+    "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url…", "y": "base64url…" }
+  },
+  "scope": { "documentId": "sha256:…", "manifest": {  } },
+  "signer": { "name": "…" }
 }
 ```
 
-### 6.3 Verification (reference only)
+| Field | Required | Description |
+|-------|----------|-------------|
+| `algorithm` | Yes | COSE signature algorithm — `ES256` (MUST support), `ES384`, or `EdDSA` |
+| `authenticatorData` | Yes | base64url authenticatorData (`rpIdHash` ‖ flags ‖ signCount ‖ …) |
+| `clientDataJSON` | Yes | base64url of the **exact** clientDataJSON bytes the authenticator signed |
+| `signature` | Yes | base64url WebAuthn signature over `authenticatorData ‖ SHA-256(clientDataJSON)` (ECDSA in ASN.1 DER) |
+| `publicKey` | Yes | The credential's COSE public key **as a JWK** (EC P-256/P-384 or OKP Ed25519); the trust anchor when pinned |
+| `credentialId` | No | base64url WebAuthn credential id — **advisory** routing hint, never the trust anchor |
 
-When reintroduced, WebAuthn signatures would be verified using the WebAuthn verification procedure. Binding the WebAuthn challenge to the JWS signing input of Section 3.3 — a WebAuthn assertion signs `authenticatorData || hash(clientDataJSON)`, not that input — is the open issue deferred per Section 6.1.
+The COSE public key is carried as a JWK so the pin reuses the same RFC 7638 thumbprint mechanism as `did:web` (section 3.11); the signing tool performs the one-time COSE→JWK conversion.
+
+### 6.3 Verification
+
+To verify a WebAuthn signature and compute the section 3.8 inputs:
+
+1. **Binding** (→ `headerConsistent`; failure makes the state `invalid`). Decode `clientDataJSON` and hash its **exact stored bytes** for step 3; **parse** — never re-serialize, as clientDataJSON is not canonical — to read `type`, `challenge`, `origin`. Require `type == "webauthn.get"`; require the parsed `challenge` to equal `BASE64URL(SHA-256(JCS(scope)))` recomputed from the displayed `scope` (constant-time compare); require `algorithm` to agree with `publicKey`; and require the **User-Present (UP)** flag in `authenticatorData` (a `get` assertion with UP=0 is malformed). The challenge hash is always SHA-256, independent of `algorithm`.
+2. **Validity.** A WebAuthn credential has no `[notBefore, notAfter]`, so `certCurrentlyExpired = false` and `signingTimeWithinValidity = true`.
+3. **Signature** (→ `signatureVerifies`). Verify the assertion `signature` over `authenticatorData || SHA-256(clientDataJSON)` (the stored bytes) under `publicKey`. ECDSA signatures are ASN.1 DER, not the raw r‖s of JOSE.
+4. **Trust** (→ `chainResult`). `anchored` iff the verifier **pins** `publicKey` (by RFC 7638 thumbprint) **and** the assertion's `rpIdHash` matches the verifier's configured signing rpId **and** the **User-Verified (UV)** flag satisfies policy. A genuine but unpinned or policy-unmet assertion is `untrusted` — never `invalid` (it is a real signature the verifier's policy does not accept, exactly as an unpinned `did:key` is `untrusted`, section 3.11).
+5. **Revocation** (→ `revocationStatus`). No responder; governed by the pin (an anchored credential is `good`; an unpinned one is already `untrusted`). To revoke, the verifier un-pins the key.
+
+Combine via the production rules of section 3.8.
+
+### 6.4 Trust Model, Identity, and Limits
+
+- **Identity** is the verifier's binding of the **pinned `publicKey`** (section 3.10). `credentialId` and any `signer` field are advisory and MUST NOT be the authenticated identity.
+- **origin / rpId is domain separation, not phishing resistance.** A document signer is not a web browser, so nothing independent constrains the `origin`/`rpId` a signing tool writes — an attacker forging an assertion sets them freely. A verifier checks `rpIdHash` against its configured signing rpId only to keep a CDX-signing credential **scoped apart from web-login credentials**; it provides no phishing resistance, and this profile claims none.
+- **No liveness.** The challenge is a deterministic function of the document, so the assertion is reusable, not a one-time server nonce. Lifting an assertion onto a document with the **same** `JCS(scope)` succeeds — the identical, accepted property of every detached signature (section 3.1); lifting onto a **different** scope fails the challenge binding (`invalid`). There is no proof a live user approved a session; revocation is un-pinning, and (lacking trusted time) there is no historical validity.
+- **The signature counter is not interpreted.** With no server session there is no monotonic state to compare against (and many passkeys report 0), so a verifier MUST NOT attempt clone detection from it.
+- **Backup eligibility.** The `BE`/`BS` flags mark a **syncable** (multi-device) credential: a backup-eligible key is **not** hardware-bound — its private key may live in a cloud keychain across the signer's devices. A verifier policy MAY require `BE = 0` for high assurance; this profile does not imply hardware binding for a synced passkey.
+- **Attestation is deferred.** This version verifies assertions only, so it learns nothing authenticated about the authenticator model (AAGUID, FIDO certification level). Requiring certified hardware needs attestation (AAGUID + the FIDO Metadata Service), a subsequent version.
+- **Fields not honored.** The `appid` extension (legacy U2F), `tokenBinding`, and any `clientDataJSON.crossOrigin: true` are not used; authenticatorData extensions (the `ED` flag) are ignored.
 
 ## 7. Key Management Guidance
 
@@ -389,6 +468,8 @@ A **verifier** MUST, for each signature — this is what makes revocation meanin
 - Determine revocation status via OCSP or a CRL — online against the issuing CA, or from revocation material stapled with the signature — yielding `good`, `revoked`, or `unknown`.
 - **Derivation rule (normative).** A `good`/`revoked` determination requires a trusted assessment time. Until timestamp validation is specified, the reference time is the untrusted `sigT`, so a **stapled** OCSP/CRL response — whose freshness window cannot then be established — MUST be treated as `unknown`, never `good`. An online check against a live responder (which carries its own trusted clock) MAY yield `good`/`revoked`.
 
+For a self-certifying **keyId** credential (`did:key`/`did:jwk`, section 3.11) or a **WebAuthn** credential (section 6) there is no certificate validity window and no revocation responder: revocation is governed entirely by the verifier's pin — an anchored (still-pinned) key is `good`, and an un-pinned key is already `untrusted` at the trust-path step (section 3.8). To revoke such a key the verifier removes it from its allowlist. A `did:web` DID instead has a deactivation channel: a resolved document with `deactivated: true` is `revoked`; but, served by the key's own origin, it is suppressible and present-tense (advisory-grade, not an OCSP/CRL — section 3.11).
+
 A verifier that cannot perform these checks MUST NOT report `valid` (section 3.8). Long-term validation — verifying offline after the certificate expires, using stapled revocation material bound to a validated timestamp — is specified in a subsequent version.
 
 ## 8. Security Considerations
@@ -416,9 +497,9 @@ Use well-audited cryptographic libraries that protect against side-channel attac
 
 ### 8.5 Trust Model Scope and Limits
 
-This extension specifies an **X.509 trust model**: a signature is trustworthy only if its `x5c` chain validates to a verifier-configured trust store (section 3.9). The format is *aligned* with the JAdES/eIDAS model but is **not** CMS/PAdES wire-conformant — it does not interoperate with PDF signature verifiers, and the signer-identity, algorithm, and certificate bindings are enforced as **verifier obligations** (sections 3.7–3.10), not as signed CMS attributes.
+This extension specifies an **X.509 trust model**: a signature is trustworthy only if its `x5c` chain validates to a verifier-configured trust store (section 3.9). It also specifies a self-certifying **keyId** path (`did:key`/`did:jwk`, section 3.11): such a key is trustworthy only if the specific `kid` is pinned in the verifier's configuration — never on the strength of the in-document identifier alone. The `did:web` method additionally resolves its key over HTTPS, so its trust depends on the **Web-PKI for the pinned domain** — any certificate authority able to issue for that domain, together with the domain's DNS and hosting, joins the trusted base. A `did:web` signature is therefore **weaker than a pinned `did:key`** (a key fixed in the identifier with no live dependency), and deployments SHOULD treat the two accordingly. It also specifies a **WebAuthn** path (section 6): the `did:key` pin model carried via a FIDO assertion, so it can be signed by a non-exportable hardware authenticator — but it adds **no liveness** (the deterministic challenge makes the assertion reusable, not one-time), **no phishing resistance** (a document signer has no browser-enforced origin; `rpId` gives only domain separation), and **no authenticator-model assurance** (attestation is deferred), as section 6.4 states in full. The format is *aligned* with the JAdES/eIDAS model but is **not** CMS/PAdES wire-conformant — it does not interoperate with PDF signature verifiers, and the signer-identity, algorithm, certificate, keyId, and WebAuthn bindings are enforced as **verifier obligations** (sections 3.7–3.11, 6), not as signed CMS attributes.
 
-The conformance gates in this repository check the *structure* of signatures and the *production rules* that map verification verdicts to states (section 3.8); they cannot, and do not, execute a real trust store, certificate-path validation, or revocation lookup. Those are normative obligations a conforming verifier MUST perform and that an external conformance suite can target. A green build does not certify cryptographic verification.
+The conformance gates in this repository check the *structure* of signatures and the *production rules* that map verification verdicts to states (section 3.8); they cannot, and do not, execute a real trust store, certificate-path validation, revocation lookup, DID resolution / key-decoding, keyId-pin (allowlist) evaluation, the HTTPS/TLS validation and SSRF/redirect defences `did:web` resolution requires, the `jkt`-to-resolved-key thumbprint match, or the WebAuthn credential pin and rpId/UV policy (the WebAuthn signature, its scope-challenge binding, and the User-Present flag *are* checked; the credential pin and the rpId/UV policy are not). Those are normative obligations a conforming verifier MUST perform and that an external conformance suite can target. A green build does not certify cryptographic verification.
 
 Each signature's state is **per-signature**: it does not attest that the signature *set* is complete. An attacker may still strip or downgrade signatures; binding the set against that is a subsequent version.
 

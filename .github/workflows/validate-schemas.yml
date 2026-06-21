@@ -80,3 +80,6 @@ jobs:
 
       - name: Check trust state
         run: npm run check:trust-state
+
+      - name: Check WebAuthn
+        run: npm run check:webauthn
