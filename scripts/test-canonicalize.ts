@@ -221,7 +221,7 @@ test('strip: crdt removed from a block', () => {
     content: { version: '0.1', blocks: [{ type: 'paragraph', id: 'p1', crdt: { seq: 42 }, children: [{ type: 'text', value: 'hi' }] }] },
   }).blocks;
   assert.equal('crdt' in blocks[0], false);
-  assert.equal(blocks[0].id, 'p1');
+  assert.equal(blocks[0].id, 'b0'); // id survives crdt stripping, then is alpha-renamed (§4.3.1 item 5)
 });
 
 test('strip: crdt removed from a text node (then it becomes mergeable)', () => {
@@ -471,7 +471,7 @@ test('merge: adjacent text nodes with equal mark-sets merge; differing marks do 
   ]);
 });
 
-test('merge: a text node carrying an id is a boundary (not merged, id preserved)', () => {
+test('merge: a text node carrying an id is a boundary (not merged; id alpha-renamed)', () => {
   const children = canonContent({
     content: {
       version: '0.1',
@@ -487,7 +487,7 @@ test('merge: a text node carrying an id is a boundary (not merged, id preserved)
     },
   }).blocks[0].children;
   assert.deepEqual(children, [
-    { type: 'text', value: 'a', id: 'anchor1' },
+    { type: 'text', value: 'a', id: 'b0' },
     { type: 'text', value: 'b' },
   ]);
 });
@@ -779,6 +779,281 @@ test('asset: an aliasOf entry carrying its own path+hash still resolves', () => 
     content: { version: '0.1', blocks: [{ type: 'image', src: 'assets/images/logo-copy.png', alt: 'x' }] },
   }).blocks;
   assert.equal(blocks[0].src, HASH256('a'));
+});
+
+// ---------------------------------------------------------------------------
+// Alpha-renaming of block/anchor ids (§4.3.1 item 5)
+// ---------------------------------------------------------------------------
+
+test('relabel: block ids are assigned b0,b1,… in document order', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'title', level: 1, children: [{ type: 'text', value: 'T' }] },
+        { type: 'paragraph', id: 'intro', children: [{ type: 'text', value: 'p' }] },
+        { type: 'horizontalRule', id: 'rule' },
+      ],
+    },
+  }).blocks;
+  assert.deepEqual([blocks[0].id, blocks[1].id, blocks[2].id], ['b0', 'b1', 'b2']);
+});
+
+test('relabel: a nested block id follows its parent in document order', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'blockquote', id: 'outer', children: [{ type: 'paragraph', id: 'inner', children: [{ type: 'text', value: 'x' }] }] },
+        { type: 'paragraph', id: 'after', children: [{ type: 'text', value: 'y' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // outer
+  assert.equal(blocks[0].children[0].id, 'b1'); // inner (after its parent)
+  assert.equal(blocks[1].id, 'b2'); // after
+});
+
+test('relabel: a link href #blockId is rewritten to the canonical name', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'sec', level: 1, children: [{ type: 'text', value: 'S' }] },
+        { type: 'paragraph', children: [{ type: 'text', value: 'see', marks: [{ type: 'link', href: '#sec' }] }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[1].children[0].marks[0].href, '#b0');
+});
+
+test('relabel: a #ref preserves its /offset suffix; an unresolved #ref is left verbatim', () => {
+  const children = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        {
+          type: 'paragraph',
+          id: 'sec',
+          children: [
+            { type: 'text', value: 'a', marks: [{ type: 'link', href: '#sec/10-25' }] },
+            { type: 'text', value: 'b', marks: [{ type: 'link', href: '#ghost' }] },
+          ],
+        },
+      ],
+    },
+  }).blocks[0].children;
+  assert.equal(children[0].marks[0].href, '#b0/10-25'); // id rewritten, offset preserved
+  assert.equal(children[1].marks[0].href, '#ghost'); // unresolved → verbatim (no error)
+});
+
+test('relabel: an anchor mark id is relabeled and a #ref to it is rewritten consistently', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'paragraph', children: [{ type: 'text', value: 'point', marks: [{ type: 'anchor', id: 'pt' }] }] },
+        { type: 'paragraph', children: [{ type: 'text', value: 'ref', marks: [{ type: 'link', href: '#pt' }] }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].children[0].marks[0].id, 'b0'); // anchor mark id (the only def) → b0
+  assert.equal(blocks[1].children[0].marks[0].href, '#b0'); // link to it rewritten
+});
+
+test('relabel: a marks array is re-sorted after rewriting (so output stays JCS-ordered)', () => {
+  // m is defined before k → m=b0, k=b1. The node lists links href-sorted as
+  // [#k, #m] (#k<#m); after rewrite to [#b1, #b0] they MUST be re-sorted to [#b0,#b1].
+  const marks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'm', level: 1, children: [{ type: 'text', value: 'M' }] },
+        { type: 'heading', id: 'k', level: 1, children: [{ type: 'text', value: 'K' }] },
+        { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#k' }, { type: 'link', href: '#m' }] }] },
+      ],
+    },
+  }).blocks[2].children[0].marks;
+  assert.deepEqual(marks, [{ type: 'link', href: '#b0' }, { type: 'link', href: '#b1' }]);
+});
+
+test('relabel: academic uses/of/target rewrite to block ids; an equation-line target stays verbatim', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'academic:theorem', id: 'def1', variant: 'definition', children: [] },
+        { type: 'academic:theorem', id: 'thm1', variant: 'theorem', uses: ['#def1'], children: [] },
+        { type: 'academic:proof', of: '#thm1', children: [] },
+        { type: 'academic:equation-group', id: 'eqg', lines: [{ value: 'a=b', id: 'eq-1' }] },
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', value: 'a', marks: [{ type: 'theorem-ref', target: '#thm1' }] },
+            { type: 'text', value: 'b', marks: [{ type: 'equation-ref', target: '#eq-1' }] },
+            { type: 'text', value: 'c', marks: [{ type: 'algorithm-ref', target: '#def1', line: 'loop' }] },
+          ],
+        },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[1].uses[0], '#b0'); // theorem.uses → def1
+  assert.equal(blocks[2].of, '#b1'); // proof.of → thm1
+  const refs = blocks[4].children;
+  assert.equal(refs[0].marks[0].target, '#b1'); // theorem-ref → thm1
+  assert.equal(refs[1].marks[0].target, '#eq-1'); // equation-ref → equation-LINE id: deferred, verbatim
+  assert.equal(refs[2].marks[0].target, '#b0'); // algorithm-ref target → def1
+  assert.equal(refs[2].marks[0].line, 'loop'); // algorithm-ref.line: separate namespace, verbatim
+  assert.equal(blocks[3].lines[0].id, 'eq-1'); // equation-line id (no type field) → deferred, verbatim
+});
+
+test('relabel: semantic:ref and presentation:reference block targets are rewritten', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'h', level: 1, children: [{ type: 'text', value: 'H' }] },
+        { type: 'semantic:ref', target: '#h', children: [] },
+        { type: 'presentation:reference', target: '#h', format: 'Fig #' },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[1].target, '#b0');
+  assert.equal(blocks[2].target, '#b0');
+});
+
+test('relabel: footnote BLOCK id is relabeled but the footnote MARK id is left verbatim (no false dup)', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'footnote', number: 1, id: 'fn1' }] }] },
+        { type: 'semantic:footnote', number: 1, id: 'fn1', children: [{ type: 'paragraph', children: [{ type: 'text', value: 'note' }] }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].children[0].marks[0].id, 'fn1'); // footnote MARK: separate namespace → verbatim
+  assert.equal(blocks[1].id, 'b0'); // footnote BLOCK: a block id → relabeled
+});
+
+test('relabel: separate-namespace mark fields are verbatim even when equal to a block id', () => {
+  const children = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        {
+          type: 'paragraph',
+          id: 'p',
+          children: [
+            { type: 'text', value: 'a', marks: [{ type: 'glossary', ref: 'p' }] },
+            { type: 'text', value: 'b', marks: [{ type: 'citation', refs: ['p'] }] },
+          ],
+        },
+      ],
+    },
+  }).blocks[0].children;
+  // 'p' is a block id (→ b0), but glossary.ref / citation.refs are NOT anchor refs,
+  // so they keep the literal 'p' even though it coincides with a block id.
+  assert.equal(children[0].marks[0].ref, 'p');
+  assert.equal(children[1].marks[0].refs[0], 'p');
+});
+
+test('relabel: deferred ids lacking a type field (subfigure, equation-line) are left verbatim', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'figure', id: 'fig', subfigures: [{ id: 'sub-a', label: 'a', children: [{ type: 'paragraph', children: [{ type: 'text', value: 'x' }] }] }] },
+        { type: 'academic:equation-group', id: 'eqg', lines: [{ value: 'a', id: 'line-1' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // figure block id → relabeled
+  assert.equal(blocks[0].subfigures[0].id, 'sub-a'); // subfigure (no type) → verbatim
+  assert.equal(blocks[1].id, 'b1'); // equation-group block id → relabeled
+  assert.equal(blocks[1].lines[0].id, 'line-1'); // equation-line (no type) → verbatim
+});
+
+test('relabel: a duplicate id in the block/anchor namespace is rejected', () => {
+  assert.throws(
+    () =>
+      canonContent({
+        content: { version: '0.1', blocks: [
+          { type: 'paragraph', id: 'dup', children: [] },
+          { type: 'paragraph', id: 'dup', children: [] },
+        ] },
+      }),
+    CanonicalizationError,
+  );
+});
+
+test('purity: two documents differing only in id labels get the same document id', () => {
+  const mk = (a: string, b: string) =>
+    makeParts({
+      content: {
+        version: '0.1',
+        blocks: [
+          { type: 'heading', id: a, level: 1, children: [{ type: 'text', value: 'Title' }] },
+          { type: 'paragraph', id: b, children: [{ type: 'text', value: 'above', marks: [{ type: 'link', href: `#${a}` }] }] },
+        ],
+      },
+    });
+  assert.equal(computeDocumentId(mk('intro', 'body'), 'sha256'), computeDocumentId(mk('alpha', 'beta'), 'sha256'));
+});
+
+test('purity: relabeling does NOT collapse documents that differ in reference structure', () => {
+  const mk = (target: string) =>
+    makeParts({
+      content: {
+        version: '0.1',
+        blocks: [
+          { type: 'heading', id: 'h1', level: 1, children: [{ type: 'text', value: 'A' }] },
+          { type: 'heading', id: 'h2', level: 1, children: [{ type: 'text', value: 'B' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: `#${target}` }] }] },
+        ],
+      },
+    });
+  assert.notEqual(computeDocumentId(mk('h1'), 'sha256'), computeDocumentId(mk('h2'), 'sha256'));
+});
+
+test('purity: an unresolved #bN reference is rejected (cannot alias a generated canonical name)', () => {
+  // Without this guard a dangling "#b0" would canonicalize byte-identically to a
+  // link that genuinely resolved to the relabeled block — a second-preimage collision.
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [{ type: 'paragraph', id: 'real', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#b0' }] }] }],
+        },
+      }),
+    CanonicalizationError,
+  );
+  // A dangling ref not of the generated shape (`#b` with no digits) is still verbatim.
+  const href = canonContent({
+    content: { version: '0.1', blocks: [{ type: 'paragraph', id: 'p', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#b' }] }] }] },
+  }).blocks[0].children[0].marks[0].href;
+  assert.equal(href, '#b');
+});
+
+test('purity: alpha-equivalence holds across a text-node id boundary and merge', () => {
+  const mk = (id: string) =>
+    makeParts({
+      content: {
+        version: '0.1',
+        blocks: [
+          {
+            type: 'paragraph',
+            children: [
+              { type: 'text', value: 'Hello ' },
+              { type: 'text', value: 'world', id }, // id makes this a merge boundary; relabeled
+              { type: 'text', value: '!' },
+            ],
+          },
+        ],
+      },
+    });
+  assert.equal(computeDocumentId(mk('w'), 'sha256'), computeDocumentId(mk('other'), 'sha256'));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
