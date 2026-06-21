@@ -68,7 +68,7 @@
       "enum": ["valid", "invalid", "expired", "revoked", "untrusted", "unknown"]
     },
     "signer": {
-      "description": "Signer identity information extending base person",
+      "description": "Advisory signer display information extending base person. The authoritative identity is the signing-certificate (x5c) subject, not these fields.",
       "allOf": [
         { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" },
         {
@@ -77,14 +77,6 @@
             "organization": {
               "type": "string",
               "description": "Signer's organization"
-            },
-            "certificate": {
-              "type": "string",
-              "description": "X.509 certificate in PEM format"
-            },
-            "keyId": {
-              "type": "string",
-              "description": "Key identifier (DID, URL, or other identifier)"
             }
           }
         }
@@ -118,14 +110,83 @@
       },
       "additionalProperties": false
     },
+    "manifestProjection": {
+      "type": "object",
+      "description": "Canonical projection of the security-relevant manifest declarations a scoped signature attests (see section 9.7). Constructed from manifest.json by the normative projector and serialized with JCS. The document ID is carried by scope.documentId and is not repeated here.",
+      "required": ["cdx", "state", "content"],
+      "properties": {
+        "cdx": {
+          "type": "string",
+          "description": "Specification version, mirrored from the manifest",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "state": {
+          "type": "string",
+          "description": "Document lifecycle state, mirrored from the manifest",
+          "enum": ["draft", "review", "frozen", "published"]
+        },
+        "content": {
+          "type": "object",
+          "description": "Content part path and hash",
+          "required": ["path", "hash"],
+          "properties": {
+            "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          },
+          "additionalProperties": false
+        },
+        "presentation": {
+          "type": "array",
+          "description": "Presentation declaration: each presentation part's type, path and hash, plus the default-selection flag on the default entry",
+          "items": {
+            "type": "object",
+            "required": ["type", "path", "hash"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["paginated", "continuous", "responsive"]
+              },
+              "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+              "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+              "default": { "const": true }
+            },
+            "additionalProperties": false
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "description": "Required-extension set: each extension's id, version and required flag, plus the config of a required extension",
+          "items": {
+            "type": "object",
+            "required": ["id", "version", "required"],
+            "properties": {
+              "id": { "type": "string" },
+              "version": { "type": "string" },
+              "required": { "type": "boolean" },
+              "config": { "type": "object", "additionalProperties": true }
+            },
+            "additionalProperties": false
+          }
+        },
+        "lineage": {
+          "type": "object",
+          "description": "Lineage, bound verbatim from the manifest"
+        }
+      },
+      "additionalProperties": false
+    },
     "signatureScope": {
       "type": "object",
-      "description": "Scoped signature covering content and optional layouts",
+      "description": "Scoped signature: an explicit, signed declaration of what a signature covers — always the document ID, plus optionally the manifest projection (section 9.7) and/or precise-layout hashes (section 9.3). A frozen or published document's signatures MUST include manifest.",
       "required": ["documentId"],
       "properties": {
         "documentId": {
           "description": "Content hash (must match top-level documentId)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifestProjection",
+          "description": "Signed projection of the security-relevant manifest declarations (section 9.7). Present iff this signature attests the manifest; REQUIRED for a frozen or published document."
         },
         "layouts": {
           "type": "object",
@@ -138,7 +199,7 @@
           }
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "webauthnSignature": {
       "type": "object",
@@ -166,46 +227,36 @@
     },
     "signature": {
       "type": "object",
-      "description": "A digital signature entry",
-      "required": ["id", "algorithm", "signedAt", "signer", "value"],
+      "description": "A detached-JWS signature entry (section 3.3). The signed payload is JCS(scope); the signed protected header (base64url-encoded) carries alg, x5c, x5t#S256 and sigT.",
+      "required": ["id", "protected", "signature", "scope"],
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique signature identifier"
         },
-        "algorithm": {
-          "$ref": "#/$defs/signatureAlgorithm"
-        },
-        "signedAt": {
+        "protected": {
           "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 signing timestamp"
+          "description": "base64url-encoded signed JWS protected header (carries alg, x5c, x5t#S256, sigT)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
-        "signer": {
-          "$ref": "#/$defs/signer"
-        },
-        "value": {
-          "description": "Base64-encoded signature value",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
-        },
-        "certificateChain": {
-          "type": "array",
-          "description": "Certificate chain for validation",
-          "items": {
-            "type": "string",
-            "description": "X.509 certificate in PEM format"
-          }
-        },
-        "timestamp": {
-          "$ref": "#/$defs/trustedTimestamp"
+        "signature": {
+          "type": "string",
+          "description": "base64url-encoded JWS signature over BASE64URL(protected) + '.' + JCS(scope)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
         "scope": {
           "$ref": "#/$defs/signatureScope",
-          "description": "Scoped signature attestation (content + layout)"
+          "description": "The detached payload: what the signature covers (document id, manifest projection, layouts)"
         },
-        "webauthn": {
-          "$ref": "#/$defs/webauthnSignature",
-          "description": "WebAuthn signature data (alternative to value)"
+        "signer": {
+          "$ref": "#/$defs/signer",
+          "description": "Advisory signer display information; the authoritative identity is the signing-certificate subject"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/trustedTimestamp",
+          "description": "Advisory trusted timestamp"
         }
       },
       "additionalProperties": false

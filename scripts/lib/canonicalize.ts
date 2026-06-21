@@ -70,7 +70,7 @@ export function algorithmOf(value: string): string {
 }
 
 /** True iff `h` is a well-formed `algorithm:hexdigest` of the right length. */
-function isValidContentHash(h: unknown): h is string {
+export function isValidContentHash(h: unknown): h is string {
   if (typeof h !== 'string') return false;
   const idx = h.indexOf(':');
   if (idx <= 0) return false;
@@ -658,7 +658,7 @@ function rewriteContentAnchor(value: string, map: Map<string, string>): string {
 // Stored-byte invariant validation (§4.3.2) — validate, never normalize
 // ---------------------------------------------------------------------------
 
-function validateStoredByteInvariants(value: unknown): void {
+export function validateStoredByteInvariants(value: unknown): void {
   if (typeof value === 'string') {
     checkString(value);
   } else if (typeof value === 'number') {
@@ -708,7 +708,7 @@ function isWellFormedUnicode(s: string): boolean {
 // Small helpers
 // ---------------------------------------------------------------------------
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
+export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
@@ -732,7 +732,7 @@ function normalizePath(p: string): string {
 }
 
 /** JCS-serialize a value, throwing rather than returning `undefined`. */
-function jcsOf(value: unknown): string {
+export function jcsOf(value: unknown): string {
   const s = canonicalize(value);
   if (typeof s !== 'string') {
     throw new CanonicalizationError(`value could not be JCS-serialized: ${JSON.stringify(value)}`);

@@ -36,16 +36,18 @@ To use this extension, declare it in the manifest:
 
 ### 3.1 Signature Model
 
-Signatures bind to the document ID (content hash), not the raw file bytes:
+A signature covers an explicit, signed **scope** of what it attests. The scope always binds the document ID (the content hash); a scoped signature additionally binds the **manifest projection** (Section 9.7) and/or precise-layout hashes (Section 9.3). A signature is a detached JWS (Section 3.3) over the canonical bytes of that scope:
 
 ```
-Signature = Sign(PrivateKey, DocumentID)
+Signature = JWS(signing key, JCS(scope))      // scope.documentId is always present
 ```
 
 This means:
 - Signatures verify document content integrity
 - Multiple signatures can attest to the same content
 - Re-packaging doesn't invalidate signatures (only content changes do)
+
+The document ID binds the document's semantic content only. It does **not** bind the rest of the manifest — the lifecycle state, the content and presentation part hashes, the required-extension set, or the lineage — so a content-only signature leaves those unauthenticated. To authenticate them, a signature covers the **manifest projection** (Section 9.7). A signature on a `frozen` or `published` document MUST cover the manifest projection (Section 9.8).
 
 ### 3.2 Supported Algorithms
 
@@ -63,6 +65,10 @@ Implementations MUST support ES256. Support for other algorithms is RECOMMENDED.
 
 Location: `security/signatures.json`
 
+Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/rfc7515), JSON Serialization) with an **unencoded** payload ([RFC 7797](https://www.rfc-editor.org/rfc/rfc7797), `b64:false`). The signed payload is `JCS(scope)`; the readable `scope` object is carried as a sibling member and is reconstructed — not stored — as the detached payload (see section 3.4). The signed protected header binds the algorithm, the signing certificate, and the signing time.
+
+This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.org/standards)); it does not claim a JAdES baseline conformance level. It omits the JAdES `sigD` descriptor: the detached payload is reconstructed as `JCS(scope)` per this section.
+
 ```json
 {
   "version": "0.1",
@@ -70,55 +76,63 @@ Location: `security/signatures.json`
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": {
-        "name": "Jane Doe",
-        "email": "jane@example.com",
-        "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1Li4uIiwieDVjIjpbIk1JSUIuLi4iXSwieDV0I1MyNTYiOiIuLi4ifQ",
+      "signature": "MEUCIQDf9Ky7...",
+      "scope": {
+        "documentId": "sha256:3a7bd3e2..."
       },
-      "value": "MEUCIQDf9Ky7...",
-      "certificateChain": [...],
-      "timestamp": {...}
+      "signer": { "name": "Jane Doe", "email": "jane@example.com" },
+      "timestamp": {}
     }
   ]
 }
 ```
+
+> **Trust model status.** The X.509 certificate-chain trust model is specified in sections 3.7–3.10 and 7.4: a verifier validates the `x5c` chain to a verifier-configured trust store, checks revocation and validity, and assigns a state (section 3.8). The `keyId` and WebAuthn credential paths, and timestamp-based long-term validation, are specified in subsequent versions.
 
 ### 3.4 Signature Entry Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | string | Yes | Unique signature identifier |
-| `algorithm` | string | Yes | Signature algorithm |
-| `signedAt` | string | Yes | ISO 8601 signing timestamp |
-| `signer` | object | Yes | Signer information |
-| `value` | string | Yes | Base64-encoded signature |
-| `certificateChain` | array | No | Certificate chain for validation |
-| `timestamp` | object | No | Trusted timestamp |
-| `scope` | object | No | Scoped signature attestation (see section 9) |
+| `protected` | string | Yes | base64url-encoded signed JWS protected header (see below) |
+| `signature` | string | Yes | base64url-encoded JWS signature |
+| `scope` | object | Yes | The detached payload — what the signature covers (see section 9) |
+| `signer` | object | No | Advisory signer display information (see section 3.5) |
+| `timestamp` | object | No | Advisory trusted timestamp (see section 3.6) |
+
+**Protected header.** The base64url-decoded `protected` member is a JSON object with these parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `alg` | Yes | Signature algorithm (section 3.2) |
+| `b64` | Yes | MUST be `false` — the payload is unencoded (RFC 7797) |
+| `crit` | Yes | MUST be exactly `["b64"]` (a registered parameter such as `sigT` MUST NOT appear here) |
+| `x5c` | Yes | Signing certificate chain — standard base64 (RFC 4648 §4, padded; not base64url) of each certificate's DER, leaf-first |
+| `x5t#S256` | Yes | base64url SHA-256 thumbprint of the signing certificate |
+| `sigT` | Yes | Signing time (ISO 8601 UTC), replacing the former unsigned `signedAt` |
+
+The signature is computed over the **signing input** `BASE64URL(UTF8(protected)) + '.' + JCS(scope)`. The protected header is signed as its exact stored bytes — a verifier MUST use the stored `protected` string and MUST NOT re-serialize the decoded header. The detached payload, by contrast, is recomputed: a verifier MUST derive it as `JCS(scope)` from the `scope` member it displays, so the bytes verified are always the bytes shown.
 
 ### 3.5 Signer Information
+
+The `signer` object carries **advisory** display information only. The authoritative signer identity is the subject of the validated signing certificate (the `x5c` chain in the protected header). A verifier MUST NOT treat these fields as authenticated and MUST NOT elevate `signer.name`/`email` above the certificate subject.
 
 ```json
 {
   "signer": {
     "name": "Jane Doe",
     "email": "jane@example.com",
-    "organization": "Acme Corporation",
-    "certificate": "-----BEGIN CERTIFICATE-----\n...",
-    "keyId": "did:web:example.com:jane"
+    "organization": "Acme Corporation"
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Signer's display name |
-| `email` | string | No | Signer's email |
-| `organization` | string | No | Signer's organization |
-| `certificate` | string | No | X.509 certificate (PEM) |
-| `keyId` | string | No | Key identifier (DID, URL, etc.) |
+| `name` | string | Yes | Signer's display name (advisory) |
+| `email` | string | No | Signer's email (advisory) |
+| `organization` | string | No | Signer's organization (advisory) |
 
 ### 3.6 Trusted Timestamps
 
@@ -137,28 +151,55 @@ For non-repudiation, signatures can include trusted timestamps:
 
 ### 3.7 Signature Verification
 
-To verify a signature:
+To verify a signature and assign it a state (section 3.8):
 
-1. Extract document ID from manifest
-2. Recompute document ID from content (verify integrity)
-3. For each signature:
-   a. Decode the signature value
-   b. If `scope` is absent: verify signature over document ID using signer's public key
-   c. If `scope` is present: verify using scoped signature algorithm (see section 9.5)
-   d. If certificate present, validate certificate chain
-   e. If timestamp present, verify timestamp token
-4. Report verification results
+1. Extract the document ID from the manifest and recompute it from the content (integrity)
+2. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
+3. For each signature, compute the inputs to the state rules:
+   a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `x5c` present; the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10); and `sigT` well-formed and not after the reference time. A failure makes the state `invalid`
+   b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the public key of the leaf certificate `x5c[0]`. A failure makes the state `invalid`
+   c. **Scope.** Verify `scope.documentId` matches the top-level `documentId`, and when `scope.manifest`/`scope.layouts` are present perform the scoped checks (section 9.5)
+   d. **Trust path.** Validate the `x5c` chain against the verifier's trust store (section 3.9), yielding `anchored`, `untrusted`, or `unknown`
+   e. **Revocation and validity.** Determine the certificate's revocation status and validity window (section 7.4)
+4. Combine these inputs into a state using the production rules of section 3.8, and report it
+
+This per-signature state carries no meaning about the completeness of the signature *set*; detecting a stripped or downgraded set is a separate, later concern (Section 9.8).
 
 ### 3.8 Signature States
 
-| State | Meaning |
-|-------|---------|
-| `valid` | Signature verifies, certificate valid |
-| `invalid` | Signature does not verify |
-| `expired` | Certificate has expired |
-| `revoked` | Certificate has been revoked |
-| `untrusted` | Certificate chain not trusted |
-| `unknown` | Cannot determine validity |
+A verifier MUST assign each signature exactly one state. The inputs are the verdicts computed in section 3.7 step 3; each is bound to an observable fact by the derivation rules in sections 3.9 (trust path) and 7.4 (revocation).
+
+**Production rules (first match wins):**
+
+| # | Condition | State |
+|---|-----------|-------|
+| 1 | Header inconsistent, or the signature does not verify under `x5c[0]` | `invalid` |
+| 2 | A trusted timestamp shows the certificate was outside its validity when it signed | `invalid` |
+| 3 | The chain could not be evaluated | `unknown` |
+| 4 | The chain does not anchor to the trust store | `untrusted` |
+| 5 | The certificate is revoked | `revoked` |
+| 6 | Revocation could not be determined | `unknown` |
+| 7 | The certificate is expired at verification time | `expired` |
+| 8 | Otherwise | `valid` |
+
+A verifier MUST NOT report `valid` for a signature whose chain does not anchor (`untrusted`) or whose revocation could not be confirmed (`unknown`). For any security decision a verifier MUST treat `unknown` as non-acceptance — no weaker than `untrusted` — and MUST NOT fail open. Because the `x5c` chain and any stapled revocation material are document-supplied, their incompleteness MUST NOT downgrade an otherwise-determinable adverse verdict: a verifier SHOULD obtain the missing material independently (fetch the intermediate, query the issuer's OCSP/CRL) rather than let a withheld intermediate or omitted revocation response turn a `revoked` or `untrusted` ground truth into a softer `unknown`.
+
+Rule 2 cannot fire until timestamp validation is specified (a subsequent version): until then the reference time is the self-asserted `sigT`, which is untrusted, so a `sigT` falling outside the certificate validity window is ignored rather than taken as proof of out-of-window signing. While the reference time is untrusted, a verifier MUST NOT present `sigT` as an attested signing time, and SHOULD warn when a signature reports `valid` yet its asserted `sigT` falls outside the certificate validity window.
+
+### 3.9 Trust Anchors
+
+A signature is trustworthy only relative to a **trust anchor the verifier configures** — never material supplied by the document. The only certificate material in the archive is the `x5c` chain in the (attacker-controllable) signature itself; treating it as self-authorizing is the defeat this section closes: otherwise an attacker self-signs a certificate naming any subject, signs the genuine content, and a verifier reports `valid`.
+
+- A verifier MUST validate the `x5c` chain (leaf `x5c[0]` to a root) against a **verifier-configured trust store** — a set of trusted root certificates, or an equivalent trusted-list policy — supplied by the verifier's deployment. The trust store MUST NOT be derived from the document.
+- **Derivation rule (normative).** If the chain has a valid path to a configured anchor, `chainResult` is `anchored`. If it has no such path — including a self-signed certificate, or a chain rooted at an untrusted CA — `chainResult` is `untrusted`. If the path cannot be evaluated (e.g. a required intermediate is unavailable), `chainResult` is `unknown`.
+- A document MAY carry a trust-policy hint, but it is advisory: the authoritative anchor is always verifier-side.
+
+### 3.10 Identity Authority
+
+The authoritative signer identity is the **subject** (and subject-alternative names) of the validated leaf certificate `x5c[0]` — not any document-supplied field.
+
+- A verifier MUST NOT treat `signer.name`, `signer.email`, or any other `signer` field as authenticated, and MUST NOT present them as the signer's identity in preference to the certificate subject. (Forging `signer.name` is otherwise free.)
+- The signing certificate is already bound by the signature: `x5c` is part of the signed protected header (section 3.4), so substituting any certificate changes the signing input and breaks verification (rule 1). The header additionally carries `x5t#S256`, which MUST equal `BASE64URL(SHA-256(DER(x5c[0])))` — the unpadded base64url SHA-256 of the DER bytes `x5c[0]` decodes to — as a JAdES-conformant, fail-fast consistency check identifying the leaf certificate. A verifier MUST reject (`invalid`) a signature whose `x5t#S256` does not match `x5c[0]`.
 
 ## 4. Encryption
 
@@ -295,6 +336,8 @@ Principals identify who permissions apply to:
 
 Documents can be signed using hardware security keys via WebAuthn.
 
+> **Status: deferred.** WebAuthn signatures are not available in this version. A WebAuthn assertion signs over `authenticatorData || hash(clientDataJSON)` rather than the JWS signing input of Section 3.3, so it cannot produce a scoped (manifest-covering) signature, and it carries no X.509 identity for the trust model. The `webauthn` member has therefore been removed from the signature schema pending a defined WebAuthn trust-and-binding profile in a subsequent version. The structure below is retained for reference only.
+
 ### 6.2 WebAuthn Signature
 
 ```json
@@ -309,9 +352,9 @@ Documents can be signed using hardware security keys via WebAuthn.
 }
 ```
 
-### 6.3 Verification
+### 6.3 Verification (reference only)
 
-WebAuthn signatures are verified using the WebAuthn verification procedure, with the document ID as the challenge.
+When reintroduced, WebAuthn signatures would be verified using the WebAuthn verification procedure. Binding the WebAuthn challenge to the JWS signing input of Section 3.3 — a WebAuthn assertion signs `authenticatorData || hash(clientDataJSON)`, not that input — is the open issue deferred per Section 6.1.
 
 ## 7. Key Management Guidance
 
@@ -334,12 +377,19 @@ Recommendations:
 - Support multiple valid certificates during rotation
 - Maintain audit trail of key changes
 
-### 7.4 Revocation
+### 7.4 Revocation and Validity (Verifier Obligations)
 
-If a signing key is compromised:
+For the signing-key owner, if a key is compromised:
 1. Revoke the certificate (publish to CRL or OCSP)
-2. Re-sign documents with new key if needed
-3. Document the revocation in audit trail
+2. Re-sign documents with a new key if needed
+3. Record the revocation in the audit trail
+
+A **verifier** MUST, for each signature — this is what makes revocation meaningful (section 3.8):
+- Check the certificate validity window; the certificate is expired when the verification-time clock is past `notAfter`.
+- Determine revocation status via OCSP or a CRL — online against the issuing CA, or from revocation material stapled with the signature — yielding `good`, `revoked`, or `unknown`.
+- **Derivation rule (normative).** A `good`/`revoked` determination requires a trusted assessment time. Until timestamp validation is specified, the reference time is the untrusted `sigT`, so a **stapled** OCSP/CRL response — whose freshness window cannot then be established — MUST be treated as `unknown`, never `good`. An online check against a live responder (which carries its own trusted clock) MAY yield `good`/`revoked`.
+
+A verifier that cannot perform these checks MUST NOT report `valid` (section 3.8). Long-term validation — verifying offline after the certificate expires, using stapled revocation material bound to a validated timestamp — is specified in a subsequent version.
 
 ## 8. Security Considerations
 
@@ -364,49 +414,50 @@ Implementations MUST use constant-time comparison for cryptographic operations.
 
 Use well-audited cryptographic libraries that protect against side-channel attacks.
 
+### 8.5 Trust Model Scope and Limits
+
+This extension specifies an **X.509 trust model**: a signature is trustworthy only if its `x5c` chain validates to a verifier-configured trust store (section 3.9). The format is *aligned* with the JAdES/eIDAS model but is **not** CMS/PAdES wire-conformant — it does not interoperate with PDF signature verifiers, and the signer-identity, algorithm, and certificate bindings are enforced as **verifier obligations** (sections 3.7–3.10), not as signed CMS attributes.
+
+The conformance gates in this repository check the *structure* of signatures and the *production rules* that map verification verdicts to states (section 3.8); they cannot, and do not, execute a real trust store, certificate-path validation, or revocation lookup. Those are normative obligations a conforming verifier MUST perform and that an external conformance suite can target. A green build does not certify cryptographic verification.
+
+Each signature's state is **per-signature**: it does not attest that the signature *set* is complete. An attacker may still strip or downgrade signatures; binding the set against that is a subsequent version.
+
 ## 9. Scoped Signatures
 
 ### 9.1 Overview
 
-By default, signatures cover the document ID (semantic content) only. For use cases that require attesting to visual appearance (e.g., legal documents, notarized contracts), signatures can include an optional `scope` object that makes explicit what the signature covers.
+Every signature carries a `scope` object — the detached JWS payload — that makes explicit what it covers. The minimal scope binds the document ID (semantic content) only; for use cases that require attesting to more (the manifest state, or the visual appearance of legal documents and notarized contracts), the scope additionally binds the manifest projection (Section 9.7) and/or precise-layout hashes.
 
-### 9.2 Content-Only Signature (Default)
+### 9.2 Content-Only Signature
 
-When `scope` is absent, the signature covers semantic content only. This is backward compatible with existing signatures:
+A content-only signature has a `scope` that binds just the document ID:
 
 ```json
 {
   "id": "sig-1",
-  "algorithm": "ES256",
-  "signedAt": "2025-01-15T10:00:00Z",
-  "signer": { "name": "Jane Doe", "email": "jane@example.com" },
-  "value": "MEUCIQDf9Ky7..."
+  "protected": "eyJhbGci...",
+  "signature": "MEUCIQDf9Ky7...",
+  "scope": { "documentId": "sha256:contenthash..." }
 }
 ```
 
-Verification: `Verify(PublicKey, value, DocumentID)`
-
 ### 9.3 Scoped Signature (Content + Layout Attestation)
 
-When `scope` is present, the signature covers both content identity and additional components specified in the scope:
+A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes:
 
 ```json
 {
   "id": "sig-2",
-  "algorithm": "ES256",
-  "signedAt": "2025-01-15T10:00:00Z",
-  "signer": { "name": "Bob Smith", "email": "bob@example.com" },
+  "protected": "eyJhbGci...",
+  "signature": "MEYCIQCa8Bx2...",
   "scope": {
     "documentId": "sha256:contenthash...",
     "layouts": {
       "presentation/layouts/letter.json": "sha256:layouthash..."
     }
-  },
-  "value": "MEYCIQCa8Bx2..."
+  }
 }
 ```
-
-Verification: `Verify(PublicKey, value, JCS(scope))`
 
 The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) to produce deterministic bytes for signing.
 
@@ -415,24 +466,77 @@ The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.or
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `documentId` | string | Yes | Content hash (MUST match top-level `documentId`) |
+| `manifest` | object | Conditional | The manifest projection (Section 9.7). REQUIRED on a `frozen` or `published` document; otherwise optional. |
 | `layouts` | object | No | Map of layout path → layout file hash. Attests visual appearance. |
 
-The `scope` object is extensible — future fields can be added (e.g., `metadata`, `assets`) without breaking existing signatures.
+The `scope` object is **closed**: it is validated with `additionalProperties: false`, and a verifier MUST reject a scope carrying any member not defined here. New scope members may be introduced in future versions of this extension, but because the signature is computed over `JCS(scope)`, a signature's covered set is fixed at signing time — adding a member changes the signed bytes, so it does not retroactively extend a signature made before the member existed.
 
 ### 9.5 Verification Algorithm for Scoped Signatures
 
-The verification algorithm (section 3.7) is extended to handle both legacy and scoped modes:
+With `scope` always present, the scoped checks extend section 3.7 step 3:
 
-1. If `scope` is absent: `Verify(PublicKey, value, documentId)` — legacy content-only verification
-2. If `scope` is present:
-   a. Verify `scope.documentId` matches top-level `documentId`
-   b. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
-   c. Serialize `scope` with JCS
-   d. `Verify(PublicKey, value, JCS(scope))`
+   a. Verify `scope.documentId` matches the top-level `documentId`
+   b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
+   c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
+   d. The JWS signature is over the signing input `BASE64URL(protected) + "." + JCS(scope)` (section 3.4); the signature's trust evaluation is deferred per section 3.7
 
 ### 9.6 Use Case
 
 In legal contexts, a notary signs with `scope` including the letter layout, attesting: "I certify this content rendered in this exact layout." Another signer might sign content-only if appearance is not relevant to their attestation.
+
+### 9.7 Manifest Projection
+
+The document ID binds only the document's semantic content. The rest of the manifest — the lifecycle state, the content and presentation part hashes, the required-extension set, and the lineage — is otherwise unauthenticated. The **manifest projection** is the canonical, signable representation of those security-relevant manifest declarations; a signature attests them by including the projection as `scope.manifest`.
+
+The projection is a deterministic transform of `manifest.json`, serialized with JCS ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) — the same canonicalization the document ID uses — so a signer and a verifier compute identical bytes. It is defined only once the document ID is fixed; a manifest whose `id` is `pending` (a draft) has no projection.
+
+**Bound fields:**
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `cdx` | `manifest.cdx` | Specification version (prevents a silent version downgrade) |
+| `state` | `manifest.state` | Lifecycle state |
+| `content` | `manifest.content` | Projected to `{path, hash}` |
+| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds the presentation *declaration* (which parts, which is default), not visual rendering — visual attestation remains `scope.layouts` (Section 9.3) |
+| `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
+| `lineage` | `manifest.lineage` | Bound verbatim |
+
+**Construction rules** (mirroring the document-ID canonical form, 06 §4.3):
+
+- Absent or empty optional fields (`presentation`, `extensions`, `lineage`) are omitted, never materialized as `null` or `[]`.
+- An explicit `null` (e.g. `lineage.parent: null`) is preserved.
+- A non-default presentation carries no `default` member; the flag marks only the default entry (`default: false` is never materialized).
+- A non-required extension's `config` is omitted; a required extension's `config` is bound, because a required extension's configuration can change how the document is interpreted.
+- Arrays of declarations (`presentation`, `extensions`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
+- Keys and values obey the stored-byte invariants of 06 §4.3.2 (NFC, well-formed Unicode, safe integers).
+
+The document ID is **not** part of the projection — it is carried separately by `scope.documentId`, which a verifier already cross-checks against the top-level `documentId`.
+
+### 9.8 Coverage and Negative Coverage
+
+A signature's coverage is exactly:
+
+- The **document ID** (semantic content) — always.
+- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present.
+- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3).
+
+A signature does **not** cover, in this version of the extension:
+
+- Embedded **fonts** and other non-content assets (excluded from the document ID by design).
+- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. Only `content` and `presentation[]` carry hashes in the manifest and are bound by the projection.
+- The **set of signatures** itself: a signature cannot attest that another signature has not been removed, added, or downgraded.
+- Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
+- Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.
+- A **non-required** extension's `config` (only a required extension's `config` is bound, Section 9.7), and **any manifest member not enumerated in Section 9.7**: the manifest's top-level object is not closed, so an unrecognized member is dropped from the projection rather than signed.
+
+Implementations MUST NOT represent a signature as covering anything beyond the above.
+
+**Coverage requirement.** Because a content-only signature leaves the manifest unauthenticated, the manifest projection is mandatory wherever the manifest is final:
+
+- For a document in state `frozen` or `published`, every signature MUST include `scope.manifest`, and a verifier MUST reject the document if any signature omits it.
+- For a document in state `draft` or `review`, a signature MAY be content-only; such a signature does not attest the manifest, and an implementation MUST surface that limitation rather than implying manifest coverage.
+
+> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. The per-signature JWS protected header (Section 3.3) authenticates only that one signature's own algorithm, certificate and time — not the completeness of the signature set, so a stripped or downgraded set is not yet detectable. Binding the signature set against stripping and downgrade is addressed in a later increment.
 
 ## 10. Examples
 
@@ -445,13 +549,10 @@ In legal contexts, a notary signs with `scope` including the letter layout, atte
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": {
-        "name": "Jane Doe",
-        "email": "jane@example.com"
-      },
-      "value": "MEUCIQDf9Ky7BpL5Rj9E8JH3YqKPvXxNmVhKD5bXc4Qz1A2wAiEA7HjKLm8NoPq..."
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MEUCIQDf9Ky7BpL5Rj9E8JH3YqKPvXxNmVhKD5bXc4Qz1A2wAiEA7HjKLm8NoPq...",
+      "scope": { "documentId": "sha256:3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b" },
+      "signer": { "name": "Jane Doe", "email": "jane@example.com" }
     }
   ]
 }
@@ -466,17 +567,17 @@ In legal contexts, a notary signs with `scope` including the letter layout, atte
   "signatures": [
     {
       "id": "sig-1",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
-      "signer": { "name": "Author", "email": "author@example.com" },
-      "value": "MEUCIQDf..."
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MEUCIQDf...",
+      "scope": { "documentId": "sha256:3a7bd3e2..." },
+      "signer": { "name": "Author", "email": "author@example.com" }
     },
     {
       "id": "sig-2",
-      "algorithm": "ES384",
-      "signedAt": "2025-01-16T14:30:00Z",
-      "signer": { "name": "Approver", "email": "approver@example.com" },
-      "value": "MGQCMA..."
+      "protected": "eyJhbGciOiJFUzM4NCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sLi4ufQ",
+      "signature": "MGQCMA...",
+      "scope": { "documentId": "sha256:3a7bd3e2..." },
+      "signer": { "name": "Approver", "email": "approver@example.com" }
     }
   ]
 }

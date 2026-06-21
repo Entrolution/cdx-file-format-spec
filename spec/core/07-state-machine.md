@@ -287,20 +287,22 @@ Frozen documents can accumulate signatures without changing content:
 {
   "signatures": [
     {
-      "signedAt": "2025-01-10T08:00:00Z",
-      "signer": "Alice",
-      "documentId": "sha256:abc123..."
+      "id": "sig-1",
+      "protected": "eyJhbGci...",
+      "signature": "MEUCIQ...",
+      "scope": { "documentId": "sha256:abc123..." }
     },
     {
-      "signedAt": "2025-01-11T14:00:00Z",
-      "signer": "Bob",
-      "documentId": "sha256:abc123..."
+      "id": "sig-2",
+      "protected": "eyJhbGci...",
+      "signature": "MGQCMA...",
+      "scope": { "documentId": "sha256:abc123..." }
     }
   ]
 }
 ```
 
-All signatures reference the same document ID.
+All signatures reference the same document ID. See the Security Extension §3.3 for the signature envelope.
 
 ## 7. Annotation Layer
 

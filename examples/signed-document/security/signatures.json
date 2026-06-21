@@ -4,15 +4,29 @@
   "signatures": [
     {
       "id": "sig-provider",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T10:00:00Z",
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDEwOjAwOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19wcm92aWRlcl9zaWduYXR1cmU",
+      "scope": {
+        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+          },
+          "extensions": [
+            { "id": "cdx.security", "version": "0.1", "required": true }
+          ],
+          "lineage": { "parent": null, "version": 1 }
+        }
+      },
       "signer": {
         "name": "Jane Smith",
         "email": "jane.smith@acme.com",
         "organization": "Acme Corporation",
         "title": "Chief Executive Officer"
       },
-      "value": "MEUCIQDf9Ky7BpL5Rj9E8JH3YqKPvXxNmVhKD5bXc4Qz1A2wAiEA7HjKLm8NoPqRsTuVwXyZ012ABcdEFghIJklMNopQRst",
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
         "time": "2025-01-15T10:00:05Z",
@@ -21,15 +35,29 @@
     },
     {
       "id": "sig-client",
-      "algorithm": "ES256",
-      "signedAt": "2025-01-15T14:22:00Z",
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDE0OjIyOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19jbGllbnRfc2lnbmF0dXJl",
+      "scope": {
+        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+          },
+          "extensions": [
+            { "id": "cdx.security", "version": "0.1", "required": true }
+          ],
+          "lineage": { "parent": null, "version": 1 }
+        }
+      },
       "signer": {
         "name": "John Doe",
         "email": "john.doe@xyz-enterprises.com",
         "organization": "XYZ Enterprises",
         "title": "President"
       },
-      "value": "MEQCIH5abcDEFghijKLmnoPQRstuvWXyz012345ABCdefGHIJKLMAIgMNop456qrSTUvwxYZ789abcdefghijklmnopqrstuvwx",
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
         "time": "2025-01-15T14:22:05Z",
