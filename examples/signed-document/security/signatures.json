@@ -63,6 +63,30 @@
         "time": "2025-01-15T14:22:05Z",
         "token": "MIIEqQYJKoZIhvcNAQcCoIIEmjCCBJYCAQExDTALBglghkgBZQMEAgEw"
       }
+    },
+    {
+      "id": "sig-keyid",
+      "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa1VOVkVSSUZJRURwbGFjZWhvbGRlckVkMjU1MTlzaWduZXJGb3JJbGx1c3RyYXRpb24iLCJzaWdUIjoiMjAyNS0wMS0xNVQxNjo0NTowMFoifQ",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19kaWRfa2V5X3NpZ25hdHVyZQ",
+      "scope": {
+        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+          },
+          "extensions": [
+            { "id": "cdx.security", "version": "0.1", "required": true }
+          ],
+          "lineage": { "parent": null, "version": 1 }
+        }
+      },
+      "signer": {
+        "name": "Acme Notary Service",
+        "organization": "Acme Notary"
+      }
     }
   ]
 }

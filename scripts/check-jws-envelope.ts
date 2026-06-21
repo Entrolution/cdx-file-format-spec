@@ -140,6 +140,40 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
   }
 }
 
+// --- Part 4: credential-path shape (X.509 XOR keyId) -----------------------
+// validateProtectedHeader must accept exactly one credential path and reject
+// both/neither/cross-contaminated headers. These are behavioural assertions (not
+// byte KATs): the XOR branch is the one piece of logic this increment changes.
+console.log('\nCredential-path shape (x5c XOR kid):');
+const baseHeader = { alg: 'ES256', b64: false, crit: ['b64'], sigT: '2025-01-15T10:00:00Z' };
+const shapeCases: { name: string; header: Record<string, unknown>; accept: boolean }[] = [
+  { name: 'X.509 path (x5c + x5t#S256)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA' }, accept: true },
+  { name: 'keyId path (did:key)', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholderForShapeCheck' }, accept: true },
+  { name: 'keyId path (did:jwk)', header: { ...baseHeader, kid: 'did:jwk:eyJrdHkiOiJFQyJ9PlaceholderForShapeCheck' }, accept: true },
+  { name: 'keyId path with DID-URL fragment', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholder#z6MkPlaceholder' }, accept: true },
+  { name: 'both x5c and kid (mutual exclusion)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA', kid: 'did:key:z6MkPlaceholder' }, accept: false },
+  { name: 'kid + stray x5t#S256 (cross-contamination)', header: { ...baseHeader, kid: 'did:key:z6MkPlaceholder', 'x5t#S256': 'AAAA' }, accept: false },
+  { name: 'neither credential path', header: { ...baseHeader }, accept: false },
+  { name: 'did:web kid (deferred to a later increment)', header: { ...baseHeader, kid: 'did:web:example.com:jane' }, accept: false },
+  { name: 'unknown DID method', header: { ...baseHeader, kid: 'did:example:1234' }, accept: false },
+  { name: 'empty kid', header: { ...baseHeader, kid: '' }, accept: false },
+  { name: 'non-DID kid', header: { ...baseHeader, kid: 'just-a-string' }, accept: false },
+  { name: 'x5c without x5t#S256', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='] }, accept: false },
+];
+for (const c of shapeCases) {
+  let threw = false;
+  try {
+    validateProtectedHeader(c.header);
+  } catch {
+    threw = true;
+  }
+  if (c.accept === !threw) {
+    console.log(`  ✓ ${c.name} → ${c.accept ? 'accepted' : 'rejected'}`);
+  } else {
+    fail(`${c.name} — expected ${c.accept ? 'accepted' : 'rejected'} but got ${threw ? 'rejected' : 'accepted'}`);
+  }
+}
+
 if (failures > 0) {
   console.log(`\n${failures} failure(s). JWS-envelope check failed.`);
   process.exit(1);

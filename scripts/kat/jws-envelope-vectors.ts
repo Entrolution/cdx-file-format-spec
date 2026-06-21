@@ -8,9 +8,11 @@
  * against an independent SHA-256 oracle (Python base64/json/hashlib, not this
  * repo's code), so a construction or encoding bug is caught, not snapshotted.
  *
- * These vectors exercise the ENVELOPE only (3.2a-i): no certificate is parsed
- * and no signature is verified — the `x5c`/`x5t#S256` values are clearly-fake
- * placeholders, and trust semantics are out of scope until the trust core.
+ * These vectors exercise the ENVELOPE only: no certificate is parsed, no DID is
+ * resolved, and no signature is verified — the `x5c`/`x5t#S256`/`kid` values are
+ * clearly-fake placeholders, and trust semantics are out of scope here (the trust
+ * core and keyId resolution are separate increments). The vectors cover both
+ * credential paths: X.509 (`x5c`+`x5t#S256`) and keyId (`kid`, §3.11).
  */
 
 const DOC_ID = 'sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86';
@@ -19,6 +21,9 @@ const DOC_CONTENT = 'sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859
 /** Clearly-fake, non-verifying cert material for envelope-shape vectors. */
 const X5C_PLACEHOLDER = 'MIIBixUNVERIFIEDplaceholderDERcertificateBASE64FORILLUSTRATIONxw==';
 const X5T_PLACEHOLDER = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
+/** Clearly-fake, non-resolving self-certifying keyId (did:key) for envelope-shape vectors. */
+const KID_PLACEHOLDER = 'did:key:z6MkUNVERIFIEDplaceholderEd25519keyForIllustration';
 
 export interface HeaderVector {
   name: string;
@@ -51,6 +56,12 @@ export const headerVectors: HeaderVector[] = [
     description: 'A different algorithm in the same minimal header shape.',
     header: { alg: 'EdDSA', b64: false, crit: ['b64'] },
     expectedProtected: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19',
+  },
+  {
+    name: 'kid-did-key-eddsa',
+    description: 'A keyId-path header: a self-certifying did:key DID plus sigT, in place of x5c/x5t#S256 (§3.11).',
+    header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_PLACEHOLDER, sigT: '2025-01-15T10:00:00Z' },
+    expectedProtected: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa1VOVkVSSUZJRURwbGFjZWhvbGRlckVkMjU1MTlrZXlGb3JJbGx1c3RyYXRpb24iLCJzaWdUIjoiMjAyNS0wMS0xNVQxMDowMDowMFoifQ',
   },
 ];
 
@@ -91,5 +102,12 @@ export const signingInputVectors: SigningInputVector[] = [
     header: { alg: 'EdDSA', b64: false, crit: ['b64'] },
     scope: { documentId: `sha384:${'a'.repeat(96)}` },
     expectedSha256: 'sha256:144dee61769761a1914a1a793781ac2736064bf89b598c0a34f88e271effb31f',
+  },
+  {
+    name: 'kid-did-key-content-only',
+    description: 'A keyId-path (did:key) header + a content-only scope — confirms the signing-input construction is identical across credential paths (only the header contents differ).',
+    header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_PLACEHOLDER, sigT: '2025-01-15T10:00:00Z' },
+    scope: { documentId: DOC_ID },
+    expectedSha256: 'sha256:295f97c39bc6789dee47e1ac520fa069793176c09fccc4f1d70f6ff583fd8946',
   },
 ];

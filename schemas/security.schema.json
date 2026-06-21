@@ -227,7 +227,7 @@
     },
     "signature": {
       "type": "object",
-      "description": "A detached-JWS signature entry (section 3.3). The signed payload is JCS(scope); the signed protected header (base64url-encoded) carries alg, x5c, x5t#S256 and sigT.",
+      "description": "A detached-JWS signature entry (section 3.3). The signed payload is JCS(scope); the signed protected header (base64url-encoded) carries alg, sigT, and exactly one credential path — an X.509 chain (x5c + x5t#S256) or a keyId (kid); see section 3.11.",
       "required": ["id", "protected", "signature", "scope"],
       "properties": {
         "id": {
@@ -236,7 +236,7 @@
         },
         "protected": {
           "type": "string",
-          "description": "base64url-encoded signed JWS protected header (carries alg, x5c, x5t#S256, sigT)",
+          "description": "base64url-encoded signed JWS protected header (carries alg, sigT, and either x5c + x5t#S256 or kid)",
           "pattern": "^[A-Za-z0-9_-]+$",
           "minLength": 4
         },
