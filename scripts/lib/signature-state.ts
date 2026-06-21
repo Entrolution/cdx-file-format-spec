@@ -33,49 +33,70 @@ export interface SignatureStateInputs {
    * header carries exactly one credential path that is internally consistent —
    *   • X.509: `x5c` present and the signed `x5t#S256` equals
    *     BASE64URL(SHA-256(DER(x5c[0]))) (§3.10); or
-   *   • keyId: `kid` present and a well-formed `did:key`/`did:jwk` DID whose
-   *     encoded key is usable with `alg` (§3.11). These methods are
-   *     self-certifying — the key is carried in `kid` itself, so no thumbprint
-   *     check is needed; the out-of-band-resolved `did:web` case (which does need
-   *     one) is a later increment.
+   *   • keyId, self-certifying (`did:key`/`did:jwk`): `kid` present and well-formed,
+   *     with NO `jkt` (the key is encoded in `kid`); or
+   *   • keyId, `did:web`: `kid` a well-formed `did:web` DID and `jkt` a
+   *     syntactically valid base64url SHA-256 thumbprint (§3.11).
+   * This is a header-SHAPE check only. It MUST NOT depend on DID resolution, key
+   * availability, or whether a resolved key is usable with `alg`: for the
+   * out-of-band `did:web` path those are unknowable at header-check time, and
+   * folding them in here would misfire rule 1 to `invalid` on a mere network
+   * failure. Key-unavailability is carried by `chainResult` (below), never here.
    */
   headerConsistent: boolean;
   /**
    * The JWS signature verifies under the credential's public key — the leaf
-   * certificate `x5c[0]` (X.509) or the key encoded in / resolved from `kid` (keyId).
+   * certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or
+   * the resolved verification method whose RFC 7638 thumbprint equals the signed
+   * `jkt` (`did:web`, §3.11). For an out-of-band credential the verifier computes
+   * this ONLY once that matching key is in hand; when no served key matches `jkt`
+   * (resolution failed, key rotated away, or a different key is served) the
+   * credential is key-unavailable and this input is NOT evaluated —
+   * `chainResult: 'unknown'` is the sole carrier of that indeterminacy, so rule 1
+   * never misfires to `invalid` on inability to resolve. A `false` here is a
+   * genuine forgery: the matching key was obtained and the signature did not verify.
    */
   signatureVerifies: boolean;
   /**
    * The result of anchoring the credential to verifier-configured trust (§3.9,
-   * §3.11): `anchored` (the `x5c` chain reaches a configured trust anchor, or the
-   * `kid` is pinned/allowlisted by the verifier), `untrusted` (no such anchor —
-   * including a self-signed chain or an unpinned self-certifying `did:key`/
-   * `did:jwk`), or `unknown` (the credential could not be evaluated — e.g. a
-   * missing X.509 intermediate). In-document / in-`kid` material is never
-   * self-authorizing; the anchor is always verifier-side.
+   * §3.11): `anchored`, `untrusted`, or `unknown`.
+   *   • X.509: `anchored` iff the `x5c` chain reaches a configured trust anchor;
+   *     `unknown` iff it could not be evaluated (e.g. a missing intermediate).
+   *   • self-certifying `did:key`/`did:jwk`: `anchored` iff the verifier pins the
+   *     specific `kid`; otherwise `untrusted`.
+   *   • `did:web`: `anchored` iff TLS-validated resolution succeeded, a served
+   *     verification method's RFC 7638 thumbprint equals the signed `jkt`, AND the
+   *     specific DID (or its exact domain) is pinned; unpinned → `untrusted`;
+   *     resolution indeterminate, or no served key matches `jkt` (key-unavailable)
+   *     → `unknown`. A DID *method* is never trusted wholesale.
+   * In-document / in-`kid` / served material is never self-authorizing; the anchor
+   * is always verifier-side.
    */
   chainResult: 'anchored' | 'untrusted' | 'unknown';
   /**
-   * Credential revocation status (§7.4): `good`, `revoked`, or `unknown`
-   * (indeterminate — e.g. an unreachable responder, or a stapled response whose
-   * freshness cannot be established under an untrusted clock). A self-certifying
-   * `did:key`/`did:jwk` has no revocation responder: revocation is governed
-   * entirely by the verifier's pin, so a still-anchored key is `good` and an
-   * unpinned one is already `untrusted` at the trust-path step (§3.11). did:web
-   * deactivation is a later increment.
+   * Credential revocation status (§7.4): `good`, `revoked`, or `unknown`.
+   *   • X.509: per OCSP/CRL (a stapled response under an untrusted clock → `unknown`).
+   *   • self-certifying `did:key`/`did:jwk`: no responder — governed by the pin, so a
+   *     still-anchored key is `good` (an unpinned one is already `untrusted`).
+   *   • `did:web`: `revoked` ONLY when the resolved DID document is explicitly
+   *     deactivated (`deactivated: true`); otherwise `good`. A key that was rotated
+   *     away or whose method is absent is key-unavailable, NOT `revoked` — that is
+   *     `chainResult: 'unknown'` (above). `deactivated` is served by the same origin
+   *     as the key, hence suppressible: advisory-grade, not a hard guarantee.
    */
   revocationStatus: 'good' | 'revoked' | 'unknown';
   /**
    * The reference time (a validated timestamp if present, else `sigT`) lies within
    * the credential's validity window [notBefore, notAfter]. A self-certifying
-   * `did:key`/`did:jwk` key has no validity window, so this is `true` by the §3.11
-   * no-window rule — there is no interval to fall outside of.
+   * `did:key`/`did:jwk` key, and a `did:web` key, carry no validity window (their
+   * lifecycle is rotation/deactivation), so this is `true` by the §3.11 no-window
+   * rule — there is no interval to fall outside of.
    */
   signingTimeWithinValidity: boolean;
   /**
    * The credential is expired relative to the verification-time clock (now >
-   * notAfter). A self-certifying `did:key`/`did:jwk` key has no `notAfter`, so this
-   * is `false` by the §3.11 no-window rule.
+   * notAfter). A `did:key`/`did:jwk` or `did:web` key has no `notAfter`, so this is
+   * `false` by the §3.11 no-window rule.
    */
   certCurrentlyExpired: boolean;
   /**

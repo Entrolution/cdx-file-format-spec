@@ -87,6 +87,30 @@
         "name": "Acme Notary Service",
         "organization": "Acme Notary"
       }
+    },
+    {
+      "id": "sig-keyid-web",
+      "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImprdCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJraWQiOiJkaWQ6d2ViOmFjbWUuZXhhbXBsZS5jb206bm90YXJ5Iiwic2lnVCI6IjIwMjUtMDEtMTVUMTc6MzA6MDBaIn0",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19kaWRfd2ViX3NpZ25hdHVyZQ",
+      "scope": {
+        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+          },
+          "extensions": [
+            { "id": "cdx.security", "version": "0.1", "required": true }
+          ],
+          "lineage": { "parent": null, "version": 1 }
+        }
+      },
+      "signer": {
+        "name": "Acme Notary Service",
+        "organization": "Acme Notary"
+      }
     }
   ]
 }

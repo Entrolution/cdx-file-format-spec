@@ -28,7 +28,13 @@ import {
   jwsSigningInput,
   base64urlDecode,
 } from './lib/jws-envelope.js';
-import { headerVectors, signingInputVectors } from './kat/jws-envelope-vectors.js';
+import { jwkThumbprint, multibaseKeyToJwk } from './lib/keyid-resolution.js';
+import {
+  headerVectors,
+  signingInputVectors,
+  thumbprintVectors,
+  multibaseVectors,
+} from './kat/jws-envelope-vectors.js';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -146,15 +152,28 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
 // byte KATs): the XOR branch is the one piece of logic this increment changes.
 console.log('\nCredential-path shape (x5c XOR kid):');
 const baseHeader = { alg: 'ES256', b64: false, crit: ['b64'], sigT: '2025-01-15T10:00:00Z' };
+const JKT = 'kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k'; // a real RFC 7638 SHA-256 thumbprint (43 chars)
 const shapeCases: { name: string; header: Record<string, unknown>; accept: boolean }[] = [
   { name: 'X.509 path (x5c + x5t#S256)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA' }, accept: true },
   { name: 'keyId path (did:key)', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholderForShapeCheck' }, accept: true },
   { name: 'keyId path (did:jwk)', header: { ...baseHeader, kid: 'did:jwk:eyJrdHkiOiJFQyJ9PlaceholderForShapeCheck' }, accept: true },
   { name: 'keyId path with DID-URL fragment', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholder#z6MkPlaceholder' }, accept: true },
+  { name: 'did:web + jkt', header: { ...baseHeader, kid: 'did:web:example.com:alice', jkt: JKT }, accept: true },
+  { name: 'did:web with port + path + fragment + jkt', header: { ...baseHeader, kid: 'did:web:example.com%3A3000:dids:alice#key-1', jkt: JKT }, accept: true },
   { name: 'both x5c and kid (mutual exclusion)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA', kid: 'did:key:z6MkPlaceholder' }, accept: false },
   { name: 'kid + stray x5t#S256 (cross-contamination)', header: { ...baseHeader, kid: 'did:key:z6MkPlaceholder', 'x5t#S256': 'AAAA' }, accept: false },
   { name: 'neither credential path', header: { ...baseHeader }, accept: false },
-  { name: 'did:web kid (deferred to a later increment)', header: { ...baseHeader, kid: 'did:web:example.com:jane' }, accept: false },
+  { name: 'did:web without jkt (required)', header: { ...baseHeader, kid: 'did:web:example.com:alice' }, accept: false },
+  { name: 'did:key with jkt (forbidden on self-certifying)', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholder', jkt: JKT }, accept: false },
+  { name: 'X.509 with jkt (forbidden)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA', jkt: JKT }, accept: false },
+  { name: 'did:web malformed jkt (too short)', header: { ...baseHeader, kid: 'did:web:example.com:alice', jkt: 'AAAA' }, accept: false },
+  { name: 'did:web IP-literal host (SSRF)', header: { ...baseHeader, kid: 'did:web:127.0.0.1:alice', jkt: JKT }, accept: false },
+  { name: 'did:web localhost host (SSRF)', header: { ...baseHeader, kid: 'did:web:localhost', jkt: JKT }, accept: false },
+  { name: 'did:web decimal-IP host (SSRF)', header: { ...baseHeader, kid: 'did:web:2130706433', jkt: JKT }, accept: false },
+  { name: 'did:web hex-dotted IP host (SSRF)', header: { ...baseHeader, kid: 'did:web:0x7f.0.0.1', jkt: JKT }, accept: false },
+  { name: 'did:web octal IP host (SSRF)', header: { ...baseHeader, kid: 'did:web:0177.0.0.1', jkt: JKT }, accept: false },
+  { name: 'did:web short-form IP host (SSRF)', header: { ...baseHeader, kid: 'did:web:127.1', jkt: JKT }, accept: false },
+  { name: 'did:web path traversal (%2e%2e)', header: { ...baseHeader, kid: 'did:web:example.com:%2e%2e:secrets', jkt: JKT }, accept: false },
   { name: 'unknown DID method', header: { ...baseHeader, kid: 'did:example:1234' }, accept: false },
   { name: 'empty kid', header: { ...baseHeader, kid: '' }, accept: false },
   { name: 'non-DID kid', header: { ...baseHeader, kid: 'just-a-string' }, accept: false },
@@ -172,6 +191,44 @@ for (const c of shapeCases) {
   } else {
     fail(`${c.name} — expected ${c.accept ? 'accepted' : 'rejected'} but got ${threw ? 'rejected' : 'accepted'}`);
   }
+}
+
+// --- Part 5: did:web key resolution (RFC 7638 thumbprint + multibase→JWK) ----
+// Pins the canonicalisation a verifier MUST get bit-exact for the did:web `jkt`
+// binding (§3.11). Vectors are independently produced: Ed25519 is anchored to RFC
+// 8037 Appendix A.3; P-256 to a deterministic key — exercising the actual point
+// decompression and required-member ordering where representation bugs hide.
+console.log('\nkeyId key-resolution (RFC 7638 jkt + publicKeyMultibase→JWK):');
+for (const v of thumbprintVectors) {
+  let got: string;
+  try {
+    got = jwkThumbprint(v.jwk);
+  } catch (err) {
+    fail(`thumbprint ${v.name} — threw: ${err instanceof Error ? err.message : String(err)}`);
+    continue;
+  }
+  if (got !== v.expectedJkt) {
+    fail(`thumbprint ${v.name} — jkt mismatch (expected ${v.expectedJkt}, got ${got})`);
+    continue;
+  }
+  console.log(`  ✓ thumbprint ${v.name}`);
+}
+for (const v of multibaseVectors) {
+  try {
+    const jwk = multibaseKeyToJwk(v.multibase);
+    if (JSON.stringify(jwk) !== JSON.stringify(v.expectedJwk)) {
+      fail(`multibase ${v.name} — JWK mismatch (expected ${JSON.stringify(v.expectedJwk)}, got ${JSON.stringify(jwk)})`);
+      continue;
+    }
+    if (jwkThumbprint(jwk) !== v.expectedJkt) {
+      fail(`multibase ${v.name} — convert→thumbprint mismatch`);
+      continue;
+    }
+  } catch (err) {
+    fail(`multibase ${v.name} — threw: ${err instanceof Error ? err.message : String(err)}`);
+    continue;
+  }
+  console.log(`  ✓ multibase ${v.name}`);
 }
 
 if (failures > 0) {

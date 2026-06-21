@@ -25,6 +25,10 @@ const X5T_PLACEHOLDER = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 /** Clearly-fake, non-resolving self-certifying keyId (did:key) for envelope-shape vectors. */
 const KID_PLACEHOLDER = 'did:key:z6MkUNVERIFIEDplaceholderEd25519keyForIllustration';
 
+/** A did:web keyId + a real RFC 7638 thumbprint (the RFC 8037 Ed25519 key) for did:web shape vectors. */
+const KID_WEB = 'did:web:example.com:alice';
+const JKT_SAMPLE = 'kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k';
+
 export interface HeaderVector {
   name: string;
   description: string;
@@ -62,6 +66,12 @@ export const headerVectors: HeaderVector[] = [
     description: 'A keyId-path header: a self-certifying did:key DID plus sigT, in place of x5c/x5t#S256 (§3.11).',
     header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_PLACEHOLDER, sigT: '2025-01-15T10:00:00Z' },
     expectedProtected: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa1VOVkVSSUZJRURwbGFjZWhvbGRlckVkMjU1MTlrZXlGb3JJbGx1c3RyYXRpb24iLCJzaWdUIjoiMjAyNS0wMS0xNVQxMDowMDowMFoifQ',
+  },
+  {
+    name: 'kid-did-web-jkt',
+    description: 'A did:web keyId header: an out-of-band-resolved key bound by a jkt thumbprint, with a colon-delimited path (§3.11).',
+    header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_WEB, jkt: JKT_SAMPLE, sigT: '2025-01-15T10:00:00Z' },
+    expectedProtected: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImprdCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJraWQiOiJkaWQ6d2ViOmV4YW1wbGUuY29tOmFsaWNlIiwic2lnVCI6IjIwMjUtMDEtMTVUMTA6MDA6MDBaIn0',
   },
 ];
 
@@ -109,5 +119,70 @@ export const signingInputVectors: SigningInputVector[] = [
     header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_PLACEHOLDER, sigT: '2025-01-15T10:00:00Z' },
     scope: { documentId: DOC_ID },
     expectedSha256: 'sha256:295f97c39bc6789dee47e1ac520fa069793176c09fccc4f1d70f6ff583fd8946',
+  },
+  {
+    name: 'kid-did-web-content-only',
+    description: 'A did:web header (kid + jkt) + content-only scope — confirms the signing-input construction is unchanged for the out-of-band keyId path.',
+    header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_WEB, jkt: JKT_SAMPLE, sigT: '2025-01-15T10:00:00Z' },
+    scope: { documentId: DOC_ID },
+    expectedSha256: 'sha256:33f5125338386a3d985ca305ad0ee1f8e6bcfe66b7eb38c16e289edf2145c809',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// did:web key-resolution vectors (§3.11): RFC 7638/8037 JWK thumbprint (the `jkt`
+// value) and publicKeyMultibase → JWK conversion. Independently produced (Python
+// hashlib/base64 + the `cryptography` lib for the P-256 point); the Ed25519 vector
+// is anchored to RFC 8037 Appendix A.3, the P-256 vector to a deterministic key
+// (private scalar d=2).
+// ---------------------------------------------------------------------------
+
+export interface ThumbprintVector {
+  name: string;
+  description: string;
+  jwk: Record<string, string>;
+  /** base64url RFC 7638 SHA-256 thumbprint (the `jkt`). */
+  expectedJkt: string;
+}
+
+export const thumbprintVectors: ThumbprintVector[] = [
+  {
+    name: 'ed25519-rfc8037',
+    description: 'RFC 8037 Appendix A.3 Ed25519 JWK thumbprint (authoritative published value).',
+    jwk: { kty: 'OKP', crv: 'Ed25519', x: '11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo' },
+    expectedJkt: 'kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k',
+  },
+  {
+    name: 'p256-deterministic',
+    description: 'P-256 JWK thumbprint (deterministic key, private scalar d=2).',
+    jwk: { kty: 'EC', crv: 'P-256', x: 'fPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXg', y: 'B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E' },
+    expectedJkt: 'AhqHzaYXA5MzmDCrsseUsVBGKyfhDhvekx0THjH_xIE',
+  },
+];
+
+export interface MultibaseVector {
+  name: string;
+  description: string;
+  /** A DID-document publicKeyMultibase value (base58btc, 'z' prefix). */
+  multibase: string;
+  expectedJwk: Record<string, string>;
+  /** The thumbprint of the converted key — confirms convert→thumbprint round-trips. */
+  expectedJkt: string;
+}
+
+export const multibaseVectors: MultibaseVector[] = [
+  {
+    name: 'ed25519-multikey',
+    description: 'Ed25519 publicKeyMultibase (the RFC 8037 key) → JWK; thumbprint matches the JWK vector.',
+    multibase: 'z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw',
+    expectedJwk: { kty: 'OKP', crv: 'Ed25519', x: '11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo' },
+    expectedJkt: 'kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k',
+  },
+  {
+    name: 'p256-multikey',
+    description: 'P-256 compressed publicKeyMultibase → JWK (point decompressed); thumbprint matches the JWK vector.',
+    multibase: 'zDnaer52RTwabaBeMkKYYwZmEFqPabLW78cRK62iovMUQhFif',
+    expectedJwk: { kty: 'EC', crv: 'P-256', x: 'fPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXg', y: 'B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E' },
+    expectedJkt: 'AhqHzaYXA5MzmDCrsseUsVBGKyfhDhvekx0THjH_xIE',
   },
 ];
