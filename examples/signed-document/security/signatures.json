@@ -36,6 +36,16 @@
         "authority": "https://timestamp.digicert.com",
         "time": "2025-01-15T10:00:05Z",
         "token": "MIIEpgYJKoZIhvcNAQcCoIIElzCCBJMCAQExDTALBglghkgBZQMEAgEw"
+      },
+      "ltv": {
+        "certificates": [
+          "MIIBijCCATCgAwIBAgIUValidationPlaceholderIntermediateDERxw=="
+        ],
+        "revocationInfo": {
+          "ocsp": [
+            "MIIBkwoBAKCCAYwwggGIBgkrBgEFBQcwAQEEggF5MIIBdTCBplaceholderxw=="
+          ]
+        }
       }
     },
     {

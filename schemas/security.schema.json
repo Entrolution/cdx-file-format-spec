@@ -85,27 +85,51 @@
     },
     "trustedTimestamp": {
       "type": "object",
-      "description": "Trusted timestamp from a timestamping authority",
-      "required": ["authority", "time", "token"],
+      "description": "RFC 3161 trusted timestamp over a signature (§3.6). The token is authoritative: its messageImprint MUST bind this signature record (the §3.6 imprint over protected||'.'||signature) and its TSA certificate chain MUST validate to the verifier's TSA trust store; the genTime inside the token is the trusted reference time T. authority/time are advisory display only — never authoritative.",
+      "required": ["token"],
       "properties": {
+        "token": {
+          "description": "RFC 3161 TimeStampToken (CMS SignedData), base64. The authoritative timestamp; its imprint binds this signature and its TSA chain anchors to the verifier's TSA trust store (§3.6). The imprint hash algorithm is carried inside the token, so it is not duplicated here.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+        },
         "authority": {
           "type": "string",
           "format": "uri",
-          "description": "Timestamp authority URL"
+          "description": "Advisory display URL of the timestamping authority; NOT authoritative (the token's validated TSA identity is)"
         },
         "time": {
           "type": "string",
           "format": "date-time",
-          "description": "ISO 8601 timestamp from the authority"
+          "description": "Advisory display time; NOT authoritative (the validated token genTime T is). Present for display only"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ltvData": {
+      "type": "object",
+      "description": "Unsigned long-term-validation material for a signature (§7.5): certificates and revocation responses stapled AFTER signing and verified independently against the verifier's trust roots, dated by a validated signature-timestamp. Stripping it only weakens a verdict (fail-closed); forged material fails validation. Archive-timestamp renewal for algorithm aging is a subsequent version.",
+      "properties": {
+        "certificates": {
+          "type": "array",
+          "description": "Stapled DER certificates (base64) — intermediates and OCSP-responder certs needed to build paths offline",
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64" }
         },
-        "token": {
-          "description": "Base64-encoded timestamp token",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
-        },
-        "algorithm": {
-          "type": "string",
-          "description": "Hash algorithm used for timestamping",
-          "enum": ["SHA256", "SHA384", "SHA512"]
+        "revocationInfo": {
+          "type": "object",
+          "description": "Stapled revocation responses, verified independently and dated by the validated timestamp genTime T (§7.5)",
+          "properties": {
+            "ocsp": {
+              "type": "array",
+              "description": "DER OCSP responses (base64)",
+              "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64" }
+            },
+            "crl": {
+              "type": "array",
+              "description": "DER CRLs (base64)",
+              "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64" }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -292,7 +316,11 @@
         },
         "timestamp": {
           "$ref": "#/$defs/trustedTimestamp",
-          "description": "JWS path: advisory trusted timestamp"
+          "description": "JWS path: RFC 3161 trusted timestamp over this signature (section 3.6)"
+        },
+        "ltv": {
+          "$ref": "#/$defs/ltvData",
+          "description": "JWS path: unsigned long-term-validation material (stapled certificates and revocation responses) for this signature (section 7.5)"
         },
         "webauthn": {
           "$ref": "#/$defs/webauthnAssertion",
@@ -308,7 +336,7 @@
         {
           "title": "WebAuthn assertion",
           "required": ["webauthn"],
-          "not": { "anyOf": [{ "required": ["protected"] }, { "required": ["signature"] }, { "required": ["timestamp"] }] }
+          "not": { "anyOf": [{ "required": ["protected"] }, { "required": ["signature"] }, { "required": ["timestamp"] }, { "required": ["ltv"] }] }
         }
       ],
       "additionalProperties": false
