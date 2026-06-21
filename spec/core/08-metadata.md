@@ -372,13 +372,15 @@ For rich semantic interoperability, documents can include JSON-LD metadata that 
 
 ### 6.1 Included in Hash
 
-The following Dublin Core terms are included in the document hash:
+The document hash includes a projection of exactly these Dublin Core terms, extracted from `terms` and flattened (see Document Hashing, section 4.3):
 
-- `title`
-- `creator`
-- `subject`
-- `description`
-- `language`
+- `title` (string)
+- `creator` (array; a scalar is coerced to a one-element array)
+- `subject` (array)
+- `description` (string)
+- `language` (array)
+
+A term that is absent or wholly empty (`""`/`[]`) is omitted from the projection. The structured `creators` array is not included.
 
 ### 6.2 Excluded from Hash
 
