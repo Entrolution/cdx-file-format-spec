@@ -77,3 +77,6 @@ jobs:
 
       - name: Check JWS envelope
         run: npm run check:jws-envelope
+
+      - name: Check trust state
+        run: npm run check:trust-state
