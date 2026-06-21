@@ -159,10 +159,10 @@ The canonical content is a *transform* of the stored parts; the stored files are
 
 **Content transforms.** Apply to `content/document.json`, uniformly across all block types including `namespace:type` extension blocks:
 
-1. **Strip derived fields**: remove `measurement.display` and `codeBlock.tokens` (presentational/regenerable; no canonical form).
+1. **Strip non-content fields**: remove `measurement.display` and `codeBlock.tokens` (presentational/regenerable; no canonical form), and any `crdt` field carried on a block or text node (transient collaboration synchronization state, excluded per section 4.1a).
 2. **Resolve asset references**: replace every content-level asset *path* reference — an `image.src`, `svg.src`, or `signature.image`, or an archive-relative `href` on a `link` mark — with the referenced asset's content hash (`algorithm:hexdigest`). A reference resolves iff, after path normalization (no `.` or `..` segments; case-sensitive), it equals an asset's archive path — that asset's category directory (`assets/` followed by its category, i.e. the key under `manifest.assets` that registers it: the standard `images`, `fonts`, or `embeds`, or any additional category) joined with the asset's index `path` (Asset Embedding, section 3). The following are not asset paths and are left verbatim: an `href` beginning with `#` (an internal Content Anchor reference), a reference marked `external`, and any reference carrying a URL scheme (e.g. `https://`); an `svg` with inline `content` and no `src` has nothing to resolve. A reference beginning with `assets/` that matches no registered asset is a canonicalization error. The document ID thereby inherits the integrity of the asset index `hash` values, which MUST be verified against the asset bytes (Asset Embedding, section 8) before the ID can be trusted.
 3. **Normalize marks**: within each text node, sort the `marks` array by each mark's JCS serialization (UTF-16 code-unit comparison — so bare formatting marks such as `"bold"` sort before structured marks such as `{"type":"link",…}`), remove marks with identical JCS serialization (deduplicate), and omit the `marks` key entirely when the array is empty (absent ≡ `[]`). Mark order is not semantic.
-4. **Merge text nodes**: merge adjacent sibling text nodes that have no intervening non-text inline child and identical canonical mark-sets, concatenating their `value`s. Offsets are defined over the concatenated text content (Anchors and References, section 3), so this moves no anchor.
+4. **Merge text nodes**: merge adjacent sibling text nodes that have no intervening non-text inline child and identical canonical mark-sets, concatenating their `value`s. Only a text node whose sole keys are `type`, `value`, and `marks` (after the step 1 stripping) is merge-eligible; a text node that also carries an `id`, `attributes`, or any other field is preserved unchanged and acts as a boundary, so no identifier or annotation is dropped. Offsets are defined over the concatenated text content (Anchors and References, section 3), so this moves no anchor.
 5. **Preserve everything else as authored**: no other field is added, removed, defaulted, or coalesced. In particular `null` and absent are distinct, and JSON-Schema `default`s (such as `colspan`) are never materialized into hashed content.
 
 #### 4.3.2 Serialization
@@ -173,7 +173,7 @@ The canonical content is a *transform* of the stored parts; the stored files are
    - Numbers are serialized per RFC 8785, which mandates the ECMAScript `Number.prototype.toString` algorithm over IEEE-754 double-precision values. Negative zero (`-0`) MUST be serialized as `0`. All hashed numbers are treated as IEEE-754 doubles, so producers MUST NOT rely on numeric precision beyond what a double round-trips; integers in hashed content MUST have magnitude at most 2^53 - 1 (the safe-integer limit).
    - Strings are escaped per RFC 8785
 
-2. **Unicode Normalization**: Producers MUST emit all object keys and string values in Normalization Form C (NFC). This applies to the concatenated text content of each block (see Anchors and References, section 3), not merely to individual text-node values: an NFC-combining sequence MUST NOT be split across text-node boundaries. NFC is a property of the stored bytes, not a hash-time transform — implementations MUST NOT normalize while computing a hash, so the stored and hashed bytes are always identical. Content that is not already NFC is non-conformant.
+2. **Unicode Normalization**: Producers MUST emit all object keys and string values in Normalization Form C (NFC) and as well-formed Unicode (no unpaired surrogate code points). This applies to the concatenated text content of each block (see Anchors and References, section 3), not merely to individual text-node values: an NFC-combining sequence MUST NOT be split across text-node boundaries. NFC is a property of the stored bytes, not a hash-time transform — implementations MUST NOT normalize while computing a hash, so the stored and hashed bytes are always identical. Content that is not already NFC is non-conformant.
 
 3. **Duplicate Keys**: Any JSON object with duplicate keys MUST be rejected before hashing or verification, in every document state. RFC 8259 parsers disagree on duplicate keys (first wins, last wins, or reject), so an unrejected duplicate lets a signer and a consumer read different values from one signed document (a split-view substitution).
 
@@ -475,7 +475,7 @@ function verifyDocument(archive) {
     throw new Error(`hashAlgorithm does not match id prefix`)
   }
 
-  // strip derived fields, resolve asset src -> content hash, normalize + merge marks (4.3.1)
+  // strip derived fields + crdt, resolve asset refs -> content hash, normalize + merge marks (4.3.1)
   const content = canonicalizeContent(parseJSON(archive.read(manifest.content.path)),
                                       archive, manifest)
   // keep + flatten the five terms, always-array, omit empty (4.3.1)
