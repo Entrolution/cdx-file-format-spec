@@ -235,9 +235,15 @@ export function canonicalContent(parts: DocumentParts, options: CanonicalizeOpti
   const metadata = projectMetadata(dublinCore);
   const canonicalizedContent = canon(content, assetMap);
 
-  const result = { content: canonicalizedContent, metadata };
-  if (validate) validateStoredByteInvariants(result);
-  return result;
+  // Validate stored-byte invariants (NFC, well-formed Unicode, safe integers) on
+  // the transformed content *before* alpha-renaming, so the original id bytes are
+  // checked before §4.3.1's relabeling replaces them with canonical names.
+  const projected = { content: canonicalizedContent, metadata };
+  if (validate) validateStoredByteInvariants(projected);
+
+  // Canonicalize identifiers: relabel block/anchor ids to position-based names
+  // and rewrite the Content Anchor URI references to them (§4.3.1 item 5).
+  return { content: alphaRenameIds(canonicalizedContent), metadata };
 }
 
 /**
@@ -431,7 +437,17 @@ function normalizeMarks(marks: unknown[], assetMap: Map<string, string>): unknow
     return m;
   });
 
-  const keyed = resolved.map((m) => ({ mark: m, jcs: jcsOf(m) }));
+  return sortDedupMarks(resolved);
+}
+
+/**
+ * Sort marks by JCS serialization (UTF-16 code-unit order) and remove marks with
+ * identical serializations (§4.3.1 item 3). Shared by the marks pipeline and by
+ * the post-alpha-rename re-sort — relabeling an `anchor` mark id or a `link`
+ * href changes that mark's JCS sort key, so its array must be re-sorted.
+ */
+function sortDedupMarks(marks: unknown[]): unknown[] {
+  const keyed = marks.map((m) => ({ mark: m, jcs: jcsOf(m) }));
   keyed.sort((a, b) => (a.jcs < b.jcs ? -1 : a.jcs > b.jcs ? 1 : 0));
 
   const out: unknown[] = [];
@@ -482,6 +498,160 @@ function isMergeableTextNode(n: unknown): n is PlainTextNode {
 function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
   // Absent marks ≡ []; both are already normalized when present.
   return jcsOf(a.marks ?? []) === jcsOf(b.marks ?? []);
+}
+
+// ---------------------------------------------------------------------------
+// Alpha-renaming of block/anchor ids (§4.3.1 item 5 "Canonicalize identifiers")
+// ---------------------------------------------------------------------------
+
+/**
+ * Relabel author-chosen identifiers to position-based canonical names so that two
+ * documents differing ONLY in their id *labels* canonicalize identically
+ * (block-id purity). Runs as the final transform, on the already strip/resolve/
+ * marks/merge-canonicalized content; a pure function of that structure.
+ *
+ * Namespace (relabeled): the `id` of every block — a typed object (`type` is a
+ * string) outside a `marks` array — and of every `anchor` mark. This is the
+ * shared block/anchor-id namespace of Anchors & References §4. Requiring a `type`
+ * naturally excludes the deferred non-block ids (`subfigure`, `equationLine`,
+ * `signer` carry no `type`).
+ *
+ * References rewritten: Content Anchor URIs (`#id[/offset]`) in an enumerated set
+ * of reference fields. Identifiers in other namespaces — footnote / glossary /
+ * citation / entity / index / legal marks, equation- and algorithm-line ids,
+ * subfigure ids — are NOT relabeled, and a `#`-reference resolving to none of the
+ * relabeled ids (e.g. a reference to an equation line, or a cross-document anchor)
+ * is left verbatim. A duplicate id within the namespace is rejected.
+ */
+function alphaRenameIds(content: unknown): unknown {
+  const map = new Map<string, string>();
+  let counter = 0;
+
+  // Pass 1 — assign canonical names by a value-independent traversal (arrays in
+  // index order; object keys in sorted order; a node's own id before its
+  // descendants), so alpha-equivalent inputs build identical maps regardless of
+  // the original labels. Reject a duplicate id (Anchors & References §4 requires
+  // uniqueness across the shared namespace).
+  const collect = (value: unknown, inMarks: boolean): void => {
+    if (Array.isArray(value)) {
+      for (const el of value) collect(el, inMarks);
+      return;
+    }
+    if (!isPlainObject(value)) return;
+    const id = definedId(value, inMarks);
+    if (id !== undefined) {
+      if (map.has(id)) {
+        throw new CanonicalizationError(`duplicate id "${id}" in the block/anchor-id namespace`);
+      }
+      map.set(id, `b${counter++}`);
+    }
+    for (const key of Object.keys(value).sort()) {
+      collect(value[key], key === 'marks');
+    }
+  };
+  collect(content, false);
+
+  if (map.size === 0) return content; // no ids to canonicalize
+
+  return rewriteIds(content, map, false);
+}
+
+/** The in-namespace id this node defines (block id or anchor-mark id), if any. */
+function definedId(obj: Record<string, unknown>, inMarks: boolean): string | undefined {
+  if (inMarks) {
+    return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
+  }
+  return typeof obj.type === 'string' && typeof obj.id === 'string' ? obj.id : undefined;
+}
+
+/** Academic inline reference marks whose `target` is a Content Anchor URI. */
+function isAnchorRefMark(type: unknown): boolean {
+  return type === 'theorem-ref' || type === 'equation-ref' || type === 'algorithm-ref';
+}
+
+/**
+ * Rewrite id-defining fields and the enumerated Content Anchor URI references
+ * using the relabel map. References handled: `link` mark `href`; academic
+ * `theorem-ref`/`equation-ref`/`algorithm-ref` mark `target`; `academic:theorem`
+ * `uses[]`; `academic:proof` `of`; `semantic:ref` and `presentation:reference`
+ * block `target`.
+ */
+function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean): unknown {
+  if (Array.isArray(value)) {
+    return value.map((v) => rewriteIds(v, map, inMarks));
+  }
+  if (!isPlainObject(value)) return value;
+
+  const obj: Record<string, unknown> = { ...value };
+  const type = obj.type;
+
+  // Recurse first; a `marks` array is re-sorted+deduped after its members are
+  // rewritten, since relabeling an anchor id or link href changes a mark's JCS
+  // sort key (§4.3.1 item 3). Mark order/multiplicity is non-semantic, so the
+  // re-sort is always safe.
+  for (const key of Object.keys(obj)) {
+    if (key === 'marks' && Array.isArray(obj[key])) {
+      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true)));
+    } else {
+      obj[key] = rewriteIds(obj[key], map, false);
+    }
+  }
+
+  // Rewrite this node's own id and any reference fields it carries.
+  if (inMarks) {
+    if (obj.type === 'anchor' && typeof obj.id === 'string') {
+      obj.id = renameId(obj.id, map);
+    } else if (obj.type === 'link' && typeof obj.href === 'string') {
+      obj.href = rewriteContentAnchor(obj.href, map);
+    } else if (isAnchorRefMark(obj.type) && typeof obj.target === 'string') {
+      obj.target = rewriteContentAnchor(obj.target, map);
+    }
+  } else {
+    if (typeof type === 'string' && typeof obj.id === 'string') {
+      obj.id = renameId(obj.id, map);
+    }
+    if (type === 'academic:proof' && typeof obj.of === 'string') {
+      obj.of = rewriteContentAnchor(obj.of, map);
+    } else if (type === 'academic:theorem' && Array.isArray(obj.uses)) {
+      obj.uses = (obj.uses as unknown[]).map((u) => (typeof u === 'string' ? rewriteContentAnchor(u, map) : u));
+    } else if ((type === 'semantic:ref' || type === 'presentation:reference') && typeof obj.target === 'string') {
+      obj.target = rewriteContentAnchor(obj.target, map);
+    }
+  }
+  return obj;
+}
+
+/** Map a defined id to its canonical name (a def is always present in the map). */
+function renameId(id: string, map: Map<string, string>): string {
+  return map.get(id) ?? id;
+}
+
+/** Shape of a generated canonical id name: `b` followed by decimal digits. */
+const CANONICAL_NAME = /^b\d+$/;
+
+/**
+ * Rewrite the id component of a Content Anchor URI (`#id[/offset[-end]]`, Anchors
+ * & References §2.1) via the relabel map, preserving any `/offset` suffix. A
+ * non-`#` value (e.g. an external URL) or a `#`-reference whose id is not in the
+ * relabeled namespace (e.g. an equation-line id or a cross-document anchor) is
+ * returned verbatim — EXCEPT that an unresolved reference must not itself spell a
+ * generated canonical name (`#b0`, `#b1`, …): left verbatim it would be
+ * byte-identical to a reference that genuinely resolved to that block, collapsing
+ * two distinct documents onto one id. Such a reference is rejected instead.
+ */
+function rewriteContentAnchor(value: string, map: Map<string, string>): string {
+  if (!value.startsWith('#')) return value;
+  const slash = value.indexOf('/');
+  const id = slash === -1 ? value.slice(1) : value.slice(1, slash);
+  const suffix = slash === -1 ? '' : value.slice(slash);
+  const mapped = map.get(id);
+  if (mapped !== undefined) return `#${mapped}${suffix}`;
+  if (CANONICAL_NAME.test(id)) {
+    throw new CanonicalizationError(
+      `reference "${value}" uses the reserved canonical-name form: a "#b<number>" reference must resolve to a block or anchor id`,
+    );
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------

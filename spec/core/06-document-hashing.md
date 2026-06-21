@@ -17,7 +17,7 @@ CDX documents use content-addressable hashing as a core identity mechanism. The 
 
 ### 2.1 Content-Addressable Identity
 
-The hash of a document's **canonical** content IS its identity. The document ID is computed over a canonical *transform* of the stored content (section 4) — normalized, with content-referenced asset paths resolved to content hashes — so it is distinct from the file-level `content.hash` (section 5.1), which pins the exact stored bytes. This means:
+The hash of a document's **canonical** content IS its identity. The document ID is computed over a canonical *transform* of the stored content (section 4) — normalized, with content-referenced asset paths resolved to content hashes and author-chosen block and anchor identifiers relabeled to canonical names — so it is distinct from the file-level `content.hash` (section 5.1), which pins the exact stored bytes. This means:
 
 - Identical canonical content produces identical IDs
 - Any change to canonical content produces a different ID
@@ -115,6 +115,7 @@ The following table summarizes what is included in and excluded from the documen
 | Dublin Core metadata | Partial | Only the projection: `title`, `creator`, `subject`, `description`, `language` (structured `creators` excluded) |
 | Content-referenced asset content | Yes (by hash) | Each content asset reference (e.g. an image `src`) is resolved to the asset's content hash, binding the asset's bytes — not its filename — to identity |
 | Asset filenames / paths | No | Resolved away to content hashes; renaming a referenced asset's file does not change the ID |
+| Block & anchor id labels | Canonicalized | Relabeled to position-based names (`b0`, `b1`, …); the author's chosen label does not change the ID, and references to it are rewritten to match (section 4.3.1) |
 | Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity |
 | Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing |
 | Presentation | No | Visual rendering instructions — not part of semantic identity |
@@ -163,7 +164,10 @@ The canonical content is a *transform* of the stored parts; the stored files are
 2. **Resolve asset references**: replace every content-level asset *path* reference — an `image.src`, `svg.src`, or `signature.image`, or an archive-relative `href` on a `link` mark — with the referenced asset's content hash (`algorithm:hexdigest`). A reference resolves iff, after path normalization (no `.` or `..` segments; case-sensitive), it equals an asset's archive path — that asset's category directory (`assets/` followed by its category, i.e. the key under `manifest.assets` that registers it: the standard `images`, `fonts`, or `embeds`, or any additional category) joined with the asset's index `path` (Asset Embedding, section 3). The following are not asset paths and are left verbatim: an `href` beginning with `#` (an internal Content Anchor reference), a reference marked `external`, and any reference carrying a URL scheme (e.g. `https://`); an `svg` with inline `content` and no `src` has nothing to resolve. A reference beginning with `assets/` that matches no registered asset is a canonicalization error. The document ID thereby inherits the integrity of the asset index `hash` values, which MUST be verified against the asset bytes (Asset Embedding, section 8) before the ID can be trusted.
 3. **Normalize marks**: within each text node, sort the `marks` array by each mark's JCS serialization (UTF-16 code-unit comparison — so bare formatting marks such as `"bold"` sort before structured marks such as `{"type":"link",…}`), remove marks with identical JCS serialization (deduplicate), and omit the `marks` key entirely when the array is empty (absent ≡ `[]`). Mark order is not semantic.
 4. **Merge text nodes**: merge adjacent sibling text nodes that have no intervening non-text inline child and identical canonical mark-sets, concatenating their `value`s. Only a text node whose sole keys are `type`, `value`, and `marks` (after the step 1 stripping) is merge-eligible; a text node that also carries an `id`, `attributes`, or any other field is preserved unchanged and acts as a boundary, so no identifier or annotation is dropped. Offsets are defined over the concatenated text content (Anchors and References, section 3), so this moves no anchor.
-5. **Preserve everything else as authored**: no other field is added, removed, defaulted, or coalesced. In particular `null` and absent are distinct, and JSON-Schema `default`s (such as `colspan`) are never materialized into hashed content.
+5. **Canonicalize identifiers**: relabel author-chosen identifiers to position-based canonical names, so that two documents differing only in their id *labels* produce the same document ID. The relabeled namespace is the shared block-and-anchor-id namespace (Anchors and References, section 4): the `id` of every block (including `namespace:type` extension blocks) and the `id` of every `anchor` mark. Walk the canonical content depth-first — at each node assigning a name to the node's own block or anchor `id` (if any) before recursing into its members (object members in JCS key order, array elements in index order) — and give each id-defining occurrence the next name in the sequence `b0`, `b1`, `b2`, …; a duplicate id within this namespace is a canonicalization error. Then rewrite every Content Anchor URI reference (`#id`, optionally followed by `/offset` or `/start-end`) whose id is one of these names — preserving the suffix — in the following reference fields: a `link` mark `href`; the `theorem-ref`, `equation-ref`, and `algorithm-ref` mark `target`; the `academic:theorem` `uses`; the `academic:proof` `of`; and the `semantic:ref` and `presentation:reference` block `target`. A Content Anchor URI whose id is not a relabeled block or anchor id — for example a reference to an equation line, or a cross-document anchor — is left unchanged, except that such an unresolved reference MUST NOT itself spell a canonical name (`b` followed by digits): an unresolved `#b0` is a canonicalization error, because left unchanged it would be indistinguishable from a reference that resolved to that block, collapsing two distinct documents onto one ID. Because relabeling an `anchor` id or a `link` `href` changes that mark's serialization, the marks of any affected text node are re-sorted and de-duplicated (item 3) after rewriting.
+
+   The following are left as authored, so a document that differs only in one of these labels is not yet guaranteed to share a document ID: the reference fields that address other namespaces — the `footnote` mark `id`, the `glossary` mark `ref`, `semantic:term` `see`, `citation` `refs`, `entity` `uri`, `index` `term`, `legal:cite` citations, and the `algorithm-ref` `line`; and the identifiers that are not block or anchor ids — equation-line ids, algorithm-line labels, and subfigure ids (none of which carry a block `type`). An extension block such as `semantic:footnote` or `semantic:term` still has its own block `id` relabeled like any other block id; only the references into those namespaces are left unchanged. (A single text node is expected to carry at most one `anchor` mark; canonical names for multiple anchors on one node depend on their canonical mark order.)
+6. **Preserve everything else as authored**: no other field is added, removed, defaulted, or coalesced. In particular `null` and absent are distinct, and JSON-Schema `default`s (such as `colspan`) are never materialized into hashed content.
 
 #### 4.3.2 Serialization
 
@@ -183,7 +187,7 @@ The canonical content is a *transform* of the stored parts; the stored files are
 
 ```
 1. Project the Dublin Core metadata (section 4.3.1)
-2. Construct the canonical content tree: strip derived fields, resolve asset references to content hashes, normalize marks, merge text nodes (section 4.3.1)
+2. Construct the canonical content tree: strip derived fields, resolve asset references to content hashes, normalize marks, merge text nodes, canonicalize identifiers (section 4.3.1)
 3. Build the two-slot canonical structure { content, metadata } (section 4.2)
 4. Serialize using JCS (section 4.3.2)
 5. Hash the serialized bytes with the algorithm named by the document id prefix
@@ -475,7 +479,7 @@ function verifyDocument(archive) {
     throw new Error(`hashAlgorithm does not match id prefix`)
   }
 
-  // strip derived fields + crdt, resolve asset refs -> content hash, normalize + merge marks (4.3.1)
+  // strip derived fields + crdt, resolve asset refs -> content hash, normalize + merge marks, relabel ids (4.3.1)
   const content = canonicalizeContent(parseJSON(archive.read(manifest.content.path)),
                                       archive, manifest)
   // keep + flatten the five terms, always-array, omit empty (4.3.1)

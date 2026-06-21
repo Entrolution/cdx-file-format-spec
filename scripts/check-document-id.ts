@@ -63,6 +63,14 @@ if (orig && renamed && orig.expectedId !== renamed.expectedId) {
   fail('asset purity — renamed-asset id differs from original');
 }
 
+// Block-id purity is a defining property: two documents differing ONLY in their
+// author-chosen block/anchor labels MUST yield the same id.
+const labelsA = vectors.find((v) => v.name === 'alpha-rename-labels-a');
+const labelsB = vectors.find((v) => v.name === 'alpha-rename-labels-b');
+if (labelsA && labelsB && labelsA.expectedId !== labelsB.expectedId) {
+  fail('block-id purity — relabeled-document id differs from original');
+}
+
 // --- Part 2: example corpus -----------------------------------------------
 console.log('\nExample corpus document ids:');
 const examplesDir = path.join(__dirname, '..', 'examples');

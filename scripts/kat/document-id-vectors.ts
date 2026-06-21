@@ -102,7 +102,7 @@ export const vectors: KatVector[] = [
   },
   {
     name: 'merge-and-id-boundary',
-    description: 'Adjacent equal-mark text nodes merge; a text node carrying an id is a boundary and is preserved.',
+    description: 'Adjacent equal-mark text nodes merge; a text node carrying an id is a boundary, and that id is alpha-renamed (k → b0).',
     parts: {
       manifest: '{}',
       content:
@@ -110,8 +110,8 @@ export const vectors: KatVector[] = [
       dublinCore: DC,
     },
     expectedCanonicalJcs:
-      `{"content":{"blocks":[{"children":[{"type":"text","value":"Hello world"},{"id":"k","type":"text","value":"!"},{"type":"text","value":"?"}],"type":"paragraph"}],"version":"0.1"},${META}}`,
-    expectedId: 'sha256:2032746c797a75e9c34b8ea01cfc8caae33006830150cb8980b3bf983b118bb0',
+      `{"content":{"blocks":[{"children":[{"type":"text","value":"Hello world"},{"id":"b0","type":"text","value":"!"},{"type":"text","value":"?"}],"type":"paragraph"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:ae20d2e4a55e2113d93e4c99bc5b6abf3654b0ae177211cc5845fcdfcce2d4c8',
   },
   {
     name: 'strip-derived-and-crdt',
@@ -177,5 +177,44 @@ export const vectors: KatVector[] = [
     expectedCanonicalJcs:
       `{"content":{"blocks":[{"children":[{"type":"text","value":"sha384"}],"type":"paragraph"}],"version":"0.1"},${META}}`,
     expectedId: 'sha384:8776ca4466e5194913ee9cb5999402f5403a532b530faefdd052adeb1695a8042341130f4a83af765e5bc7b55c260070',
+  },
+  {
+    name: 'alpha-rename-labels-a',
+    description: 'Alpha-renaming: author labels title/intro become b0/b1 and the link #title is rewritten to #b0 (§4.3.1 item 5).',
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"heading","id":"title","level":1,"children":[{"type":"text","value":"Title"}]},{"type":"paragraph","id":"intro","children":[{"type":"text","value":"x","marks":[{"type":"link","href":"#title"}]}]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"children":[{"type":"text","value":"Title"}],"id":"b0","level":1,"type":"heading"},{"children":[{"marks":[{"href":"#b0","type":"link"}],"type":"text","value":"x"}],"id":"b1","type":"paragraph"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:4c036a36cb087408573539bc639253056cebbd39e7bd5ca3d40207bc91791d0d',
+  },
+  {
+    name: 'alpha-rename-labels-b',
+    description: 'Same structure as -a with DIFFERENT author labels (sec/body, #sec) — MUST canonicalize identically (block-id purity).',
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"heading","id":"sec","level":1,"children":[{"type":"text","value":"Title"}]},{"type":"paragraph","id":"body","children":[{"type":"text","value":"x","marks":[{"type":"link","href":"#sec"}]}]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"children":[{"type":"text","value":"Title"}],"id":"b0","level":1,"type":"heading"},{"children":[{"marks":[{"href":"#b0","type":"link"}],"type":"text","value":"x"}],"id":"b1","type":"paragraph"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:4c036a36cb087408573539bc639253056cebbd39e7bd5ca3d40207bc91791d0d',
+  },
+  {
+    name: 'alpha-rename-academic-refs',
+    description: 'Academic uses[] and proof.of references are rewritten to canonical block-id names (#def→#b0, #thm→#b1).',
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"academic:theorem","id":"def","variant":"definition","children":[]},{"type":"academic:theorem","id":"thm","variant":"theorem","uses":["#def"],"children":[]},{"type":"academic:proof","of":"#thm","children":[]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"children":[],"id":"b0","type":"academic:theorem","variant":"definition"},{"children":[],"id":"b1","type":"academic:theorem","uses":["#b0"],"variant":"theorem"},{"children":[],"of":"#b1","type":"academic:proof"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:67c275865c3fdab3e46f85600ae82a6efad7171ce05d2953e3b59a4d53ffb349',
   },
 ];
