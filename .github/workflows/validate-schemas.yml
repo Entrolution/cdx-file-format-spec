@@ -46,6 +46,9 @@ jobs:
       - name: Validate schemas and examples
         run: npm test
 
+      - name: Test canonicalizer
+        run: npm run test:canonicalize
+
       - name: Check spec-schema sync
         run: npm run check:sync
 
@@ -57,3 +60,6 @@ jobs:
 
       - name: Check hash centralization
         run: npm run check:hash-centralization
+
+      - name: Check document ids
+        run: npm run check:document-id

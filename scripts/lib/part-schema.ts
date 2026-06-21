@@ -68,7 +68,8 @@ export const rules: Rule[] = [
   // the numbering data file is described by the numberingConfig $def.
   { test: /^academic\/numbering\.json$/, schema: 'academic.schema.json', ref: '#/$defs/numberingConfig' },
   { test: /^collaboration\/(comments|changes)\.json$/, schema: 'collaboration.schema.json' },
-  { test: /^assets\/index\.json$/, schema: 'asset-index.schema.json' },
+  // Per-category index files: assets/<category>/index.json (images, fonts, embeds, …).
+  { test: /^assets\/[^/]+\/index\.json$/, schema: 'asset-index.schema.json' },
   { test: /^presentation\/layouts\/[^/]+\.json$/, schema: 'precise-layout.schema.json' },
   { test: /^presentation\/[^/]+\.json$/, schema: 'presentation.schema.json' },
   { test: /^provenance\/record\.json$/, schema: 'provenance.schema.json' },

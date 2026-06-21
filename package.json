@@ -7,18 +7,21 @@
     "test": "npm run validate:schemas && npm run validate:examples",
     "validate:schemas": "npx tsx scripts/validate-schemas.ts",
     "validate:examples": "npx tsx scripts/validate-examples.ts",
+    "test:canonicalize": "npx tsx scripts/test-canonicalize.ts",
     "check:sync": "npx tsx scripts/check-spec-schema-sync.ts",
     "check:refs": "npx tsx scripts/validate-cross-refs.ts",
     "check:coverage": "npx tsx scripts/check-example-coverage.ts",
     "check:hash-centralization": "npx tsx scripts/check-hash-centralization.ts",
+    "check:document-id": "npx tsx scripts/check-document-id.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {
+    "@types/node": "^20.11.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "canonicalize": "2.1.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
-    "@types/node": "^20.11.0"
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"

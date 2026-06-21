@@ -1,6 +1,6 @@
 {
   "cdx": "0.1",
-  "id": "pending",
+  "id": "sha256:435def982ff9ccb616e0c17ac9cd99807d7400a9fc9fd3ecc8506267a23cb97f",
   "state": "draft",
   "created": "2025-01-29T10:00:00Z",
   "modified": "2025-01-29T10:00:00Z",
@@ -16,6 +16,13 @@
       "default": true
     }
   ],
+  "assets": {
+    "images": {
+      "count": 1,
+      "totalSize": 69,
+      "index": "assets/images/index.json"
+    }
+  },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
   },

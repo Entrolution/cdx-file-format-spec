@@ -170,9 +170,9 @@ BlockHash = SHA256(CanonicalJSON(block))
 ```
 
 Where canonical JSON follows RFC 8785 (JCS):
-- Keys sorted alphabetically
+- Keys sorted by UTF-16 code unit (per JCS)
 - No whitespace
-- Deterministic number formatting
+- Deterministic number formatting (per RFC 8785)
 
 ### 4.3 Tree Construction
 

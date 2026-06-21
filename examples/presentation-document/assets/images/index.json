@@ -1,0 +1,12 @@
+{
+  "version": "0.1",
+  "assets": [
+    {
+      "id": "layout-example",
+      "path": "layout-example.png",
+      "type": "image/png",
+      "size": 69,
+      "hash": "sha256:bddd9ed2977bb066d5b0d17c618838263f06b2c761af0e0207ae1be1397343cd"
+    }
+  ]
+}

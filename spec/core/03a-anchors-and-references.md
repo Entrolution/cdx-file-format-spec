@@ -109,9 +109,13 @@ Character offsets address positions within a block's text content. The text cont
 3. For each non-text inline child (e.g., `break`), contribute U+000A (line feed)
 4. The result is the block's text content string
 
-Offsets are zero-based. Ranges use half-open intervals: `start` is inclusive, `end` is exclusive.
+A **character** is one Unicode scalar value (code point) — not a UTF-16 code unit and not a grapheme cluster. Offsets are zero-based code-point indices into the text content. Ranges use half-open intervals: `start` is inclusive, `end` is exclusive.
 
-**Example:**
+The text content is in Normalization Form C (NFC), as required of all hashed text (see Document Hashing, section 4.3); offsets are measured over that NFC text.
+
+> **Note**: Offsets are defined over the *concatenated* text content, so they are invariant under canonical merging or splitting of adjacent text nodes — the concatenation is unchanged. A frozen anchor therefore stays valid across any text-node normalization applied before hashing.
+
+**Example (ASCII):**
 
 Given a paragraph block:
 
@@ -127,7 +131,11 @@ Given a paragraph block:
 }
 ```
 
-The block's text content is `"Hello, world!"` (13 characters). An anchor `{ "blockId": "para-1", "start": 7, "end": 12 }` selects `"world"`.
+The block's text content is `"Hello, world!"` (13 code points). An anchor `{ "blockId": "para-1", "start": 7, "end": 12 }` selects `"world"`.
+
+**Example (non-BMP):**
+
+For text content `"a😀b"`, the emoji U+1F600 is a single Unicode scalar value, so the string is **3 code points**. An anchor `{ "start": 1, "end": 2 }` selects `"😀"`. A UTF-16-based implementation would count the emoji as two units and mis-target the anchor — which is why the unit is fixed to the scalar value.
 
 ## 4. Named Anchor Marks
 

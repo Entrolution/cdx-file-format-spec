@@ -1114,12 +1114,12 @@ Image `src` attributes that reference embedded assets MUST correspond to files i
 
 ### 8.3 Normalization
 
-Before comparison or hashing, content SHOULD be normalized:
+The canonical form used for hashing is defined normatively in Document Hashing, section 4.3, which is authoritative. In summary, hashed content is normalized so that:
 
-1. Sort object keys alphabetically
-2. Remove empty attributes
-3. Collapse adjacent text nodes with same marks
-4. Normalize Unicode to NFC form
+1. Object keys are sorted per JCS (RFC 8785)
+2. Object keys and string values are in Unicode Normalization Form C (NFC)
+
+This normalization describes the canonical form that hashed content MUST already have; it is not a transform applied during hash computation.
 
 ## 9. Examples
 

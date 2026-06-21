@@ -99,7 +99,8 @@ for (const exampleName of exampleDirs) {
   // Per spec §5.1 file hashes are over the DECOMPRESSED bytes; the examples store
   // parts uncompressed, so the on-disk bytes are the decompressed bytes (a part
   // declared with a `compression` codec would need decompressing first). The
-  // document id / canonical content hash is a separate field, out of scope here.
+  // document id / canonical content hash is verified separately by the
+  // check:document-id gate (scripts/check-document-id.ts).
   const manifestPath = path.join(examplePath, 'manifest.json');
   if (fs.existsSync(manifestPath)) {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -150,6 +151,54 @@ for (const exampleName of exampleDirs) {
         console.log(`      declared ${declared}`);
         console.log(`      actual   ${actual}`);
         hasErrors = true;
+      }
+    }
+
+    // Asset-index hashes: each registered asset's declared hash must equal the
+    // raw hash of its on-disk bytes (archive path = assets/<category>/<entry path>,
+    // matching the canonicalizer). The document id binds these hashes (Document
+    // Hashing §4.3.1), so a wrong asset hash would silently change the id.
+    for (const [category, cat] of Object.entries<{ index?: string }>(manifest.assets ?? {})) {
+      const indexRel = cat?.index;
+      if (typeof indexRel !== 'string') continue;
+      if (!fs.existsSync(path.join(examplePath, indexRel))) {
+        console.log(`  ✗ manifest assets.${category}.index -> ${indexRel} (file missing)`);
+        hasErrors = true;
+        continue;
+      }
+      let index: { assets?: Array<{ path?: string; hash?: string }> };
+      try {
+        index = JSON.parse(fs.readFileSync(path.join(examplePath, indexRel), 'utf8'));
+      } catch (err) {
+        console.log(`  ✗ ${indexRel} — parse error: ${err instanceof Error ? err.message : String(err)}`);
+        hasErrors = true;
+        continue;
+      }
+      for (const entry of index.assets ?? []) {
+        if (typeof entry?.path !== 'string' || typeof entry?.hash !== 'string') continue;
+        const assetRel = `assets/${category}/${entry.path}`;
+        if (!fs.existsSync(path.join(examplePath, assetRel))) {
+          console.log(`  ✗ asset ${assetRel} (file missing)`);
+          hasErrors = true;
+          continue;
+        }
+        const assetAlgo = entry.hash.split(':')[0];
+        let actual: string;
+        try {
+          actual = `${assetAlgo}:${crypto.createHash(assetAlgo).update(fs.readFileSync(path.join(examplePath, assetRel))).digest('hex')}`;
+        } catch (err) {
+          console.log(`  ✗ asset ${assetRel} — cannot hash with '${assetAlgo}': ${err instanceof Error ? err.message : String(err)}`);
+          hasErrors = true;
+          continue;
+        }
+        if (actual === entry.hash) {
+          console.log(`  ✓ asset ${assetRel}`);
+        } else {
+          console.log(`  ✗ asset ${assetRel} — hash mismatch`);
+          console.log(`      declared ${entry.hash}`);
+          console.log(`      actual   ${actual}`);
+          hasErrors = true;
+        }
       }
     }
   }

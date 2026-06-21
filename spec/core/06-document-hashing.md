@@ -17,10 +17,10 @@ CDX documents use content-addressable hashing as a core identity mechanism. The 
 
 ### 2.1 Content-Addressable Identity
 
-The hash of a document's content IS its identity. This means:
+The hash of a document's **canonical** content IS its identity. The document ID is computed over a canonical *transform* of the stored content (section 4) — normalized, with content-referenced asset paths resolved to content hashes — so it is distinct from the file-level `content.hash` (section 5.1), which pins the exact stored bytes. This means:
 
-- Identical content produces identical IDs
-- Any content change produces a different ID
+- Identical canonical content produces identical IDs
+- Any change to canonical content produces a different ID
 - IDs are deterministic (reproducible)
 - No central authority needed for ID assignment
 
@@ -74,7 +74,7 @@ Documents MAY specify their hash algorithm in the manifest:
 }
 ```
 
-If `hashAlgorithm` is omitted, SHA-256 is assumed.
+The algorithm used to verify a document ID or hash is determined by the value's own `algorithm:` prefix (for example, `sha512:` selects SHA-512); a verifier MUST use that algorithm and never a hardcoded default. The manifest's `hashAlgorithm`, when present, MUST equal the `id` prefix; when omitted it defaults to `sha256` for the declared field, but verification still follows the `id` prefix rather than this default.
 
 ## 4. Document ID Computation
 
@@ -87,9 +87,8 @@ Document ID = Hash(CanonicalContent)
 ```
 
 The canonical content includes:
-1. Content blocks (semantic content)
-2. Essential metadata (Dublin Core)
-3. Asset hashes (not asset content)
+1. Content blocks (semantic content), with each content-referenced asset path replaced by that asset's content hash — binding a referenced asset's bytes to identity, but not its filename (see section 4.3)
+2. Essential metadata (the Dublin Core projection)
 
 The canonical content EXCLUDES:
 - Presentation layers (visual rendering, not part of content identity)
@@ -99,8 +98,10 @@ The canonical content EXCLUDES:
 - Collaboration data (comments, change tracking)
 - Phantom data (off-page annotations)
 - Form data (`forms/data.json` — filled values are mutable even on frozen documents)
+- Derived fields carried inside content blocks: `measurement.display` (a human-readable rendering of the value) and `codeBlock.tokens` (regenerable syntax highlighting), which have no canonical form
+- Fonts and other packaged assets not referenced from content (referenced only by the presentation layer); only content-referenced assets are bound to identity
 
-> **Metadata inclusion**: The Dublin Core terms included in the hash are `title`, `creator`, `subject`, `description`, and `language`. Administrative terms (`date`, `publisher`, `identifier`, `rights`) are excluded. See Metadata specification, section 6 for details.
+> **Metadata inclusion**: The Dublin Core terms included in the hash are `title`, `creator`, `subject`, `description`, and `language`. Administrative terms (`date`, `publisher`, `identifier`, `rights`) and the structured `creators` array are excluded. See Metadata specification, section 6 for details.
 
 > **Note**: The document ID represents the document's semantic identity — what it says, not how it looks. Multiple visual presentations (letter, A4, responsive) of the same content produce the same document ID. For appearance attestation, see Scoped Signatures in the Security Extension.
 
@@ -111,9 +112,11 @@ The following table summarizes what is included in and excluded from the documen
 | Layer | Inside Hash | Notes |
 |-------|-------------|-------|
 | Content blocks | Yes | Core document identity — all text, structure, and semantic markup |
-| Dublin Core metadata | Partial | Only `title`, `creator`, `subject`, `description`, `language` |
-| Asset hashes | Yes | Asset identity via hash mapping (not asset bytes) |
-| Asset content | No | Actual asset bytes are hashed separately; only references included |
+| Dublin Core metadata | Partial | Only the projection: `title`, `creator`, `subject`, `description`, `language` (structured `creators` excluded) |
+| Content-referenced asset content | Yes (by hash) | Each content asset reference (e.g. an image `src`) is resolved to the asset's content hash, binding the asset's bytes — not its filename — to identity |
+| Asset filenames / paths | No | Resolved away to content hashes; renaming a referenced asset's file does not change the ID |
+| Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity |
+| Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing |
 | Presentation | No | Visual rendering instructions — not part of semantic identity |
 | Precise layouts | No | Coordinate-level positioning — rendering fidelity |
 | Collaboration | No | Comments, suggestions, change tracking |
@@ -132,41 +135,59 @@ This boundary ensures that the document's identity represents its **semantic con
 
 ```json
 {
-  "version": "0.1",
-  "content": { /* content blocks */ },
-  "metadata": { /* dublin core subset */ },
-  "assetHashes": { /* asset ID -> hash mapping */ }
+  "content": { /* canonicalized content tree (see 4.3) */ },
+  "metadata": { /* Dublin Core projection (see 4.3) */ }
 }
 ```
 
+The canonical structure has exactly two slots, both always present:
+
+- `content` — the content tree (`content/document.json`, including its own `version`) after the content canonicalization of section 4.3.
+- `metadata` — the Dublin Core projection of section 4.3 (an empty object `{}` when no projected term survives).
+
+There is no separate asset-hash slot: content-referenced assets are bound by resolving their references to content hashes inside `content`. There is no top-level `version`; the content's own `version` is retained inside `content`.
+
 ### 4.3 Canonicalization Rules
 
-To ensure deterministic hashing:
+These rules are normative: every conformant implementation MUST produce identical bytes for identical canonical content. Canonicalization has two stages — first construct the canonical structure (4.3.1), then serialize it (4.3.2).
 
-1. **JSON Canonicalization**: Use [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) (JCS) for JSON serialization:
-   - Sort object keys lexicographically
-   - No whitespace between tokens
-   - Numbers without unnecessary precision
-   - Strings with minimal escaping
+#### 4.3.1 Constructing the Canonical Content
 
-2. **Unicode Normalization**: All text content in NFC form
+The canonical content is a *transform* of the stored parts; the stored files are never modified. Build the two-slot structure of section 4.2 as follows.
 
-3. **Field Ordering**: Within content blocks:
-   - `type` first
-   - `id` second (if present)
-   - `children` or `value` third
-   - Other fields in alphabetical order
+**Metadata projection.** From `metadata/dublin-core.json`, take the `terms` object and keep exactly `title`, `creator`, `subject`, `description`, and `language`, flattened to a `{term: value}` object (the `{version, terms}` wrapper and every other term — including the structured `creators` — are dropped). `title` and `description` are strings; `creator`, `subject`, and `language` are arrays (a scalar value is coerced to a one-element array). A term is omitted entirely when it is absent or wholly empty (`""` or `[]`); non-empty array elements are preserved verbatim, in authored order. (`title` and `creator` are required and non-empty, so they always survive.)
+
+**Content transforms.** Apply to `content/document.json`, uniformly across all block types including `namespace:type` extension blocks:
+
+1. **Strip non-content fields**: remove `measurement.display` and `codeBlock.tokens` (presentational/regenerable; no canonical form), and any `crdt` field carried on a block or text node (transient collaboration synchronization state, excluded per section 4.1a).
+2. **Resolve asset references**: replace every content-level asset *path* reference — an `image.src`, `svg.src`, or `signature.image`, or an archive-relative `href` on a `link` mark — with the referenced asset's content hash (`algorithm:hexdigest`). A reference resolves iff, after path normalization (no `.` or `..` segments; case-sensitive), it equals an asset's archive path — that asset's category directory (`assets/` followed by its category, i.e. the key under `manifest.assets` that registers it: the standard `images`, `fonts`, or `embeds`, or any additional category) joined with the asset's index `path` (Asset Embedding, section 3). The following are not asset paths and are left verbatim: an `href` beginning with `#` (an internal Content Anchor reference), a reference marked `external`, and any reference carrying a URL scheme (e.g. `https://`); an `svg` with inline `content` and no `src` has nothing to resolve. A reference beginning with `assets/` that matches no registered asset is a canonicalization error. The document ID thereby inherits the integrity of the asset index `hash` values, which MUST be verified against the asset bytes (Asset Embedding, section 8) before the ID can be trusted.
+3. **Normalize marks**: within each text node, sort the `marks` array by each mark's JCS serialization (UTF-16 code-unit comparison — so bare formatting marks such as `"bold"` sort before structured marks such as `{"type":"link",…}`), remove marks with identical JCS serialization (deduplicate), and omit the `marks` key entirely when the array is empty (absent ≡ `[]`). Mark order is not semantic.
+4. **Merge text nodes**: merge adjacent sibling text nodes that have no intervening non-text inline child and identical canonical mark-sets, concatenating their `value`s. Only a text node whose sole keys are `type`, `value`, and `marks` (after the step 1 stripping) is merge-eligible; a text node that also carries an `id`, `attributes`, or any other field is preserved unchanged and acts as a boundary, so no identifier or annotation is dropped. Offsets are defined over the concatenated text content (Anchors and References, section 3), so this moves no anchor.
+5. **Preserve everything else as authored**: no other field is added, removed, defaulted, or coalesced. In particular `null` and absent are distinct, and JSON-Schema `default`s (such as `colspan`) are never materialized into hashed content.
+
+#### 4.3.2 Serialization
+
+1. **JSON Canonicalization**: Serialize using [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) (JCS). In particular:
+   - Object keys are sorted by UTF-16 code unit, as mandated by JCS
+   - No insignificant whitespace
+   - Numbers are serialized per RFC 8785, which mandates the ECMAScript `Number.prototype.toString` algorithm over IEEE-754 double-precision values. Negative zero (`-0`) MUST be serialized as `0`. All hashed numbers are treated as IEEE-754 doubles, so producers MUST NOT rely on numeric precision beyond what a double round-trips; integers in hashed content MUST have magnitude at most 2^53 - 1 (the safe-integer limit).
+   - Strings are escaped per RFC 8785
+
+2. **Unicode Normalization**: Producers MUST emit all object keys and string values in Normalization Form C (NFC) and as well-formed Unicode (no unpaired surrogate code points). This applies to the concatenated text content of each block (see Anchors and References, section 3), not merely to individual text-node values: an NFC-combining sequence MUST NOT be split across text-node boundaries. NFC is a property of the stored bytes, not a hash-time transform — implementations MUST NOT normalize while computing a hash, so the stored and hashed bytes are always identical. Content that is not already NFC is non-conformant.
+
+3. **Duplicate Keys**: Any JSON object with duplicate keys MUST be rejected before hashing or verification, in every document state. RFC 8259 parsers disagree on duplicate keys (first wins, last wins, or reject), so an unrejected duplicate lets a signer and a consumer read different values from one signed document (a split-view substitution).
+
+> **Note**: Because JCS sorts all object keys, the order in which fields are written when authoring a document has no effect on its hash — content may be authored in any field order. The worked example below shows authored input being reordered into canonical JCS form.
 
 ### 4.4 Computation Steps
 
 ```
-1. Extract content blocks from document
-2. Extract essential metadata
-3. Collect asset hashes (ID -> hash mapping)
-4. Build canonical structure
-5. Serialize using JCS
-6. Hash the serialized bytes
-7. Format as "algorithm:hexdigest"
+1. Project the Dublin Core metadata (section 4.3.1)
+2. Construct the canonical content tree: strip derived fields, resolve asset references to content hashes, normalize marks, merge text nodes (section 4.3.1)
+3. Build the two-slot canonical structure { content, metadata } (section 4.2)
+4. Serialize using JCS (section 4.3.2)
+5. Hash the serialized bytes with the algorithm named by the document id prefix
+6. Format as "algorithm:hexdigest"
 ```
 
 ### 4.5 Example
@@ -190,18 +211,18 @@ And metadata:
 
 ```json
 {
-  "title": "Test Document",
-  "creator": "Jane Doe"
+  "version": "1.1",
+  "terms": { "title": "Test Document", "creator": "Jane Doe" }
 }
 ```
 
 Canonical form (JCS serialized, shown formatted for readability):
 
 ```json
-{"assetHashes":{},"content":{"blocks":[{"children":[{"type":"text","value":"Hello"}],"level":1,"type":"heading"}],"version":"0.1"},"metadata":{"creator":"Jane Doe","title":"Test Document"},"version":"0.1"}
+{"content":{"blocks":[{"children":[{"type":"text","value":"Hello"}],"level":1,"type":"heading"}],"version":"0.1"},"metadata":{"creator":["Jane Doe"],"title":"Test Document"}}
 ```
 
-Hash: `sha256:...` (computed from the JCS-serialized bytes)
+Hash: `sha256:12768052d53d60d457ab47514ddd8be3087dd7d66a1a9dcc984eceec83f6ae70` (computed from the JCS-serialized bytes)
 
 ## 5. File-Level Hashes
 
@@ -232,7 +253,7 @@ Assets include hashes in their index:
 }
 ```
 
-Asset hashes feed into the document ID computation via the `assetHashes` mapping.
+These hashes are computed from the raw asset bytes. When a content block references an asset, canonicalization resolves the reference to this hash (section 4.3.1), binding the asset's content — not its filename — to the document ID. An asset that no content block references does not affect the document ID.
 
 ## 6. Hash Verification
 
@@ -286,9 +307,10 @@ This indicates the document is in active editing and the ID hasn't been computed
 
 ### 7.2 ID Computation Triggers
 
-The document ID SHOULD be computed when:
+The document ID MUST be (re)computed when the document state transitions from `draft` to `review`. A document MUST NOT enter `review` (or any later state) carrying a `pending` or stale ID.
 
-- Document state transitions from `draft` to `review`
+The document ID SHOULD additionally be computed when:
+
 - Document is signed
 - Document is exported for distribution
 - Explicitly requested by user/application
@@ -411,56 +433,57 @@ Content:
 Canonical form (no metadata, no assets):
 
 ```json
-{"assetHashes":{},"content":{"blocks":[{"children":[{"type":"text","value":"Hello"}],"type":"paragraph"}],"version":"0.1"},"metadata":{},"version":"0.1"}
+{"content":{"blocks":[{"children":[{"type":"text","value":"Hello"}],"type":"paragraph"}],"version":"0.1"},"metadata":{}}
 ```
 
 ### 11.2 Document with Assets
 
 ```json
 {
-  "assetHashes": {
-    "figure1": "sha256:abc123...",
-    "logo": "sha256:def456..."
+  "content": {
+    "blocks": [ /* ... each image block's "src" is resolved to the asset's content hash ... */ ],
+    "version": "0.1"
   },
-  "content": { /* ... */ },
   "metadata": {
-    "title": "Annual Report",
-    "creator": "Finance Team"
-  },
-  "version": "0.1"
+    "creator": ["Finance Team"],
+    "title": "Annual Report"
+  }
 }
 ```
 
 ### 11.3 Verification Code (Pseudocode)
+
+*Non-normative illustration; the normative algorithm is the set of rules in section 4.3.*
 
 ```javascript
 function verifyDocument(archive) {
   // 1. Load manifest
   const manifest = parseJSON(archive.read("manifest.json"))
 
-  // 2. Verify file hashes
+  // 2. Verify file hashes (algorithm from each hash's own prefix)
   for (const fileRef of getAllFileRefs(manifest)) {
     const fileBytes = archive.read(fileRef.path)
-    const computedHash = sha256(fileBytes)
+    const computedHash = hash(algorithmOf(fileRef.hash), fileBytes)
     if (computedHash !== fileRef.hash) {
       throw new Error(`File hash mismatch: ${fileRef.path}`)
     }
   }
 
-  // 3. Verify document ID
-  const content = parseJSON(archive.read(manifest.content.path))
-  const metadata = parseJSON(archive.read(manifest.metadata.dublinCore))
-  const assetHashes = collectAssetHashes(archive, manifest)
-
-  const canonical = {
-    version: "0.1",
-    content: content,
-    metadata: metadata,
-    assetHashes: assetHashes
+  // 3. Recompute the document ID from canonical content
+  const algorithm = algorithmOf(manifest.id)        // derived from the id prefix
+  if (manifest.hashAlgorithm && manifest.hashAlgorithm !== algorithm) {
+    throw new Error(`hashAlgorithm does not match id prefix`)
   }
 
+  // strip derived fields + crdt, resolve asset refs -> content hash, normalize + merge marks (4.3.1)
+  const content = canonicalizeContent(parseJSON(archive.read(manifest.content.path)),
+                                      archive, manifest)
+  // keep + flatten the five terms, always-array, omit empty (4.3.1)
+  const metadata = projectMetadata(parseJSON(archive.read(manifest.metadata.dublinCore)))
+
+  const canonical = { content, metadata }           // two slots, always present
   const canonicalBytes = JCS.serialize(canonical)
-  const computedId = "sha256:" + sha256hex(canonicalBytes)
+  const computedId = algorithm + ":" + hashHex(algorithm, canonicalBytes)
 
   if (manifest.id !== "pending" && computedId !== manifest.id) {
     throw new Error(`Document ID mismatch`)
