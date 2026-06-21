@@ -11,11 +11,11 @@
  * implementations cannot disagree on the outcome given the same observations.
  *
  * The inputs are bound to observable facts by the normative *derivation rules*
- * in §3.9 (trust anchoring), §3.11 (keyId resolution) and §7.4 (revocation),
- * which are the load-bearing half of the contract. They are **credential-path
- * agnostic**: each input is a verdict about *the signature's credential* — an
- * X.509 certificate chain (`x5c`) or a resolved keyId/DID key (`kid`) — computed
- * by the verifier before this function runs. The state machine therefore does not
+ * in §3.9 (trust anchoring), §3.11 (keyId resolution), §6 (WebAuthn) and §7.4
+ * (revocation), which are the load-bearing half of the contract. They are
+ * **credential-path agnostic**: each input is a verdict about *the signature's
+ * credential* — an X.509 chain, a resolved keyId/DID key, or a WebAuthn COSE key —
+ * computed by the verifier before this function runs. The state machine therefore does not
  * branch on credential path; only the per-path *derivation* of each input differs.
  * E.g. a chain (or DID) with no path to a configured anchor — including a
  * self-signed chain or an unpinned self-certifying `did:key`/`did:jwk` — yields
@@ -27,39 +27,45 @@ export type SignatureState = 'valid' | 'invalid' | 'expired' | 'revoked' | 'untr
 
 export interface SignatureStateInputs {
   /**
-   * The signed protected header is well-formed and self-consistent (§3.4): `alg`
-   * is supported, `b64` is false, `crit` is exactly `["b64"]`, `sigT` is
-   * well-formed and not in the future relative to the reference time, and the
-   * header carries exactly one credential path that is internally consistent —
-   *   • X.509: `x5c` present and the signed `x5t#S256` equals
-   *     BASE64URL(SHA-256(DER(x5c[0]))) (§3.10); or
-   *   • keyId, self-certifying (`did:key`/`did:jwk`): `kid` present and well-formed,
-   *     with NO `jkt` (the key is encoded in `kid`); or
-   *   • keyId, `did:web`: `kid` a well-formed `did:web` DID and `jkt` a
-   *     syntactically valid base64url SHA-256 thumbprint (§3.11).
-   * This is a header-SHAPE check only. It MUST NOT depend on DID resolution, key
-   * availability, or whether a resolved key is usable with `alg`: for the
-   * out-of-band `did:web` path those are unknowable at header-check time, and
-   * folding them in here would misfire rule 1 to `invalid` on a mere network
-   * failure. Key-unavailability is carried by `chainResult` (below), never here.
+   * The signature's structural binding is well-formed and self-consistent — for
+   * the JWS paths the signed protected header (§3.4), for WebAuthn the assertion
+   * and its challenge binding (§6):
+   *   • JWS common: `alg` supported, `b64` false, `crit` exactly `["b64"]`, `sigT`
+   *     well-formed and not after the reference time; plus exactly one credential
+   *     path that is internally consistent —
+   *       – X.509: `x5c` present and signed `x5t#S256` == BASE64URL(SHA-256(DER(x5c[0]))) (§3.10);
+   *       – keyId self-certifying (`did:key`/`did:jwk`): `kid` well-formed, NO `jkt`;
+   *       – keyId `did:web`: `kid` a well-formed `did:web` DID and `jkt` a valid base64url SHA-256 thumbprint (§3.11).
+   *   • WebAuthn (§6): the assertion is well-formed, `clientDataJSON.type == "webauthn.get"`,
+   *     the parsed `challenge` equals BASE64URL(SHA-256(JCS(scope))), `algorithm`
+   *     agrees with `publicKey`, and the User-Present (UP) flag is set (a `get`
+   *     assertion with UP=0 is malformed).
+   * This is a SHAPE/binding check only. For `did:web` it MUST NOT depend on DID
+   * resolution or key availability (folding those in would misfire rule 1 to
+   * `invalid` on a network failure); key-unavailability is carried by `chainResult`.
+   * For WebAuthn it is binding integrity ONLY — origin/rpId/UV *policy* is NOT here
+   * (that is anchoring; see `chainResult`), so a genuine assertion that fails policy
+   * is `untrusted`, never `invalid`.
    */
   headerConsistent: boolean;
   /**
-   * The JWS signature verifies under the credential's public key — the leaf
-   * certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or
-   * the resolved verification method whose RFC 7638 thumbprint equals the signed
-   * `jkt` (`did:web`, §3.11). For an out-of-band credential the verifier computes
-   * this ONLY once that matching key is in hand; when no served key matches `jkt`
-   * (resolution failed, key rotated away, or a different key is served) the
-   * credential is key-unavailable and this input is NOT evaluated —
-   * `chainResult: 'unknown'` is the sole carrier of that indeterminacy, so rule 1
-   * never misfires to `invalid` on inability to resolve. A `false` here is a
-   * genuine forgery: the matching key was obtained and the signature did not verify.
+   * The signature verifies under the credential's public key — the leaf certificate
+   * `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), the resolved
+   * verification method whose RFC 7638 thumbprint equals the signed `jkt` (`did:web`,
+   * §3.11), or, for WebAuthn, the assertion signature over
+   * `authenticatorData || SHA-256(clientDataJSON)` under the COSE `publicKey` (§6).
+   * For an out-of-band credential the verifier computes this ONLY once the matching
+   * key is in hand; when no served key matches `jkt` (resolution failed, key rotated
+   * away, or a different key is served) the credential is key-unavailable and this
+   * input is NOT evaluated — `chainResult: 'unknown'` is the sole carrier of that
+   * indeterminacy, so rule 1 never misfires to `invalid` on inability to resolve. A
+   * `false` here is a genuine forgery: the matching key was obtained and the
+   * signature did not verify.
    */
   signatureVerifies: boolean;
   /**
    * The result of anchoring the credential to verifier-configured trust (§3.9,
-   * §3.11): `anchored`, `untrusted`, or `unknown`.
+   * §3.11, §6): `anchored`, `untrusted`, or `unknown`.
    *   • X.509: `anchored` iff the `x5c` chain reaches a configured trust anchor;
    *     `unknown` iff it could not be evaluated (e.g. a missing intermediate).
    *   • self-certifying `did:key`/`did:jwk`: `anchored` iff the verifier pins the
@@ -69,15 +75,21 @@ export interface SignatureStateInputs {
    *     specific DID (or its exact domain) is pinned; unpinned → `untrusted`;
    *     resolution indeterminate, or no served key matches `jkt` (key-unavailable)
    *     → `unknown`. A DID *method* is never trusted wholesale.
-   * In-document / in-`kid` / served material is never self-authorizing; the anchor
-   * is always verifier-side.
+   *   • WebAuthn (§6): `anchored` iff the verifier pins the credential's `publicKey`
+   *     AND the assertion's `rpIdHash` matches the configured signing rpId AND the
+   *     User-Verified (UV) flag satisfies policy; a genuine but unpinned or
+   *     policy-unmet assertion is `untrusted` (never `invalid`). `credentialId` is
+   *     advisory, never the anchor.
+   * In-document / in-`kid` / served / asserted material is never self-authorizing;
+   * the anchor is always verifier-side.
    */
   chainResult: 'anchored' | 'untrusted' | 'unknown';
   /**
    * Credential revocation status (§7.4): `good`, `revoked`, or `unknown`.
    *   • X.509: per OCSP/CRL (a stapled response under an untrusted clock → `unknown`).
-   *   • self-certifying `did:key`/`did:jwk`: no responder — governed by the pin, so a
-   *     still-anchored key is `good` (an unpinned one is already `untrusted`).
+   *   • self-certifying `did:key`/`did:jwk` and WebAuthn: no responder — governed by
+   *     the pin, so a still-anchored credential is `good` (an unpinned one is already
+   *     `untrusted`).
    *   • `did:web`: `revoked` ONLY when the resolved DID document is explicitly
    *     deactivated (`deactivated: true`); otherwise `good`. A key that was rotated
    *     away or whose method is absent is key-unavailable, NOT `revoked` — that is
@@ -88,15 +100,15 @@ export interface SignatureStateInputs {
   /**
    * The reference time (a validated timestamp if present, else `sigT`) lies within
    * the credential's validity window [notBefore, notAfter]. A self-certifying
-   * `did:key`/`did:jwk` key, and a `did:web` key, carry no validity window (their
-   * lifecycle is rotation/deactivation), so this is `true` by the §3.11 no-window
-   * rule — there is no interval to fall outside of.
+   * `did:key`/`did:jwk` key, a `did:web` key, and a WebAuthn credential carry no
+   * validity window (their lifecycle is rotation/deactivation/un-pinning), so this
+   * is `true` by the no-window rule — there is no interval to fall outside of.
    */
   signingTimeWithinValidity: boolean;
   /**
    * The credential is expired relative to the verification-time clock (now >
-   * notAfter). A `did:key`/`did:jwk` or `did:web` key has no `notAfter`, so this is
-   * `false` by the §3.11 no-window rule.
+   * notAfter). A `did:key`/`did:jwk`, `did:web`, or WebAuthn credential has no
+   * `notAfter`, so this is `false` by the no-window rule.
    */
   certCurrentlyExpired: boolean;
   /**

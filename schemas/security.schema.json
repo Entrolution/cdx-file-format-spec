@@ -201,64 +201,112 @@
       },
       "additionalProperties": false
     },
-    "webauthnSignature": {
+    "publicJwk": {
       "type": "object",
-      "description": "WebAuthn/FIDO2 signature data",
-      "required": ["credentialId", "authenticatorData", "clientDataJSON", "signature"],
+      "description": "A public JWK for a WebAuthn credential key, converted from its COSE key: EC (P-256/P-384) or OKP (Ed25519).",
+      "required": ["kty", "crv", "x"],
       "properties": {
+        "kty": { "type": "string", "enum": ["EC", "OKP"] },
+        "crv": { "type": "string", "enum": ["P-256", "P-384", "Ed25519"] },
+        "x": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "y": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
+      },
+      "oneOf": [
+        { "properties": { "kty": { "const": "EC" } }, "required": ["y"] },
+        { "properties": { "kty": { "const": "OKP" } }, "not": { "required": ["y"] } }
+      ],
+      "additionalProperties": false
+    },
+    "webauthnAssertion": {
+      "type": "object",
+      "description": "A WebAuthn/FIDO2 assertion carrying the signature (section 6). The document is bound via clientDataJSON.challenge = BASE64URL(SHA-256(JCS(scope))); trust is a verifier pin on publicKey (the self-certifying model of section 6). credentialId is advisory and is not the trust anchor.",
+      "required": ["algorithm", "authenticatorData", "clientDataJSON", "signature", "publicKey"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["ES256", "ES384", "EdDSA"],
+          "description": "COSE signature algorithm of the assertion — the WebAuthn subset: ES256 (MUST support), ES384, EdDSA"
+        },
         "credentialId": {
-          "description": "Base64-encoded credential ID",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+          "type": "string",
+          "description": "Advisory WebAuthn credential identifier (base64url); NOT the trust anchor",
+          "pattern": "^[A-Za-z0-9_-]+$"
         },
         "authenticatorData": {
-          "description": "Base64-encoded authenticator data",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+          "type": "string",
+          "description": "base64url-encoded authenticatorData (rpIdHash | flags | signCount | ...)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
         "clientDataJSON": {
-          "description": "Base64-encoded client data JSON",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+          "type": "string",
+          "description": "base64url-encoded clientDataJSON bytes — signed and parsed verbatim, never re-serialized",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
         },
         "signature": {
-          "description": "Base64-encoded signature",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+          "type": "string",
+          "description": "base64url-encoded signature over authenticatorData || SHA-256(clientDataJSON) (ECDSA in ASN.1 DER)",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 4
+        },
+        "publicKey": {
+          "$ref": "#/$defs/publicJwk",
+          "description": "The credential's COSE public key as a JWK; the authoritative trust anchor is a verifier pin on this key (section 6)"
         }
       },
       "additionalProperties": false
     },
     "signature": {
       "type": "object",
-      "description": "A detached-JWS signature entry (section 3.3). The signed payload is JCS(scope); the signed protected header (base64url-encoded) carries alg, sigT, and exactly one credential path — an X.509 chain (x5c + x5t#S256) or a keyId (kid); see section 3.11.",
-      "required": ["id", "protected", "signature", "scope"],
+      "description": "A signature entry attesting `scope`. Exactly one shape: a detached-JWS signature (section 3.3 — `protected` + `signature`, the X.509/keyId paths) or a WebAuthn assertion (section 6 — `webauthn`).",
+      "required": ["id", "scope"],
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique signature identifier"
         },
+        "scope": {
+          "$ref": "#/$defs/signatureScope",
+          "description": "What the signature covers (document id, manifest projection, layouts). For the JWS paths it is the detached payload JCS(scope); for WebAuthn it is bound via clientDataJSON.challenge = BASE64URL(SHA-256(JCS(scope)))."
+        },
+        "signer": {
+          "$ref": "#/$defs/signer",
+          "description": "Advisory signer display information; the authoritative identity is the signing-certificate subject or the resolved/pinned credential"
+        },
         "protected": {
           "type": "string",
-          "description": "base64url-encoded signed JWS protected header (carries alg, sigT, and either x5c + x5t#S256 or kid)",
+          "description": "JWS path: base64url-encoded signed JWS protected header (carries alg, sigT, and either x5c + x5t#S256 or kid)",
           "pattern": "^[A-Za-z0-9_-]+$",
           "minLength": 4
         },
         "signature": {
           "type": "string",
-          "description": "base64url-encoded JWS signature over BASE64URL(protected) + '.' + JCS(scope)",
+          "description": "JWS path: base64url-encoded JWS signature over BASE64URL(protected) + '.' + JCS(scope)",
           "pattern": "^[A-Za-z0-9_-]+$",
           "minLength": 4
         },
-        "scope": {
-          "$ref": "#/$defs/signatureScope",
-          "description": "The detached payload: what the signature covers (document id, manifest projection, layouts)"
-        },
-        "signer": {
-          "$ref": "#/$defs/signer",
-          "description": "Advisory signer display information; the authoritative identity is the signing-certificate subject"
-        },
         "timestamp": {
           "$ref": "#/$defs/trustedTimestamp",
-          "description": "Advisory trusted timestamp"
+          "description": "JWS path: advisory trusted timestamp"
+        },
+        "webauthn": {
+          "$ref": "#/$defs/webauthnAssertion",
+          "description": "WebAuthn path: a FIDO2 assertion carrying the signature (section 6)"
         }
       },
+      "oneOf": [
+        {
+          "title": "Detached-JWS signature",
+          "required": ["protected", "signature"],
+          "not": { "required": ["webauthn"] }
+        },
+        {
+          "title": "WebAuthn assertion",
+          "required": ["webauthn"],
+          "not": { "anyOf": [{ "required": ["protected"] }, { "required": ["signature"] }, { "required": ["timestamp"] }] }
+        }
+      ],
       "additionalProperties": false
     },
     "signaturesFile": {

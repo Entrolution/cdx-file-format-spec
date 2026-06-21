@@ -111,6 +111,41 @@
         "name": "Acme Notary Service",
         "organization": "Acme Notary"
       }
+    },
+    {
+      "id": "sig-webauthn",
+      "webauthn": {
+        "algorithm": "ES256",
+        "credentialId": "-btRhpY94UG2pYrf8Ajj3A",
+        "authenticatorData": "RLl_Z0ZqxOU4Nj9R6wQVdIVxJnNdRIKOUS-3jAZDfv0FAAAAAA",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiTEpsSnRRR0lBSFAwRGVVbDUyNlNWWV9YcGdGSGxaalpCUnlhMXJBVm16QSIsIm9yaWdpbiI6Imh0dHBzOi8vY2R4LmRldiJ9",
+        "signature": "MEUCIQCh-KnZ7x-1vFZtOR4geZ5oQScQ1PkMunxcNrPU1LYzogIgE4E6YT8MwmuGzY6ENIlQ57TN9KhSicSpgEk-kOC5o0g",
+        "publicKey": {
+          "kty": "EC",
+          "crv": "P-256",
+          "x": "2KeqAPT4Wv_C-L8Ws7TrB3mzj91p8QsvHp74zlPRC9I",
+          "y": "itoZMU6UHcWSGERU1FeAF0HfDvQ0vwohFwPJ39U5wpQ"
+        }
+      },
+      "scope": {
+        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+          },
+          "extensions": [
+            { "id": "cdx.security", "version": "0.1", "required": true }
+          ],
+          "lineage": { "parent": null, "version": 1 }
+        }
+      },
+      "signer": {
+        "name": "Dr. Eve Rodriguez",
+        "organization": "Acme Corporation"
+      }
     }
   ]
 }

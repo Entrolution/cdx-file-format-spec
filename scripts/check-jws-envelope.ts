@@ -43,8 +43,12 @@ const fail = (msg: string): void => {
 };
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
-/** Bespoke fields removed by the JWS migration — their presence is a regression. */
-const REMOVED_SIGNATURE_FIELDS = ['value', 'algorithm', 'signedAt', 'certificateChain', 'webauthn'];
+/**
+ * Legacy bespoke fields removed by the JWS migration — their presence is a
+ * regression. (`webauthn` is NOT here: it is a valid signature shape again as of
+ * the WebAuthn credential path — section 6 — and is checked by `check:webauthn`.)
+ */
+const REMOVED_SIGNATURE_FIELDS = ['value', 'algorithm', 'signedAt', 'certificateChain'];
 
 // --- Part 1: header encoding ----------------------------------------------
 console.log('Protected-header encoding vectors:');
@@ -123,6 +127,11 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
       if (s?.signer != null && s.signer[removed] !== undefined) {
         fail(`${name} signature "${id}" — signer carries removed field "${removed}" (identity comes from the protected-header x5c subject)`);
       }
+    }
+    // WebAuthn signatures are a different (non-JWS) shape with no protected header;
+    // they are validated by check:webauthn. Skip them in this JWS-envelope gate.
+    if (s?.webauthn !== undefined) {
+      continue;
     }
     if (typeof s?.protected !== 'string' || typeof s?.signature !== 'string') {
       fail(`${name} signature "${id}" — missing JWS "protected"/"signature" members`);
