@@ -212,6 +212,8 @@ Phantoms are explicitly OUTSIDE the content hash boundary. The `phantoms/` direc
 
 This ensures that phantom annotations are commentary on the document, not part of the document's semantic identity.
 
+Because phantoms are outside the hash and bound by no signature, a cluster's or phantom's `author` and content are **advisory and unauthenticated** — forgeable like any other in-archive editorial metadata. A verifier MUST NOT treat a phantom `author` as an authenticated identity (security extension, Identity Authority).
+
 ## 6. Scope
 
 Each cluster has a scope controlling its visibility:

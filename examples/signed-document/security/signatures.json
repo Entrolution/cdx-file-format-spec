@@ -29,8 +29,7 @@
       "signer": {
         "name": "Jane Smith",
         "email": "jane.smith@acme.com",
-        "organization": "Acme Corporation",
-        "title": "Chief Executive Officer"
+        "organization": "Acme Corporation"
       },
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
@@ -75,8 +74,7 @@
       "signer": {
         "name": "John Doe",
         "email": "john.doe@xyz-enterprises.com",
-        "organization": "XYZ Enterprises",
-        "title": "President"
+        "organization": "XYZ Enterprises"
       },
       "timestamp": {
         "authority": "https://timestamp.digicert.com",
@@ -86,7 +84,7 @@
     },
     {
       "id": "sig-keyid",
-      "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa1VOVkVSSUZJRURwbGFjZWhvbGRlckVkMjU1MTlzaWduZXJGb3JJbGx1c3RyYXRpb24iLCJzaWdUIjoiMjAyNS0wMS0xNVQxNjo0NTowMFoifQ",
+      "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa2ZzYWRNQ1NkMzdWeTF2ZGlqQ3Z2Qnc5dlZYQUpyUnZrUDREYnJteDRrQTNnIiwic2lnVCI6IjIwMjUtMDEtMTVUMTY6NDU6MDBaIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19kaWRfa2V5X3NpZ25hdHVyZQ",
       "scope": {
         "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
