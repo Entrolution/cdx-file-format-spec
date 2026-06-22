@@ -18,28 +18,32 @@
           "properties": {
             "status": { "const": "required" },
             "description": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "ES384": {
           "type": "object",
           "properties": {
             "status": { "const": "recommended" },
             "description": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "EdDSA": {
           "type": "object",
           "properties": {
             "status": { "const": "recommended" },
             "description": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "PS256": {
           "type": "object",
           "properties": {
             "status": { "const": "optional" },
             "description": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "ML-DSA-65": {
           "type": "object",
@@ -47,7 +51,8 @@
             "status": { "const": "experimental" },
             "note": { "type": "string" },
             "description": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
