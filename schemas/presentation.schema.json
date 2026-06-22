@@ -18,7 +18,8 @@
     },
     "defaults": {
       "type": "object",
-      "description": "Default styling values"
+      "description": "Default styling values. Intentionally open: a free-form bag of renderer/theme defaults whose keys are not enumerated by this spec.",
+      "additionalProperties": true
     },
     "pages": {
       "type": "array",
@@ -117,7 +118,8 @@
             "minBefore": { "type": "integer", "minimum": 1 },
             "minAfter": { "type": "integer", "minimum": 1 },
             "maxConsecutive": { "type": "integer", "minimum": 1 }
-          }
+          },
+          "additionalProperties": false
         },
         "widows": {
           "type": "integer",
@@ -136,12 +138,15 @@
             "enabled": { "type": "boolean" },
             "lineHeight": { "type": "string" },
             "offset": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "lineNumbering": { "$ref": "#/$defs/lineNumbering" }
-      }
+      },
+      "additionalProperties": false
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "page": {
       "type": "object",
@@ -158,7 +163,8 @@
             "$ref": "#/$defs/pageElement"
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "pageElement": {
       "type": "object",
@@ -187,7 +193,8 @@
         "transform": {
           "$ref": "#/$defs/transform"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "position": {
       "type": "object",
@@ -210,7 +217,8 @@
           "description": "Height",
           "default": "auto"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "transform": {
       "type": "object",
@@ -229,7 +237,8 @@
                 "x": { "type": "number" },
                 "y": { "type": "number" }
               },
-              "required": ["x", "y"]
+              "required": ["x", "y"],
+              "additionalProperties": false
             }
           ]
         },
@@ -265,11 +274,13 @@
                 "x": { "type": "string" },
                 "y": { "type": "string" }
               },
-              "required": ["x", "y"]
+              "required": ["x", "y"],
+              "additionalProperties": false
             }
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "section": {
       "type": "object",
@@ -326,7 +337,8 @@
           "properties": {
             "header": { "$ref": "#/$defs/pageHeaderFooter" },
             "footer": { "$ref": "#/$defs/pageHeaderFooter" }
-          }
+          },
+          "additionalProperties": false
         },
         "even": {
           "type": "object",
@@ -334,63 +346,95 @@
           "properties": {
             "header": { "$ref": "#/$defs/pageHeaderFooter" },
             "footer": { "$ref": "#/$defs/pageHeaderFooter" }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "layout": {
-      "type": "object",
-      "description": "Page layout configuration",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["columns", "grid"],
-          "description": "Layout type"
-        },
-        "columns": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 12,
-          "description": "Number of columns"
-        },
-        "rows": {
-          "oneOf": [
-            { "type": "string", "const": "auto" },
-            { "type": "integer", "minimum": 1 }
-          ],
-          "description": "Number of rows (grid layout)"
-        },
-        "gap": {
-          "type": "string",
-          "description": "Gap between columns/cells"
-        },
-        "balance": {
-          "type": "boolean",
-          "description": "Balance column heights"
-        },
-        "rule": {
+      "description": "Page layout configuration. Discriminated by `type` into a columns or grid layout.",
+      "oneOf": [
+        {
           "type": "object",
-          "description": "Column rule (separator line)",
+          "description": "Multi-column layout",
+          "required": ["type"],
           "properties": {
-            "width": { "type": "string" },
-            "style": { "type": "string" },
-            "color": { "type": "string" }
-          }
-        },
-        "areas": {
-          "type": "array",
-          "description": "Grid area definitions",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "column": { "type": "string" },
-              "row": { "type": "string" }
+            "type": {
+              "const": "columns",
+              "description": "Layout type"
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "Number of columns"
+            },
+            "gap": {
+              "type": "string",
+              "description": "Gap between columns"
+            },
+            "balance": {
+              "type": "boolean",
+              "description": "Balance column heights"
+            },
+            "rule": {
+              "type": "object",
+              "description": "Column rule (separator line)",
+              "properties": {
+                "width": { "type": "string" },
+                "style": { "type": "string" },
+                "color": { "type": "string" }
+              },
+              "additionalProperties": false
             }
-          }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "Grid layout",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "grid",
+              "description": "Layout type"
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "Number of columns"
+            },
+            "rows": {
+              "oneOf": [
+                { "type": "string", "const": "auto" },
+                { "type": "integer", "minimum": 1 }
+              ],
+              "description": "Number of rows (grid layout)"
+            },
+            "gap": {
+              "type": "string",
+              "description": "Gap between cells"
+            },
+            "areas": {
+              "type": "array",
+              "description": "Grid area definitions",
+              "items": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "column": { "type": "string" },
+                  "row": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
         }
-      }
+      ]
     },
     "flowRegion": {
       "type": "object",
@@ -409,10 +453,12 @@
             "properties": {
               "page": { "type": "integer", "minimum": 1 },
               "area": { "type": "string" }
-            }
+            },
+            "additionalProperties": false
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "printSettings": {
       "type": "object",
@@ -426,7 +472,8 @@
             "right": { "type": "string" },
             "bottom": { "type": "string" },
             "left": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "trim": {
           "type": "object",
@@ -434,7 +481,8 @@
           "properties": {
             "width": { "type": "string" },
             "height": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "cropMarks": {
           "type": "boolean",
@@ -459,9 +507,11 @@
           "properties": {
             "profile": { "type": "string" },
             "condition": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "masterPage": {
       "type": "object",
@@ -480,7 +530,8 @@
             "left": { "type": "string" },
             "inside": { "type": "string" },
             "outside": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "header": {
           "oneOf": [
@@ -494,7 +545,8 @@
             { "$ref": "#/$defs/pageHeaderFooter" }
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "masterRule": {
       "type": "object",
@@ -503,42 +555,59 @@
       "properties": {
         "match": {
           "type": "object",
-          "description": "Match criteria",
+          "description": "Match criteria (at least one)",
+          "minProperties": 1,
           "properties": {
             "first": { "type": "boolean" },
             "last": { "type": "boolean" },
             "contains": { "type": "string" },
             "default": { "type": "boolean" }
-          }
+          },
+          "additionalProperties": false
         },
         "master": {
           "type": "string",
           "description": "Master page name to apply"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "colorDefinition": {
-      "type": "object",
-      "description": "Color definition including spot colors",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["rgb", "cmyk", "spot"],
-          "description": "Color type"
+      "description": "Color definition. Discriminated by `type` into rgb, cmyk, or spot.",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "RGB color",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "rgb", "description": "Color type" },
+            "value": { "type": "string", "description": "Hex color value (e.g. #0033a0)" }
+          },
+          "additionalProperties": false
         },
-        "name": {
-          "type": "string",
-          "description": "Spot color name (e.g., PANTONE 286 C)"
+        {
+          "type": "object",
+          "description": "CMYK color",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "cmyk", "description": "Color type" },
+            "value": { "type": "string", "description": "CMYK component values (e.g. 0,0.8,1,0)" }
+          },
+          "additionalProperties": false
         },
-        "fallback": {
-          "type": "string",
-          "description": "Fallback hex color for non-spot rendering"
-        },
-        "value": {
-          "type": "string",
-          "description": "Color value (hex for RGB, CMYK values for CMYK)"
+        {
+          "type": "object",
+          "description": "Spot color",
+          "required": ["type", "name", "fallback"],
+          "properties": {
+            "type": { "const": "spot", "description": "Color type" },
+            "name": { "type": "string", "description": "Spot color name (e.g., PANTONE 286 C)" },
+            "fallback": { "type": "string", "description": "Fallback hex color for non-spot rendering" },
+            "value": { "type": "string", "description": "Optional measured color value" }
+          },
+          "additionalProperties": false
         }
-      }
+      ]
     },
     "tableOfContentsConfig": {
       "type": "object",
@@ -571,7 +640,8 @@
           "enum": ["none", "dots", "dashes", "underline"],
           "description": "Leader style between title and page number"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "listOfConfig": {
       "type": "object",
@@ -585,7 +655,8 @@
           "type": "string",
           "description": "Named style to apply"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "indexConfig": {
       "type": "object",
@@ -607,9 +678,11 @@
           "properties": {
             "mainEntry": { "$ref": "#/$defs/style" },
             "subEntry": { "$ref": "#/$defs/style" }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "footnotesConfig": {
       "type": "object",
@@ -632,13 +705,15 @@
             "width": { "type": "string" },
             "style": { "type": "string" },
             "margin": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "style": {
           "$ref": "#/$defs/style",
           "description": "Footnote text styling"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "endnotesConfig": {
       "type": "object",
@@ -657,7 +732,8 @@
           "type": "boolean",
           "description": "Reset numbering per chapter"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "pageHeaderFooter": {
       "type": "object",
@@ -698,7 +774,8 @@
               "type": "string",
               "description": "Dynamic variable name (e.g., 'chapter-title', 'section-title', 'pageNumber')"
             }
-          }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -749,9 +826,11 @@
             "fontFamily": { "type": "string" },
             "marginRight": { "type": "string" },
             "marginLeft": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "presentationReference": {
       "type": "object",
@@ -767,7 +846,8 @@
           "type": "string",
           "description": "Display format template (e.g., 'Figure #')"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "indexMark": {
       "type": "object",
@@ -783,7 +863,8 @@
           "type": "string",
           "description": "Secondary index term"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "style": {
       "type": "object",
@@ -794,7 +875,8 @@
         },
         "base": {
           "type": "object",
-          "description": "Base styles (for responsive)"
+          "description": "Base styles for responsive overrides. Intentionally open: holds the same free-form style bag this object otherwise enumerates.",
+          "additionalProperties": true
         },
         "fontFamily": { "type": "string" },
         "fontSize": { "type": "string" },
@@ -919,7 +1001,8 @@
               ]
             },
             "marginRight": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "overprint": {
           "type": "boolean",
@@ -942,7 +1025,7 @@
     },
     "float": {
       "type": "object",
-      "description": "Float positioning for figures and images",
+      "description": "Float positioning for figures and images. Defined here for reference by content image/figure blocks (binding added when the content schema is closed).",
       "properties": {
         "position": {
           "type": "string",
@@ -958,7 +1041,8 @@
           "type": "string",
           "description": "Minimum clearance around float"
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
