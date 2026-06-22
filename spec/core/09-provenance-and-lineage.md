@@ -8,7 +8,7 @@
 CDX documents form a cryptographic chain through content-addressable hashing and lineage pointers. This enables:
 
 - Tamper-evident document history
-- Verifiable ancestry ("this document descended from that one")
+- Verifiable lineage *consistency* (a resolvable ancestor chain, checked for tampering — Section 3.3)
 - Block-level provenance proofs
 - Partial disclosure with integrity guarantees
 - Decentralized verification without central authority
@@ -29,10 +29,11 @@ Each CDX document's identity IS its content hash. When a document references its
 ```
 
 **Properties:**
-- Each document commits to its entire ancestry
-- Inserting a forged intermediate document is computationally infeasible
-- No external infrastructure required — documents ARE the chain
-- Verification requires only the documents themselves
+- A child's `parent` is a content hash, so a child provably references *that exact parent's content* — it cannot point at a parent that does not exist as content.
+- A forged *intermediate* is detectable **when the chain is resolved**: a resolved parent's committed ancestor chain must match the child's (Section 3.3).
+- No external *registry* is required, but verifying ancestry requires the ancestor documents themselves, resolved from a verifier-supplied content-addressed store (Section 3.3).
+
+**Limits (what this does NOT prove).** Lineage is **child-asserted**: a `parent`/`ancestors` pointer records only that the child's author *wrote down* that hash, not descent. A parent created before its children cannot commit to them, so forward-links are not achievable, and an ancestor a verifier cannot resolve is **unverified, never endorsed**. Authenticating the pointers themselves rests on the **signed manifest projection** (the security extension binds `manifest.lineage`), not on this chain. Stronger provable-descent mechanisms — a parent-issued *supersedes* attestation (mutual attestation), or an append-only transparency log (non-equivocation) — are deliberate **non-goals** of this no-external-infrastructure design.
 
 ### 2.2 Block-Level Provenance
 
@@ -75,7 +76,7 @@ The provenance lineage:
 
 ### 3.2 Ancestor Chain
 
-The `ancestors` array provides redundancy and fast chain verification:
+The `ancestors` array is an **advisory** redundancy / fast-path hint, nearest-first. It is authoritative ONLY where a resolved parent corroborates it (Section 3.3): a verifier MUST NOT present an `ancestors` entry as a verified ancestor on the strength of the array alone.
 
 ```json
 {
@@ -89,25 +90,58 @@ The `ancestors` array provides redundancy and fast chain verification:
 ```
 
 **Rules:**
-- First element MUST equal `parent`
-- Array SHOULD include all ancestors up to reasonable depth (recommended: 10)
-- For chains longer than stored depth, final element represents oldest known
-- Empty array or omitted field indicates root document
+- Ordering is **nearest-first and significant**: `ancestors[0]` MUST equal `parent`, `ancestors[1]` the grandparent, and so on.
+- A document's `ancestors` MUST equal `[parent] ++ parent.ancestors` over the range the parent committed to; Section 3.3 cross-checks this, and a contradiction is **rejected**.
+- The array MAY be truncated to a stored depth (recommended 10–20). Entries beyond a resolved parent's committed range are advisory and are verified only if the verifier resolves them.
+- An empty (or omitted) `ancestors` with `parent: null` indicates a root document; a non-empty `ancestors` on a root is inconsistent (Section 3.3).
 
 ### 3.3 Chain Verification
 
-To verify a document's lineage:
+Lineage verification resolves the chain **backwards** from a subject document and assigns one of three outcomes. The resolved walk is authoritative; the `ancestors` array (Section 3.2) is only an advisory cross-check.
+
+**Outcomes.**
+- **VERIFIED** — the walk reached a root (`parent: null`) with every link resolved and consistent.
+- **INCOMPLETE** — a link could not be resolved, or the traversal bound was reached. The chain is not contradicted but cannot be fully walked. INCOMPLETE is **not** "valid": a verifier MUST NOT present any ancestor beyond the break as verified, and MUST NOT treat an INCOMPLETE chain as authenticated ancestry.
+- **REJECTED** — a proven inconsistency (below). The lineage MUST be treated as forged/broken.
+
+**Ancestor resolution.** Ancestors are resolved from a **verifier-supplied content-addressed store** (an archive, a local cache, a configured registry) — never from a document-supplied URL or locator. A verifier recomputes each resolved document's content hash and confirms it equals the id it was resolved for (in a content-addressed store this holds by construction). A parent that cannot be resolved yields INCOMPLETE.
+
+**Algorithm.**
 
 ```
-1. Compute document's content hash
-2. Verify it matches claimed ID
-3. If parent exists:
-   a. Retrieve parent document
-   b. Verify parent's hash matches lineage.parent
-   c. Verify this document's hash appears in parent's future chain (if tracked)
-   d. Recursively verify parent's lineage
-4. Chain is valid if all links verify
+verify(subject):
+  visited = {}
+  node = subject; depth = 0
+  loop:
+    if node.id in visited: return REJECTED            // cycle
+    visited += node.id;  depth += 1
+    if node.parent == null:
+      if node.ancestors is non-empty: return REJECTED // a root has no ancestors
+      return VERIFIED
+    if depth >= traversalBound: return INCOMPLETE      // honest deep history, not an error
+    parent = resolve(node.parent)
+    if parent == null: return INCOMPLETE               // unresolvable; no claim beyond here
+    if node.ancestors is present:
+      if node.ancestors[0] != node.parent: return REJECTED
+      expected = [node.parent] ++ parent.ancestors
+      if node.ancestors and expected differ on any shared index: return REJECTED  // forged tail
+    node = parent
 ```
+
+**Rejection conditions (a proven inconsistency):**
+- A **cycle** — a content-addressed chain cannot revisit an id (a document cannot be its own ancestor).
+- A **forged tail** — an `ancestors` entry that contradicts the resolved parent's committed chain over their shared range, or `ancestors[0] != parent`.
+- A **root with ancestors** — `parent: null` alongside a non-empty `ancestors`.
+
+A forged ancestor *beyond* a resolved parent's committed range is not rejected — it is simply **unverified** (the parent never vouched for it). The authoritative chain is the resolved walk, not the array, so such an entry is ignored, never endorsed.
+
+**Traversal bound (cycle / DoS safety).** A verifier MUST bound the walk; reaching the bound yields INCOMPLETE — never REJECTED, since a legitimately deep history is not an inconsistency. The bound is a verifier configuration; a conforming verifier MUST support a bound of at least **64** links and MAY allow a larger one. Cycle detection is separate and always rejects.
+
+**`depth` and `version` are advisory.** A verifier recomputes the chain depth from the resolved walk; a document's *claimed* `depth` and `version` are cross-checked only as warnings, never as rejection conditions. A hard `parent + 1` rule would reject legitimate branching (Section 3.4) and honest authoring mistakes: `depth` derives structurally from the resolved chain, and `version` is author-assigned and advisory.
+
+**Merges.** A `mergedFrom` entry (Section 3.4) is **verified like a `parent`**: each merge parent MUST resolve (else INCOMPLETE) and is itself chain-checked by this procedure, so a merge parent that is unresolvable, forged, or internally inconsistent makes the merge child INCOMPLETE or REJECTED — never VERIFIED. (A merge diamond — a shared ancestor reached by two paths — is not a cycle.) A merge child's `depth` derives as `max(parents.depth) + 1`; its `version` is advisory (a merge has no single predecessor).
+
+**What verification does NOT establish.** A VERIFIED chain proves the links are *consistent and resolvable*, not that the subject genuinely *descended* from its claimed ancestors (lineage is child-asserted — Section 2.1). Authenticated lineage requires the **signed** copy: the security extension binds `manifest.lineage` into a frozen/published document's signatures (the manifest projection), so on a signed document the manifest's lineage is tamper-evident. The provenance record's lineage (Section 8.1) is path-only and **unsigned**; an author who wants a signed ancestor chain SHOULD place `ancestors` in `manifest.lineage` (which the projection binds), not only in the provenance record. The `derivedFrom` pointers (Section 8.1) carry the same child-asserted caveat and have no signed copy.
 
 ### 3.4 Branching and Merging
 
@@ -135,6 +169,8 @@ The lineage can track branch information:
 |-------|------|-------------|
 | `branch` | string | Branch identifier |
 | `mergedFrom` | array | Document hashes merged into this version |
+
+Branching is legitimate — two children may share a parent — so `version` is **not** globally monotonic and is advisory (Section 3.3). A merge's parents (`parent` plus each `mergedFrom` entry) are each resolved and verified per Section 3.3; the merge's `depth` derives as `max(parents.depth) + 1`.
 
 ## 4. Block-Level Hashing (Merkle Tree)
 
@@ -503,10 +539,10 @@ The chain's security depends on hash collision resistance:
 
 ### 10.3 Lineage Gaps
 
-If intermediate documents are unavailable:
-- Chain verification stops at gap
-- Document is valid but ancestry is partial
-- Consider archiving full chains for important documents
+If an ancestor cannot be resolved, chain verification is **INCOMPLETE**, not "valid" (Section 3.3):
+- The walk stops at the unresolvable link; no ancestor beyond it is verified.
+- An INCOMPLETE chain MUST NOT be presented as authenticated ancestry, and a verifier MUST NOT endorse the unverified `ancestors` entries — an attacker can force INCOMPLETE by referencing an unresolvable parent, leaving a fabricated tail unchecked.
+- Archive full chains (and place `ancestors` in the signed `manifest.lineage`) for documents whose ancestry must be verifiable offline.
 
 ## 11. Examples
 

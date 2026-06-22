@@ -130,7 +130,8 @@
         "ancestors": {
           "type": "array",
           "description": "Chain of ancestor hashes (nearest first)",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         },
         "version": {
           "type": "integer",
@@ -149,7 +150,8 @@
         "mergedFrom": {
           "type": "array",
           "description": "Document hashes merged into this version",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         },
         "note": {
           "type": "string",

@@ -86,3 +86,6 @@ jobs:
 
       - name: Check signature set
         run: npm run check:signature-set
+
+      - name: Check lineage
+        run: npm run check:lineage

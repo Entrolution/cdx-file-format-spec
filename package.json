@@ -18,6 +18,7 @@
     "check:trust-state": "npx tsx scripts/check-trust-state.ts",
     "check:webauthn": "npx tsx scripts/check-webauthn.ts",
     "check:signature-set": "npx tsx scripts/check-signature-set.ts",
+    "check:lineage": "npx tsx scripts/check-lineage.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

@@ -37,8 +37,9 @@
         },
         "ancestors": {
           "type": "array",
-          "description": "Chain of ancestor hashes",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "description": "Chain of ancestor hashes (nearest first; advisory cross-check, authoritative only where resolved — see 09 §3.3)",
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         },
         "depth": {
           "type": "integer",
@@ -51,8 +52,9 @@
         },
         "mergedFrom": {
           "type": "array",
-          "description": "Merged document hashes",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "description": "Merged document hashes (each resolved like a parent — see 09 §3.4)",
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         }
       }
     },
