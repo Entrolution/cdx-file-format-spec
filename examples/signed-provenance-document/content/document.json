@@ -1,0 +1,50 @@
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "title",
+      "level": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Certificate of Authenticity"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "statement",
+      "children": [
+        {
+          "type": "text",
+          "value": "This document certifies that the attached record is an authentic, timestamped instance issued by "
+        },
+        {
+          "type": "text",
+          "value": "Acme Notary Service",
+          "marks": [
+            "bold"
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "provenance-note",
+      "children": [
+        {
+          "type": "text",
+          "value": "Its provenance record carries a trusted timestamp binding this document hash to a verifiable point in time.",
+          "marks": [
+            "italic"
+          ]
+        }
+      ]
+    }
+  ]
+}

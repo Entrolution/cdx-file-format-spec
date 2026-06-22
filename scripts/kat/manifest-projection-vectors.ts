@@ -58,10 +58,10 @@ export const projectionVectors: ProjectionVector[] = [
   {
     name: 'signed-document-corpus',
     description:
-      'The signed-document manifest: id/created/modified/hashAlgorithm/security/metadata and content.compression all drop; content{path,hash} + extensions + lineage(parent:null) bind.',
-    manifest: `{"cdx":"0.1","id":"${DOC_ID}","state":"frozen","hashAlgorithm":"sha256","created":"2025-01-10T08:00:00Z","modified":"2025-01-15T14:22:00Z","content":{"path":"content/document.json","hash":"${DOC_CONTENT}","compression":"zstd"},"security":{"signatures":"security/signatures.json","encryption":null},"extensions":[{"id":"cdx.security","version":"0.1","required":true}],"metadata":{"dublinCore":"metadata/dublin-core.json"},"lineage":{"parent":null,"version":1}}`,
-    expectedJcs: `{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"state":"frozen"}`,
-    expectedSha256: 'sha256:e0a53f678feb2eddf03e14610c336cfcbf201d9ceccc46a6692faf6e505d66f0',
+      'The signed-document manifest: id/created/modified/hashAlgorithm/security/metadata and content.compression all drop; content{path,hash} + extensions + lineage(parent:null) + signaturePolicy(requiredSigners) bind.',
+    manifest: `{"cdx":"0.1","id":"${DOC_ID}","state":"frozen","hashAlgorithm":"sha256","created":"2025-01-10T08:00:00Z","modified":"2025-01-15T14:22:00Z","content":{"path":"content/document.json","hash":"${DOC_CONTENT}","compression":"zstd"},"security":{"signatures":"security/signatures.json","encryption":null},"extensions":[{"id":"cdx.security","version":"0.1","required":true}],"metadata":{"dublinCore":"metadata/dublin-core.json"},"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]}}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}`,
+    expectedSha256: 'sha256:839827035e0165d4ad7d1dbff7733c74e4fd4907c8f077b65077d35f31778391',
   },
   {
     name: 'presentation-and-default',
@@ -93,6 +93,13 @@ export const projectionVectors: ProjectionVector[] = [
     expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('a')}","path":"content/document.json"},"lineage":{"ancestors":["${sha('c')}","${sha('d')}"],"depth":3,"parent":"${sha('b')}","version":3},"state":"published"}`,
     expectedSha256: 'sha256:7c9e3d98dcc4b7977860156c35b58995046c64a3c8b0067c5dcf79e61d8dc4d1',
   },
+  {
+    name: 'signature-policy-multikind',
+    description: 'signaturePolicy.requiredSigners binds all three identity kinds; entries sort by JCS (did < jkt < x5tS256), so authored order is not significant.',
+    manifest: `{"cdx":"0.1","id":"${sha('e')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('f')}"},"signaturePolicy":{"requiredSigners":[{"x5tS256":"x5tThumbprintAAAA"},{"jkt":"jktThumbprintBBBB"},{"did":"did:key:zABC123"}]}}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('f')}","path":"content/document.json"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC123"},{"jkt":"jktThumbprintBBBB"},{"x5tS256":"x5tThumbprintAAAA"}]},"state":"frozen"}`,
+    expectedSha256: 'sha256:906acae5439950e154ae402e847359b019058dddef91f216973e81a2c5b58783',
+  },
 ];
 
 export const scopeVectors: ScopeVector[] = [
@@ -112,7 +119,7 @@ export const scopeVectors: ScopeVector[] = [
   },
   {
     name: 'scope-with-manifest',
-    description: 'A manifest-covering scope: documentId + the signed-document projection. These are the bytes a frozen manifest-covering signature signs.',
+    description: 'A manifest-covering scope: documentId + the signed-document projection (including the signaturePolicy required-signer set). These are the bytes a frozen manifest-covering signature signs.',
     scope: {
       documentId: DOC_ID,
       manifest: {
@@ -121,10 +128,11 @@ export const scopeVectors: ScopeVector[] = [
         content: { path: 'content/document.json', hash: DOC_CONTENT },
         extensions: [{ id: 'cdx.security', version: '0.1', required: true }],
         lineage: { parent: null, version: 1 },
+        signaturePolicy: { requiredSigners: [{ did: 'did:web:acme.example.com:notary' }] },
       },
     },
-    expectedJcs: `{"documentId":"${DOC_ID}","manifest":{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"state":"frozen"}}`,
-    expectedSha256: 'sha256:2c9949b501880073f40de525e76e92558fd7a601479598d9051c9ad6b0159b30',
+    expectedJcs: `{"documentId":"${DOC_ID}","manifest":{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}}`,
+    expectedSha256: 'sha256:61d9e3fe0b1d527ac37832e1d76df7eadd8e039db83f0d1a51dba6565487af25',
   },
 ];
 
@@ -152,5 +160,23 @@ export const errorVectors: ErrorVector[] = [
     description: 'A state outside the lifecycle enum fails closed rather than binding a bogus state into a signature.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"archived","content":{"path":"content/document.json","hash":"${sha('2')}"}}`,
     expectedError: 'manifest.state must be one of',
+  },
+  {
+    name: 'duplicate-required-signer',
+    description: 'Two identical required-signer entries make the required set ambiguous and are rejected.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC"},{"did":"did:key:zABC"}]}}`,
+    expectedError: 'duplicate manifest.signaturePolicy.requiredSigners',
+  },
+  {
+    name: 'empty-required-signers',
+    description: 'An empty required-signer set is forbidden so "absent policy" and "empty policy" are not both expressible.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[]}}`,
+    expectedError: 'must be a non-empty array',
+  },
+  {
+    name: 'required-signer-two-kinds',
+    description: 'A required-signer entry carrying two identity kinds is malformed and fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC","jkt":"thumbprint"}]}}`,
+    expectedError: 'exactly one of',
   },
 ];

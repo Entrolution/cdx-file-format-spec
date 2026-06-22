@@ -98,23 +98,41 @@ export interface SignatureStateInputs {
    */
   revocationStatus: 'good' | 'revoked' | 'unknown';
   /**
-   * The reference time (a validated timestamp if present, else `sigT`) lies within
-   * the credential's validity window [notBefore, notAfter]. A self-certifying
-   * `did:key`/`did:jwk` key, a `did:web` key, and a WebAuthn credential carry no
-   * validity window (their lifecycle is rotation/deactivation/un-pinning), so this
-   * is `true` by the no-window rule — there is no interval to fall outside of.
+   * The reference time lies within the credential's validity window
+   * [notBefore, notAfter]. The reference time is **T**, the genTime of a
+   * validated signature-timestamp, when one is present (§3.6); otherwise the
+   * self-asserted `sigT`. T is authoritative: a backdated `sigT` cannot move this
+   * input, so `signingTimeWithinValidity` MUST be derived from T whenever a
+   * timestamp validates. A self-certifying `did:key`/`did:jwk` key, a `did:web`
+   * key, and a WebAuthn credential carry no validity window (their lifecycle is
+   * rotation/deactivation/un-pinning), so this is `true` by the no-window rule —
+   * there is no interval to fall outside of.
    */
   signingTimeWithinValidity: boolean;
   /**
-   * The credential is expired relative to the verification-time clock (now >
-   * notAfter). A `did:key`/`did:jwk`, `did:web`, or WebAuthn credential has no
-   * `notAfter`, so this is `false` by the no-window rule.
+   * The credential is past `notAfter` relative to the **reference clock**: the
+   * validated signature-timestamp time T when one is present (long-term
+   * validation, §7.5), otherwise the verification-time clock (now). So an
+   * expired-at-`now` credential whose signature a validated timestamp dates to T
+   * inside the validity window derives `false` here — the signature is rescued
+   * from `expired` to `valid` by LTV — WITHOUT any change to the state-machine
+   * body (only this derivation moves). Revocation is NOT folded in here; it stays
+   * on `revocationStatus`, so an LTV credential whose revocation at T is merely
+   * `unknown` still lands on rule 6 (`unknown`), never `valid`. A `did:key`/
+   * `did:jwk`, `did:web`, or WebAuthn credential has no `notAfter`, so this is
+   * `false` by the no-window rule.
    */
   certCurrentlyExpired: boolean;
   /**
-   * The reference time came from a validated trusted timestamp rather than the
-   * self-asserted `sigT`. Always false until timestamp validation is specified
-   * (a later increment); a forward-compatible hook.
+   * The reference time came from a validated trusted timestamp (§3.6) rather than
+   * the self-asserted `sigT`. `true` iff a signature-timestamp fully validates:
+   * its RFC 3161 token binds this record's signature (the §3.6 imprint), its TSA
+   * chain anchors to the verifier's TSA trust store, and the token is within its
+   * TSA validity and unrevoked. Then the reference time is the token's genTime T
+   * and rule 2 can fire (signed outside validity, provable). A timestamp that
+   * does NOT validate leaves this `false` (fall back to the untrusted `sigT`) and
+   * MUST NOT make the signature `invalid` — a bad timestamp on a good signature
+   * does not poison it (cf. did:web key-unavailability).
    */
   referenceTimeTrusted: boolean;
 }

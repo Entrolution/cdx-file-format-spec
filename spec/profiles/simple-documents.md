@@ -511,7 +511,7 @@ Potential additions to this profile:
 
 - **Series metadata** — series name, volume number
 - **Reading progress** — bookmarks, last position (outside content hash)
-- **Annotations** — personal highlights and notes (using core annotations)
+- **Annotations** — personal highlights and notes (using core annotations; advisory and unauthenticated — see the security extension, Identity Authority)
 - **Audio narration** — synchronized audio tracks
 - **Accessibility metadata** — reading level, content warnings
 

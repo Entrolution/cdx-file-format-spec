@@ -14,12 +14,20 @@
  *   (The chain/trust-store/revocation inputs stay abstract: a spec-repo gate
  *   cannot ship a trust anchor or run OCSP; those are normative verifier
  *   obligations, see §3.9/§7.4.)
+ *
+ * Part 3 — Signature-timestamp imprint binding (§3.6): the bespoke binding
+ *   H(protected || "." || signature) is reproduced bit-exactly against an
+ *   independent oracle, and a different signature yields a different imprint (the
+ *   "this record" rule — a token cannot be transplanted across records). Parsing
+ *   the RFC 3161 token and validating the TSA chain stay verifier obligations
+ *   (§8.5); the imprint is the one byte-exact thing two implementations must share.
  */
 
 import * as crypto from 'crypto';
 import { evaluateSignatureState, type SignatureStateInputs } from './lib/signature-state.js';
 import { trustStateVectors } from './kat/trust-state-vectors.js';
 import { encodeProtectedHeader, jwsSigningInput } from './lib/jws-envelope.js';
+import { signatureTimestampImprint } from './lib/timestamp.js';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -93,8 +101,35 @@ try {
   fail(`real-ES256 grounding threw: ${err instanceof Error ? err.message : String(err)}`);
 }
 
+// --- Part 3: signature-timestamp imprint binding (§3.6) -------------------
+console.log('\nSignature-timestamp imprint binding (§3.6):');
+const P = 'eyJhbGciOiJFUzI1NiIsImNyaXQiOlsiYjY0Il19';
+const S1 = 'c2lnLW9uZS12YWx1ZQ';
+const S2 = 'c2lnLXR3by12YWx1ZQ';
+// Expected digests computed by an independent oracle (Python hashlib over the
+// ASCII bytes of `protected + "." + signature`).
+const imprintVectors = [
+  { name: 'sha256', alg: 'sha256', expected: '0d30b59debb82ec3e9ad449adba16a6452ce973f74c6b26162c49f91ca83b8bd' },
+  { name: 'sha384', alg: 'sha384', expected: '05e052719bd13c0ab4ade8e977408e8622230d3088e7e59e5f48919be676aa429c2e0db82bf8fa41b29a1df6ba28e120' },
+];
+for (const vec of imprintVectors) {
+  const got = signatureTimestampImprint(P, S1, vec.alg);
+  if (got !== vec.expected) {
+    fail(`imprint ${vec.name} — expected ${vec.expected}, got ${got}`);
+  } else {
+    console.log(`  ✓ imprint(${vec.name}) = H(protected || "." || signature)`);
+  }
+}
+// "This record" binding: a different signature must change the imprint, so a
+// valid token cannot be shopped onto another record (the anti-transplant rule).
+if (signatureTimestampImprint(P, S1) === signatureTimestampImprint(P, S2)) {
+  fail('imprint did not change when the signature changed — a token could be transplanted');
+} else {
+  console.log('  ✓ a different signature yields a different imprint (no cross-record transplant)');
+}
+
 if (failures > 0) {
   console.log(`\n${failures} failure(s). Trust-state check failed.`);
   process.exit(1);
 }
-console.log(`\nAll ${trustStateVectors.length} production-rule vectors verified; real-ES256 grounding passed.`);
+console.log(`\nAll ${trustStateVectors.length} production-rule vectors verified; real-ES256 grounding + imprint binding passed.`);

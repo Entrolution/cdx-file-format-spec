@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdx.dev/schemas/annotations.schema.json",
   "title": "CDX Core Annotations",
-  "description": "Schema for the security/annotations.json file in a CDX document. Provides minimal annotation support for implementations that don't use the collaboration extension.",
+  "description": "Schema for the security/annotations.json file in a CDX document. Provides minimal annotation support for implementations that don't use the collaboration extension. Annotations are ADVISORY and UNAUTHENTICATED: they sit in no signature scope and are not bound by the manifest projection, so a verifier MUST NOT treat an annotation's author or content as authenticated (security extension, Identity Authority).",
   "type": "object",
   "required": ["annotations"],
   "properties": {
@@ -40,7 +40,7 @@
         },
         "author": {
           "type": "string",
-          "description": "Author name or identifier"
+          "description": "Advisory author name or identifier — NOT authenticated (the annotation sits in no signature scope). A DID-shaped value here is not an authenticated identity; see the security extension, Identity Authority."
         },
         "created": {
           "type": "string",

@@ -88,7 +88,7 @@ This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.or
 }
 ```
 
-> **Trust model status.** The X.509 certificate-chain trust model is specified in sections 3.7–3.10 and 7.4: a verifier validates the `x5c` chain to a verifier-configured trust store, checks revocation and validity, and assigns a state (section 3.8). The `keyId` (`kid`) credential path is specified for the self-certifying methods `did:key`/`did:jwk` and the out-of-band-resolved `did:web` method (section 3.11), each anchored by a verifier-configured pin. The **WebAuthn** credential path (section 6) is specified as a self-certifying COSE-key path, also anchored by a pin. Timestamp-based long-term validation is a subsequent version.
+> **Trust model status.** The X.509 certificate-chain trust model is specified in sections 3.7–3.10 and 7.4: a verifier validates the `x5c` chain to a verifier-configured trust store, checks revocation and validity, and assigns a state (section 3.8). The `keyId` (`kid`) credential path is specified for the self-certifying methods `did:key`/`did:jwk` and the out-of-band-resolved `did:web` method (section 3.11), each anchored by a verifier-configured pin. The **WebAuthn** credential path (section 6) is specified as a self-certifying COSE-key path, also anchored by a pin. Signature-**set** integrity against stripping and downgrade is specified in section 3.12 (an author-asserted required-signer set, bound by the manifest projection). Trusted timestamps and timestamp-based long-term validation are specified in sections 3.6 and 7.5. Archive-timestamp renewal for algorithm aging is a subsequent version.
 
 ### 3.4 Signature Entry Fields
 
@@ -99,9 +99,10 @@ This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.or
 | `signature` | string | Yes | base64url-encoded JWS signature |
 | `scope` | object | Yes | The detached payload — what the signature covers (see section 9) |
 | `signer` | object | No | Advisory signer display information (see section 3.5) |
-| `timestamp` | object | No | Advisory trusted timestamp (see section 3.6) |
+| `timestamp` | object | No | RFC 3161 trusted timestamp over this signature (see section 3.6) |
+| `ltv` | object | No | Unsigned long-term-validation material — stapled certificates and revocation (see section 7.5) |
 
-These fields describe the **JWS shape** (the X.509 and keyId credential paths). A WebAuthn signature instead carries a `webauthn` member (section 6) in place of `protected`/`signature`/`timestamp`; `id`, `scope`, and `signer` are common to both. Exactly one shape per signature.
+These fields describe the **JWS shape** (the X.509 and keyId credential paths). A WebAuthn signature instead carries a `webauthn` member (section 6) in place of `protected`/`signature`/`timestamp`/`ltv`; `id`, `scope`, and `signer` are common to both. Exactly one shape per signature.
 
 **Protected header.** The base64url-decoded `protected` member is a JSON object. It carries `alg`, `b64`, `crit` and `sigT` on every signature, plus **exactly one credential path** — an X.509 certificate chain (`x5c` + `x5t#S256`) **or** a keyId (`kid`, plus `jkt` for `did:web`; section 3.11). Carrying both, or neither, is invalid.
 
@@ -140,34 +141,52 @@ The `signer` object carries **advisory** display information only. The authorita
 
 ### 3.6 Trusted Timestamps
 
-For non-repudiation, signatures can include trusted timestamps:
+A signature MAY carry an RFC 3161 trusted timestamp that establishes when it existed, turning the self-asserted `sigT` into a verifiable time. A validated timestamp is the **trusted reference time** the state machine uses (sections 3.7–3.8): it is what lets a verifier detect signing outside the credential's validity window (rule 2) and, with stapled revocation, validate a signature long after the certificate expires (long-term validation, section 7.5).
 
 ```json
 {
   "timestamp": {
-    "authority": "https://timestamp.example.com",
-    "time": "2025-01-15T10:00:05Z",
     "token": "MIIEpgYJKoZI...",
-    "algorithm": "SHA256"
+    "authority": "https://timestamp.digicert.com",
+    "time": "2025-01-15T10:00:05Z"
   }
 }
 ```
+
+**The token binds this signature.** The `token` is an RFC 3161 `TimeStampToken` (a CMS `SignedData`). Its `messageImprint.hashedMessage` MUST equal
+
+```
+H( protected || "." || signature )
+```
+
+— the hash, under the imprint's own algorithm, of the signature's stored base64url `protected` and `signature` members joined by a single `.`. Binding **both** members (not the signature value alone) commits the signed protected header, and therefore the credential identity (`x5c`/`kid`) and `sigT`: a token cannot be re-pointed at a record whose header the TSA never timestamped. A verifier MUST recompute the imprint over **the record the token is a sibling of** and MUST NOT accept a token whose imprint matches a different record.
+
+**The TSA must be trusted (the section 3.9 principle).** A verifier MUST validate the token's TSA certificate chain to a verifier-configured **TSA trust store** — a third store, distinct from the signature trust anchors (section 3.9) and the `did:web` Web-PKI store (section 3.11). A TSA root MUST NOT double as a signature anchor (or the converse) unless the deployment configures it in both. An in-document token whose TSA does not validate is **not** trusted — never self-authorizing — exactly as an unanchored `x5c` chain is not.
+
+**Trusted time, and what stays advisory.** When a token validates, the trusted reference time **T** is the token's genTime; `authority` and `time` are **advisory display only** and MUST NOT feed any state derivation. The `referenceTimeTrusted` input (section 3.8) is `true` **iff**: the token is well-formed; its imprint binds this record (above); its TSA chain anchors to the TSA store; and the TSA certificate is itself within validity and unrevoked at verification time. Then T replaces `sigT` as the reference time for the validity-window derivations (`signingTimeWithinValidity`, `certCurrentlyExpired`).
+
+**A bad timestamp never invalidates a good signature.** A token that does not validate simply does not grant trusted time: `referenceTimeTrusted` stays `false`, the verifier falls back to the untrusted `sigT` (rule 2 cannot fire), and the signature's own state is unaffected. A failed timestamp MUST NOT make the signature `invalid` (cf. the did:web key-unavailability rule, section 3.11).
+
+**Upper bound only (anti-backdating limit).** A signature-timestamp proves the signature existed **at or before** T; it does not establish a lower bound. The trusted time for all validity and revocation derivations is **T**, never `sigT`; in particular `signingTimeWithinValidity` MUST be derived from T, so backdating `sigT` cannot smuggle a signature into a window T falls outside of. A verifier MUST NOT present `sigT` as an attested signing time on the strength of a timestamp, and SHOULD warn when `sigT` and T diverge beyond a configured tolerance. The residual — a signer who backdates `sigT` while the credential is still valid and timestamps promptly is indistinguishable from one who signed at `sigT` — is disclosed in section 8.5.
+
+> Provenance-record timestamps (core specification 09 §6) are a **different** construction: they bind the document hash, not a signature. The signature timestamp here binds `H(protected || "." || signature)`.
 
 ### 3.7 Signature Verification
 
 To verify a signature and assign it a state (section 3.8):
 
-1. Extract the document ID from the manifest and recompute it from the content (integrity)
+1. Extract the document ID from the manifest (`manifest.id`) and recompute it from the content; the two MUST be equal, or the document fails integrity and every signature over it is `invalid`
 2. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
 3. For each signature, compute the inputs to the state rules (a WebAuthn signature computes them per section 6.3 instead of steps a–e):
-   a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `sigT` well-formed and not after the reference time; and exactly one credential path that is internally consistent — for X.509, `x5c` present and the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10); for keyId, `kid` present and well-formed, the self-certifying methods' encoded key usable with `alg`, and a well-formed `jkt` for `did:web` (section 3.11). This is a header-shape check: for `did:web` it does **not** depend on resolution — an unresolvable key is decided at the trust path (step d), not here. A failure makes the state `invalid`
+   a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `sigT` well-formed and not after the reference time; and exactly one credential path that is internally consistent — for X.509, `x5c` present, the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10), and the leaf public key's type and curve are consistent with `alg` (an `alg`-versus-key mismatch — e.g. `ES256` over a non-P-256 key — is `invalid`, the X.509 analogue of the keyId and WebAuthn rules); for keyId, `kid` present and well-formed, the self-certifying methods' encoded key usable with `alg`, and a well-formed `jkt` for `did:web` (section 3.11). This is a header-shape check: for `did:web` it does **not** depend on resolution — an unresolvable key is decided at the trust path (step d), not here. A failure makes the state `invalid`
    b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the credential's public key — the leaf certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or, for `did:web`, the resolved verification method whose thumbprint matches the signed `jkt` (section 3.11). A failure makes the state `invalid`. For `did:web`, if no matching key can be resolved the signature is not evaluated here — the credential is key-unavailable and decided at the trust path (step d)
-   c. **Scope.** Verify `scope.documentId` matches the top-level `documentId`, and when `scope.manifest`/`scope.layouts` are present perform the scoped checks (section 9.5)
+   c. **Scope.** Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`, step 1) — the signed scope is the authoritative binding of what the signature covers. The top-level `signatures.documentId` is an **unsigned, advisory** convenience copy that MUST also equal it, but a verifier MUST NOT treat it as authenticated (Section 9.4). When `scope.manifest`/`scope.layouts` are present, perform the scoped checks (section 9.5). A `scope.documentId` that does not equal the recomputed `manifest.id` makes the state `invalid`
    d. **Trust path.** Anchor the credential to verifier-configured trust, yielding `anchored`, `untrusted`, or `unknown`: validate the `x5c` chain against the trust store (section 3.9), or anchor the resolved `kid` against the verifier's pin (section 3.11). For `did:web` this step performs the HTTPS resolution and the `jkt` key-match; an unresolvable or unmatched key is `unknown` (key-unavailable)
-   e. **Revocation and validity.** Determine the credential's revocation status and validity window (section 7.4)
+   e. **Revocation and validity.** Determine the credential's revocation status and validity window relative to the reference time — a validated signature-timestamp's time T when present (sections 3.6, 7.5), else the untrusted `sigT` (section 7.4)
 4. Combine these inputs into a state using the production rules of section 3.8, and report it
+5. **Signature-set integrity (document-level).** After every signature has a state, evaluate the completeness of the signature *set* (section 3.12): if the signed manifest projection declares `signaturePolicy.requiredSigners`, every required signer MUST be satisfied by a present signature whose state is `valid`, and a document with any unsatisfied required signer MUST be rejected as stripped or downgraded. For a `frozen` or `published` document that declares no policy, a verifier MUST warn that the signature set is unprotected against stripping
 
-This per-signature state carries no meaning about the completeness of the signature *set*; detecting a stripped or downgraded set is a separate, later concern (Section 9.8).
+A single signature's state (steps 3–4) is **per-signature**: it carries no meaning about the completeness of the signature *set*. Set integrity is the separate, document-level verdict of step 5 (section 3.12), not a signature state.
 
 ### 3.8 Signature States
 
@@ -186,9 +205,9 @@ A verifier MUST assign each signature exactly one state. The inputs are the verd
 | 7 | The credential is expired at verification time | `expired` |
 | 8 | Otherwise | `valid` |
 
-A verifier MUST NOT report `valid` for a signature whose credential does not anchor (`untrusted`) or whose revocation could not be confirmed (`unknown`). For any security decision a verifier MUST treat `unknown` as non-acceptance — no weaker than `untrusted` — and MUST NOT fail open. Because the `x5c` chain and any stapled revocation material are document-supplied, their incompleteness MUST NOT downgrade an otherwise-determinable adverse verdict: a verifier SHOULD obtain the missing material independently (fetch the intermediate, query the issuer's OCSP/CRL) rather than let a withheld intermediate or omitted revocation response turn a `revoked` or `untrusted` ground truth into a softer `unknown`.
+A verifier MUST NOT report `valid` for a signature whose credential does not anchor (`untrusted`) or whose revocation could not be confirmed (`unknown`). For any security decision a verifier MUST treat `unknown` as non-acceptance — no weaker than `untrusted` — and MUST NOT fail open. Because the `x5c` chain and any stapled revocation material are document-supplied, their incompleteness MUST NOT downgrade an otherwise-determinable adverse verdict: a verifier SHOULD obtain the missing material independently (fetch the intermediate, query the issuer's OCSP/CRL) rather than let a withheld intermediate or omitted revocation response turn a `revoked` or `untrusted` ground truth into a softer `unknown`. This applies equally to the stapled long-term-validation material in `ltv` (section 7.5): stripping or withholding it MUST NOT turn a determinable `revoked` or `untrusted` verdict into `unknown`.
 
-Rule 2 cannot fire until timestamp validation is specified (a subsequent version): until then the reference time is the self-asserted `sigT`, which is untrusted, so a `sigT` falling outside the certificate validity window is ignored rather than taken as proof of out-of-window signing. While the reference time is untrusted, a verifier MUST NOT present `sigT` as an attested signing time, and SHOULD warn when a signature reports `valid` yet its asserted `sigT` falls outside the certificate validity window.
+Rule 2 fires only under a **trusted** reference time: a validated signature-timestamp (section 3.6) establishes time T, and a credential validity window that T falls outside makes the signature `invalid` — an antedated `sigT` cannot hide it, because the derivation uses T, not `sigT`. Absent a validated timestamp the reference time is the self-asserted, untrusted `sigT`, so a `sigT` outside the validity window is ignored rather than taken as proof of out-of-window signing; a verifier MUST NOT present `sigT` as an attested signing time, and SHOULD warn when a signature reports `valid` yet its asserted `sigT` falls outside the window. Long-term validation — keeping a now-`expired` certificate's signature `valid` via a validated timestamp and stapled revocation — is specified in section 7.5; it moves only the `certCurrentlyExpired`/`signingTimeWithinValidity` derivations onto T, not the rules themselves.
 
 ### 3.9 Trust Anchors
 
@@ -208,6 +227,7 @@ The authoritative signer identity is the **subject** (and subject-alternative na
 - The signing certificate is already bound by the signature: `x5c` is part of the signed protected header (section 3.4), so substituting any certificate changes the signing input and breaks verification (rule 1). The header additionally carries `x5t#S256`, which MUST equal `BASE64URL(SHA-256(DER(x5c[0])))` — the unpadded base64url SHA-256 of the DER bytes `x5c[0]` decodes to — as a JAdES-conformant, fail-fast consistency check identifying the leaf certificate. A verifier MUST reject (`invalid`) a signature whose `x5t#S256` does not match `x5c[0]`.
 - For the **keyId** credential path there is no certificate subject; the authoritative identity is the resolved-and-anchored `kid` itself (the DID, or its resolved controller — section 3.11). The same advisory rule applies: a verifier MUST NOT present `signer.name`/`email` as the identity in preference to the DID. A DID that appears only as an advisory identifier elsewhere — a `signer` field, or a provenance/author `identifier` — is **not** authenticated by being named; only a signature's resolved-and-anchored credential carries authenticated identity.
 - For the **WebAuthn** credential path the authoritative identity is the verifier's binding of the **pinned `publicKey`** (section 6). `credentialId` and `signer` fields are advisory only — a verifier MUST NOT present them as the authenticated identity.
+- **In-archive editorial and collaboration metadata is advisory, never authenticated.** The same principle governs everything an editor or reviewer writes into the archive: a core annotation's `author`/`content` (`security/annotations.json`), a collaboration comment's, suggestion's, or change's `author`/`content`/`status`/resolution (the collaboration extension), and a phantom cluster's or phantom's `author` (the phantoms extension). None of it sits in a signature scope or the manifest projection, so all of it is forgeable. A verifier MUST NOT treat such a field as an authenticated identity or an authenticated decision — an `accepted` status, an approving comment, or an `author` named as a DID is **not** a signature, and an `author` that happens to be DID-shaped is not authenticated by being named (it is an advisory identifier, as above). To authenticate an editorial decision — an approval, a sign-off — place it in **signed content**, or bind the approver through a **required-signer policy** (Section 3.12); do not rely on an annotation or a workflow status. (An authenticated-annotation construction is out of scope for this version.)
 
 ### 3.11 keyId Resolution
 
@@ -229,13 +249,44 @@ A signature MAY carry a **keyId** (`kid`) in its protected header instead of an 
 
 - **Obtains the intended key by thumbprint.** The signed `jkt` is the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) SHA-256 thumbprint (for OKP/Ed25519 keys, the member set is [RFC 8037](https://www.rfc-editor.org/rfc/rfc8037) §2) of the signing key. A verifier MUST select the resolved verification method whose key thumbprints to `jkt`, recomputing the thumbprint over the **canonical** key — the required JWK members only (`{crv,kty,x,y}` for EC, `{crv,kty,x}` for OKP, `{e,kty,n}` for RSA), lexicographically ordered, no whitespace — never by hashing the served bytes verbatim (RFC 7638 §3.1). A verification method MAY publish its key as `publicKeyJwk` or `publicKeyMultibase` (the latter is converted to a JWK before thumbprinting); a method whose key cannot be expressed as a supported JWK is treated as non-matching. The `jkt` is authoritative: a `kid` fragment, if present, is only a resolution hint, and a verifier MUST NOT accept a fragment-named key whose thumbprint differs from `jkt`. The selected method's `controller` MUST be the resolved DID itself (an absent `controller` defaults to the document subject); a method controlled by a third party is not the signer's key.
 
-- **Binds the key (derivation rule, normative).** Because `jkt` is signed, it binds the key that out-of-band material cannot: substituting the served key changes its thumbprint, which then no longer matches. If **no** served verification method matches `jkt` — resolution failed, the key was rotated away, or a different key is served — the credential is **key-unavailable**: `chainResult` is `unknown` (state `unknown`, section 3.8), never `invalid` (a verifier cannot prove forgery without the key) and never `valid` (fail-closed). The signature is verified only once the matching key is in hand; key-unavailability is carried solely by `chainResult`, so rule 1 never misfires. Without a trusted timestamp (a subsequent version) only the **current** DID document is testable, so a key rotated away — rather than retained in the document — makes a historical signature `unknown` (the did:web analogue of long-term validation).
+- **Binds the key (derivation rule, normative).** Because `jkt` is signed, it binds the key that out-of-band material cannot: substituting the served key changes its thumbprint, which then no longer matches. If **no** served verification method matches `jkt` — resolution failed, the key was rotated away, or a different key is served — the credential is **key-unavailable**: `chainResult` is `unknown` (state `unknown`, section 3.8), never `invalid` (a verifier cannot prove forgery without the key) and never `valid` (fail-closed). The signature is verified only once the matching key is in hand; key-unavailability is carried solely by `chainResult`, so rule 1 never misfires. Only the **current** DID document is testable, so a key rotated away — rather than retained in the document — makes a historical signature `unknown` (the did:web analogue of long-term validation). A validated signature-timestamp (section 3.6) bounds *when* such a signature existed, but, absent retained historical DID-document material, does not re-establish a rotated-away `did:web` key or an un-pinned self-certifying/WebAuthn credential; historical resolution of those is not provided.
 
 - **Anchors to a pinned DID or domain (derivation rule, normative).** A resolved-and-matched key is `anchored` **iff the specific DID, or its exact domain, is pinned in the verifier's configuration** — never the `did:web` method as a whole (that trusts any domain holder: a fail-open). A trusted-domain policy anchors only DIDs under that exact host and port. Pin comparison is exact: the DID allowlist matches the full `kid` byte-for-byte (ignoring any fragment); a domain policy matches the ASCII-lowercased, percent-decoded host and the port exactly (no implicit `:443`). An unpinned key is `untrusted`. As in section 3.9, the anchor is always verifier-side and never derived from the document.
 
 - **Revocation (derivation rule, normative).** A `did:web` DID document MAY be **deactivated**. `revocationStatus` is `revoked` **only** when the resolved document is explicitly `deactivated: true`; an otherwise-resolvable, non-deactivated document is `good`. A document that is unreachable, or whose matching key is merely absent, is *not* `revoked` — it is key-unavailable (`unknown`, above). Because the document is served by the same origin as the key, `deactivated` is suppressible by a malicious or coerced origin: it is present-tense, advisory-grade revocation — weaker than OCSP/CRL — and, lacking trusted time, cannot answer "was it deactivated at signing time."
 
 - **Validity window.** A `did:web` key carries no `[notBefore, notAfter]` (its lifecycle is rotation/deactivation), so — as for the self-certifying methods — `certCurrentlyExpired = false` and `signingTimeWithinValidity = true` (section 3.8).
+
+### 3.12 Signature Set Integrity
+
+Sections 3.7–3.11 decide each signature **in isolation**. A per-signature state cannot, by construction, attest that the signature *set* is complete: the signatures are an independent array, and removing one leaves the others verifying unchanged. So an attacker who **strips** a signature (delete the stronger signer, keep a weaker one), **downgrades** the set (leave only a content-only or draft-era signature), or **shadows** it (add a forged signature beside the genuine ones to imply co-signing) is not detected by the per-signature machine. This section binds the set against stripping and downgrade; a shadow (added) signature is separately denied any required slot, since a forgery cannot reach `valid` under a matching pinned credential (the satisfaction rule below) — the mechanism denies it a slot rather than removing it from the array.
+
+**Mechanism — a signed required-signer set.** A document MAY declare a `signaturePolicy` in its manifest whose `requiredSigners` array lists the credentials that MUST each have a valid signature present. The policy is part of the **manifest projection** (section 9.7), so every manifest-covering signature signs it: while any such signature survives, the required-signer set is authenticated and tamper-evident, and an attacker cannot remove a required signer (the survivors still declare it required) nor edit the set (that breaks each survivor's `scope.manifest`). Because a signature cannot sign itself, this is the only way a set of independent signatures can declare its own expected membership without a designated counter-signer or a signing order.
+
+**Required-signer entries.** Each entry names a credential in **authenticated** terms — the identity a verifier establishes cryptographically (section 3.10), never an advisory `signer` field — carrying exactly one identity kind, each bound to exactly one credential path:
+
+| Kind | Credential path | Matched against |
+|------|-----------------|-----------------|
+| `did` | keyId (section 3.11) | the signature's signed `kid`, compared fragment-stripped and byte-for-byte |
+| `x5tS256` | X.509 (section 3.10) | the signature's signed `x5t#S256` leaf-certificate thumbprint |
+| `jkt` | WebAuthn (section 6) | the RFC 7638 thumbprint of the assertion's `publicKey` |
+
+Matching is **path-discriminated**: a `did` entry is satisfiable only by a keyId signature, `x5tS256` only by X.509, `jkt` only by WebAuthn. This is deliberate — a `jkt` and a `did:web` key can both be RFC 7638 thumbprints over a JWK, and without the path discriminator a WebAuthn key whose thumbprint collided with a `did:web` key could satisfy the wrong slot. A verifier MUST reject a malformed entry (none, or more than one, identity kind).
+
+**Satisfaction rule (normative).** A required signer is **satisfied** if and only if some present signature (i) is on the entry's credential path, (ii) matches the entry's identity under that path's comparison — the authenticated identity a verifier derives for the signature (for the keyId path, the `kid` compared fragment-stripped and byte-for-byte, section 3.11; normalization happens before the byte match, not within it), and (iii) has state `valid` (section 3.8). `valid` already subsumes anchored, unrevoked and unexpired, so a present-but-`untrusted`/`unknown`/`expired`/`revoked`/`invalid` signature — the downgrade case — does **not** satisfy a slot. The set is **stripped** if any required signer is unsatisfied, and a verifier MUST reject a stripped `frozen` or `published` document. Two present signatures matching one required entry satisfy it once (no double counting); because entries are de-duplicated and a signature carries one path-and-identity, a present signature satisfies at most one entry.
+
+**A required signer is never a trust anchor.** A `requiredSigners` entry declares an *expectation*, not trust: the verifier's own pin (sections 3.9, 3.11, 6) still decides whether a matching signature is `valid`. An entry naming a credential the verifier does not pin can at best produce an `untrusted` signature, which does not satisfy it — so such a document is **unverifiable**, not trusted. In-document material is never self-authorizing, here as everywhere (section 3.9).
+
+**Default posture.** Set-binding is **author-asserted**: a document that declares no `signaturePolicy` has the same (nonexistent) set integrity it had before this section — stripping an undeclared signer is undetectable. A verifier therefore MUST warn when a `frozen` or `published` document carries no `signaturePolicy`, so the absence of protection is visible rather than silent.
+
+**Residual limitations (disclosed; not closed here).**
+- **Optional signers.** Only the *declared required* signers are protected; stripping a signature outside the required set is not detected (it was, by definition, optional). To protect a signer, name it in `requiredSigners`.
+- **Signing order and counter-signing.** The set declares *which* signers, not *in what order* — "notarized after signing" is not bound. A signature-timestamp (section 3.6) bounds *when* a signature existed but does not establish a binding order between signatures; counter-signature/order binding is not provided.
+- **Late joiners.** The required set is fixed when the manifest is authored (and, for a `frozen` document, when it is frozen); a signer added afterwards cannot be a required signer without re-issuing the document (a new version).
+- **State downgrade.** The required set is bound only by *manifest-covering* signatures. An attacker who rewrites `state` to `draft`/`review` and presents only a content-only signature escapes set-binding exactly as it escapes lifecycle binding (section 9.8) — a content-only signature attests no manifest field, including the policy. This is the lifecycle-downgrade limitation (section 9.8), not a new hole: a content-only signature attests no manifest field, and a signature-timestamp (section 3.6) binds a signature's existence, not the manifest state, so it does not close this escape. Closing it requires authenticating the manifest state against a content-only downgrade, which this version does not provide.
+- **No trusted time on a given signature.** A required signer whose credential has since expired but whose signature carries a validated timestamp and stapled `good`-at-T is rescued to `valid` by long-term validation (section 7.5) and satisfies its slot. A required signer whose expired or revoked credential *lacks* such a timestamp — or whose revocation at T cannot be established — yields a non-`valid` state and thus an unsatisfied slot, so a legitimately-signed historical document then reads as `unknown`/stripped.
+
+A conforming verifier MUST perform the satisfaction check above; like the rest of the trust model (section 8.5) the identity match itself is a verifier obligation a structural conformance gate cannot execute.
 
 ## 4. Encryption
 
@@ -466,11 +517,37 @@ For the signing-key owner, if a key is compromised:
 A **verifier** MUST, for each signature — this is what makes revocation meaningful (section 3.8):
 - Check the certificate validity window; the certificate is expired when the verification-time clock is past `notAfter`.
 - Determine revocation status via OCSP or a CRL — online against the issuing CA, or from revocation material stapled with the signature — yielding `good`, `revoked`, or `unknown`.
-- **Derivation rule (normative).** A `good`/`revoked` determination requires a trusted assessment time. Until timestamp validation is specified, the reference time is the untrusted `sigT`, so a **stapled** OCSP/CRL response — whose freshness window cannot then be established — MUST be treated as `unknown`, never `good`. An online check against a live responder (which carries its own trusted clock) MAY yield `good`/`revoked`.
+- **Derivation rule (normative).** A `good`/`revoked` determination requires a trusted assessment time. Absent a validated signature-timestamp (section 3.6), the reference time is the untrusted `sigT`, so a **stapled** OCSP/CRL response — whose freshness window cannot then be established — MUST be treated as `unknown`, never `good`. An online check against a live responder (which carries its own trusted clock) MAY yield `good`/`revoked`; and with a validated timestamp the trusted time T dates a stapled response (section 7.5).
 
 For a self-certifying **keyId** credential (`did:key`/`did:jwk`, section 3.11) or a **WebAuthn** credential (section 6) there is no certificate validity window and no revocation responder: revocation is governed entirely by the verifier's pin — an anchored (still-pinned) key is `good`, and an un-pinned key is already `untrusted` at the trust-path step (section 3.8). To revoke such a key the verifier removes it from its allowlist. A `did:web` DID instead has a deactivation channel: a resolved document with `deactivated: true` is `revoked`; but, served by the key's own origin, it is suppressible and present-tense (advisory-grade, not an OCSP/CRL — section 3.11).
 
-A verifier that cannot perform these checks MUST NOT report `valid` (section 3.8). Long-term validation — verifying offline after the certificate expires, using stapled revocation material bound to a validated timestamp — is specified in a subsequent version.
+A verifier that cannot perform these checks MUST NOT report `valid` (section 3.8). Long-term validation — verifying offline after the certificate expires, using stapled revocation material dated by a validated timestamp — is specified in section 7.5.
+
+### 7.5 Long-Term Validation (LTV)
+
+A signature must remain verifiable after its certificate expires and after the issuer's online revocation responders go away. Long-term validation captures, alongside the signature, the material to re-establish "this signature was valid when it was made" offline, dated by a validated signature-timestamp (section 3.6).
+
+**The LTV container.** A signature MAY carry an **unsigned** `ltv` object:
+
+```json
+{
+  "ltv": {
+    "certificates": ["<base64 DER>"],
+    "revocationInfo": { "ocsp": ["<base64 DER>"], "crl": ["<base64 DER>"] }
+  }
+}
+```
+
+- `certificates` — stapled DER certificates (intermediates, OCSP-responder certs) for offline path building.
+- `revocationInfo.ocsp` / `revocationInfo.crl` — stapled DER revocation responses.
+
+It is **unsigned** because it is added after signing and verified independently against the verifier's trust roots; it is not part of `scope`, so it does not affect the document ID or the manifest projection. Stapling is **fail-closed**: missing material only weakens a verdict (to `unknown`/`expired`), never strengthens one, and forged material fails chain/response validation. Stripping it MUST NOT soften a determinable adverse verdict (section 3.8). (The `ltv` and `timestamp` material in the `signed-document` example is illustrative structure only — placeholder base64, not verifiable DER.)
+
+**Revocation under trusted time (lifts the section 7.4 rule).** Section 7.4 treats a stapled OCSP/CRL as `unknown` while the reference time is the untrusted `sigT`. Once a signature-timestamp validates, the trusted time **T** dates the response: a stapled OCSP/CRL yields `good` or `revoked` — instead of `unknown` — iff (a) it is from the responder/issuer for the credential, (b) its validity interval contains T (`thisUpdate ≤ T ≤ nextUpdate`, within a configured tolerance), and (c) its own signature validates to the responder/CRL-issuer chain anchored in the signature trust store (section 3.9). A response showing the credential `revoked` at T yields `revoked` and MUST NOT be softened. The OCSP responder certificate is relied on per RFC 6960 (`id-pkix-ocsp-nocheck` / short-lived responder certs); a verifier does not recurse into its revocation.
+
+**The `expired → valid` upgrade.** With a validated timestamp placing the signature at T inside the certificate's validity window, and stapled revocation showing the credential `good` at T, a signature whose certificate has **since** expired remains `valid`: the `certCurrentlyExpired` input (section 3.8) is derived against the reference clock T, not `now`, so it is `false` and the expiry rule does not fire. Revocation stays a separate axis — if revocation at T is merely `unknown`, the signature is `unknown`, never `valid`.
+
+**Where the chain bottoms out (and decays).** This version validates the signature-timestamp's TSA chain and revocation at **verification time** against the TSA store; it does not specify capturing the TSA certificate's own revocation for later offline replay. Consequently an LTV verdict resting on a timestamp whose TSA certificate later expires degrades to `unknown` until renewed. **Archive timestamps** — an ordered chain of timestamps, each covering the prior signature, validation material and timestamps, defeating algorithm aging and renewing the TSA chain — are a subsequent version; the `ltv` container does not yet carry them, and a signature whose timestamp hash or TSA algorithm later weakens is not automatically rescued.
 
 ## 8. Security Considerations
 
@@ -501,7 +578,20 @@ This extension specifies an **X.509 trust model**: a signature is trustworthy on
 
 The conformance gates in this repository check the *structure* of signatures and the *production rules* that map verification verdicts to states (section 3.8); they cannot, and do not, execute a real trust store, certificate-path validation, revocation lookup, DID resolution / key-decoding, keyId-pin (allowlist) evaluation, the HTTPS/TLS validation and SSRF/redirect defences `did:web` resolution requires, the `jkt`-to-resolved-key thumbprint match, or the WebAuthn credential pin and rpId/UV policy (the WebAuthn signature, its scope-challenge binding, and the User-Present flag *are* checked; the credential pin and the rpId/UV policy are not). Those are normative obligations a conforming verifier MUST perform and that an external conformance suite can target. A green build does not certify cryptographic verification.
 
-Each signature's state is **per-signature**: it does not attest that the signature *set* is complete. An attacker may still strip or downgrade signatures; binding the set against that is a subsequent version.
+Trusted timestamps (section 3.6) and long-term validation (section 7.5) are enforced the same way: the gates do not parse an RFC 3161 token, validate a TSA chain to the TSA trust store, or check stapled OCSP/CRL freshness against the trusted time — only the imprint binding `H(protected || "." || signature)` and the state derivations are gated. A signature-timestamp bounds a signature's existence **from above only**: a signer who backdates `sigT` while the credential is still valid and timestamps promptly cannot be distinguished from one who signed at `sigT` (a lower bound requires a pre-signing content commitment, out of scope). The `ltv` container is unsigned and a verifier SHOULD bound its size; archive-timestamp renewal for algorithm aging is not yet specified, so a signature whose timestamp algorithm later weakens is not automatically rescued. A validated `(signature, token)` pair inherits the deterministic-signature replay property (section 9.8): it is reusable on any archive with the same `JCS(scope)`.
+
+Each signature's state is **per-signature**: it does not by itself attest that the signature *set* is complete. A document MAY bind the set with a declared required-signer policy (`signaturePolicy`, section 3.12), which a verifier MUST enforce — where one is present, stripping or downgrading a *required* signer is detected. This is **author-asserted**: a document that declares no policy has no set integrity (a verifier MUST warn on a `frozen`/`published` document with none), and even with one, stripping an *optional* signer, signing order, and a whole-manifest state downgrade remain out of scope (section 3.12): a content-only presentation attests no manifest field, and a signature-timestamp (section 3.6) binds a signature's existence, not the manifest state, so it does not by itself close the state-downgrade escape. The required-set satisfaction check is itself a verifier obligation the conformance gates cannot execute (they run no real trust evaluation), exactly as for the chain, revocation and pin checks above.
+
+### 8.6 Modelling Secure Practice
+
+The `signed-document` example in this repository is **illustrative**. Only its WebAuthn assertion carries a real, verifying signature; the X.509 and keyId entries carry **non-verifying placeholder** `signature` and `x5c` bytes — they show the envelope *shape*, not a validatable signature. The signing-input construction itself (`BASE64URL(protected) + "." + JCS(scope)`, section 3.4) is exercised against a freshly generated, genuinely-verifying signature by the conformance checks, so the construction is real even where a committed example signature is not.
+
+A production document MUST do what the placeholders cannot:
+
+- **Certificate profile.** The X.509 leaf MUST be a proper end-entity certificate — `basicConstraints` `CA:FALSE`, a `keyUsage` asserting `digitalSignature`, and an `extendedKeyUsage` appropriate to document signing — issued by a CA the verifier trusts (section 3.9). A bare self-signed leaf is **`untrusted`**, not `valid`, unless the verifier explicitly pins it.
+- **Identity is the credential, not the `signer` block.** The authenticated identity is the certificate subject, the resolved-and-anchored DID, or the pinned WebAuthn key (section 3.10) — never `signer.name`, `signer.email`, `signer.organization`, or a job title. The example deliberately carries no `title`: a "Chief Executive Officer" string is an authority claim bound by nothing, and presenting it as the signer's role is the misuse section 3.10 forbids.
+- **A keyId is a real, resolvable key.** The example's `did:key` decodes to an actual Ed25519 public key; an undecodable identifier resolves to `unknown`, not a valid signer (section 3.11).
+- **Trust is verifier-side.** None of the in-archive material — the certificate chain, a DID document, the `signer` fields, or annotations (section 3.10) — is self-authorizing; a verifier validates against its own configured trust, or reports a non-`valid` state.
 
 ## 9. Scoped Signatures
 
@@ -546,7 +636,7 @@ The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.or
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `documentId` | string | Yes | Content hash (MUST match top-level `documentId`) |
+| `documentId` | string | Yes | The signed, authoritative document ID. It MUST equal the recomputed `manifest.id` (Section 3.7 step 1). The unsigned top-level `signatures.documentId` is an advisory copy that MUST also equal it but is never itself authenticated. |
 | `manifest` | object | Conditional | The manifest projection (Section 9.7). REQUIRED on a `frozen` or `published` document; otherwise optional. |
 | `layouts` | object | No | Map of layout path → layout file hash. Attests visual appearance. |
 
@@ -556,7 +646,7 @@ The `scope` object is **closed**: it is validated with `additionalProperties: fa
 
 With `scope` always present, the scoped checks extend section 3.7 step 3:
 
-   a. Verify `scope.documentId` matches the top-level `documentId`
+   a. Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`); the unsigned top-level `signatures.documentId` MUST also match but is advisory, never authenticated (Section 9.4)
    b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
    c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
    d. The JWS signature is over the signing input `BASE64URL(protected) + "." + JCS(scope)` (section 3.4); the signature's trust evaluation is deferred per section 3.7
@@ -581,6 +671,7 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 | `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds the presentation *declaration* (which parts, which is default), not visual rendering — visual attestation remains `scope.layouts` (Section 9.3) |
 | `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
 | `lineage` | `manifest.lineage` | Bound verbatim |
+| `signaturePolicy` | `manifest.signaturePolicy` | The required-signer set (Section 3.12). Each `requiredSigners` entry carries its single identity kind (`did`, `x5tS256` or `jkt`) verbatim; entries are sorted by JCS |
 
 **Construction rules** (mirroring the document-ID canonical form, 06 §4.3):
 
@@ -588,10 +679,11 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 - An explicit `null` (e.g. `lineage.parent: null`) is preserved.
 - A non-default presentation carries no `default` member; the flag marks only the default entry (`default: false` is never materialized).
 - A non-required extension's `config` is omitted; a required extension's `config` is bound, because a required extension's configuration can change how the document is interpreted.
-- Arrays of declarations (`presentation`, `extensions`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
+- Arrays of declarations (`presentation`, `extensions`, `signaturePolicy.requiredSigners`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
+- `signaturePolicy.requiredSigners` entries MUST be unique by identity, and the set MUST be non-empty — an empty set is forbidden so an *absent* policy and an *empty* policy are not both expressible. An absent `signaturePolicy` is omitted (a document with no policy has no set integrity; section 3.12).
 - Keys and values obey the stored-byte invariants of 06 §4.3.2 (NFC, well-formed Unicode, safe integers).
 
-The document ID is **not** part of the projection — it is carried separately by `scope.documentId`, which a verifier already cross-checks against the top-level `documentId`.
+The document ID is **not** part of the projection — it is carried separately by `scope.documentId`, which a verifier cross-checks against the recomputed `manifest.id` (Section 9.4).
 
 ### 9.8 Coverage and Negative Coverage
 
@@ -605,19 +697,23 @@ A signature does **not** cover, in this version of the extension:
 
 - Embedded **fonts** and other non-content assets (excluded from the document ID by design).
 - The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. Only `content` and `presentation[]` carry hashes in the manifest and are bound by the projection.
-- The **set of signatures** itself: a signature cannot attest that another signature has not been removed, added, or downgraded.
+- **Presentation files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares*; a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation file present in the archive but undeclared. Only declared presentations are tamper-evident against a presentation-swap.
+- **Layout files outside `scope.layouts`.** A `scope.layouts` attestation (Section 9.3) binds only the layouts it lists; an unlisted layout file is unbound even on a frozen document.
+- The **complete set of signatures**, beyond the declared required set: a `signaturePolicy` (Section 3.12) binds the *declared required* signers against stripping and downgrade, but a signature still cannot attest that an *optional* signature was not removed, that signers signed in a particular order, or — where no policy is declared — anything about set completeness.
 - Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
 - Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.
 - A **non-required** extension's `config` (only a required extension's `config` is bound, Section 9.7), and **any manifest member not enumerated in Section 9.7**: the manifest's top-level object is not closed, so an unrecognized member is dropped from the projection rather than signed.
 
 Implementations MUST NOT represent a signature as covering anything beyond the above.
 
+**Archive identity and replay.** A signature's identity binding is `scope.documentId` (the semantic content) plus, when present, `scope.manifest` (the manifest projection) — there is **no** separate archive nonce, package id, or per-package salt, by design: signing is deterministic and re-packaging the same content and manifest into a new archive does not invalidate a signature (Section 3.1). Two consequences follow. First, a signature **cannot be transplanted** onto a *different* document: different content changes `scope.documentId`, and on a `frozen`/`published` document the mandatory `scope.manifest` (the coverage requirement below) binds the *declared* presentation set, so a swap of any declared presentation that keeps the content hash is caught — a presentation the manifest does not declare is unbound (the negative-coverage bullets above). Second, what is *not* prevented is **reuse of the same signature** on the same content and manifest — the deterministic signature is not one-time, and the WebAuthn challenge inherits this (no liveness; Section 8.5). Binding to a single archive instance beyond its content and manifest is out of scope precisely because re-packaging must remain valid.
+
 **Coverage requirement.** Because a content-only signature leaves the manifest unauthenticated, the manifest projection is mandatory wherever the manifest is final:
 
 - For a document in state `frozen` or `published`, every signature MUST include `scope.manifest`, and a verifier MUST reject the document if any signature omits it.
 - For a document in state `draft` or `review`, a signature MAY be content-only; such a signature does not attest the manifest, and an implementation MUST surface that limitation rather than implying manifest coverage.
 
-> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. The per-signature JWS protected header (Section 3.3) authenticates only that one signature's own algorithm, certificate and time — not the completeness of the signature set, so a stripped or downgraded set is not yet detectable. Binding the signature set against stripping and downgrade is addressed in a later increment.
+> **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. A declared required-signer set (Section 3.12) binds the signature set against stripping and downgrade, but only through *manifest-covering* signatures: an attacker who rewrites `state` to `draft`/`review` and presents only a content-only signature escapes the policy exactly as it escapes lifecycle binding, because a content-only signature attests no manifest field, the policy included. A signature-timestamp (Section 3.6) binds a signature's existence, not the manifest state, so it does not close this gap; closing it requires authenticating the manifest state against a content-only downgrade, which this version does not provide.
 
 ## 10. Examples
 

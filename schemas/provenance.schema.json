@@ -37,8 +37,9 @@
         },
         "ancestors": {
           "type": "array",
-          "description": "Chain of ancestor hashes",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "description": "Chain of ancestor hashes (nearest first; advisory cross-check, authoritative only where resolved — see 09 §3.3)",
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         },
         "depth": {
           "type": "integer",
@@ -51,8 +52,9 @@
         },
         "mergedFrom": {
           "type": "array",
-          "description": "Merged document hashes",
-          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          "description": "Merged document hashes (each resolved like a parent — see 09 §3.4)",
+          "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
+          "maxItems": 1024
         }
       }
     },
@@ -110,82 +112,100 @@
       }
     },
     "timestamp": {
-      "type": "object",
-      "required": ["type", "time", "hash"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "Timestamp type",
-          "enum": ["rfc3161", "blockchain", "aggregated"]
-        },
-        "time": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp time"
-        },
-        "hash": {
-          "description": "Hash that was timestamped",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
-        },
-        "authority": {
-          "type": "string",
-          "description": "Timestamp authority URL (for rfc3161)"
-        },
-        "token": {
-          "description": "Timestamp token (for rfc3161)",
-          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
-        },
-        "chain": {
-          "type": "string",
-          "description": "Blockchain name (for blockchain type)",
-          "enum": ["bitcoin", "ethereum"]
-        },
-        "blockHeight": {
-          "type": "integer",
-          "description": "Block height (for blockchain type)"
-        },
-        "blockHash": {
-          "type": "string",
-          "description": "Block hash (for blockchain type)"
-        },
-        "txId": {
-          "type": "string",
-          "description": "Transaction ID (for blockchain type)"
-        },
-        "merkleProof": {
-          "type": "array",
-          "description": "Merkle proof to transaction (for blockchain type)",
-          "items": { "type": "string" }
-        },
-        "provider": {
-          "type": "string",
-          "description": "Aggregation provider (for aggregated type)"
-        },
-        "calendar": {
-          "type": "string",
-          "description": "Calendar URL (for aggregated type)"
-        },
-        "proof": {
+      "description": "A trusted-timestamp anchor proving the document hash existed at or before a point in time (core 09 §6). Discriminated by `type` into three closed branches, each carrying exactly the fields its verification procedure requires. The timestamped hash MUST equal the record's `documentId` (and, on a frozen/published document, the signature-authenticated `manifest.id`) — see 09 §6.2; `time` is advisory only, the authoritative time comes from the validated proof (09 §6.6).",
+      "oneOf": [
+        {
+          "description": "RFC 3161 trusted-timestamp token. The token's messageImprint binds `hash`; a verifier validates the token's TSA certificate chain to a configured TSA trust store and confirms the imprint equals `hash` (09 §6.3).",
           "type": "object",
-          "description": "Proof of inclusion in aggregate (for aggregated type)",
+          "required": ["type", "time", "hash", "token"],
           "properties": {
-            "documentHash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
-            "path": {
+            "type": { "const": "rfc3161", "description": "RFC 3161 TSA timestamp." },
+            "time": { "type": "string", "format": "date-time", "description": "Advisory claimed time (display only); the authoritative time is the validated token's genTime." },
+            "hash": {
+              "description": "The timestamped hash; MUST equal the record's documentId.",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+            },
+            "token": {
+              "description": "RFC 3161 TimeStampToken (a CMS SignedData), DER base64.",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+            },
+            "authority": { "type": "string", "description": "Advisory TSA URL (display only); the TSA is authenticated by its certificate chain, not this field." }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Direct blockchain anchor: a transaction on `chain` in block `blockHash` commits `hash`. A verifier locates the transaction by `blockHash` (not height) on the canonical chain at the required confirmation/finality depth (09 §6.4).",
+          "type": "object",
+          "required": ["type", "time", "hash", "chain", "blockHeight", "blockHash", "txId"],
+          "properties": {
+            "type": { "const": "blockchain", "description": "Direct on-chain anchor." },
+            "time": { "type": "string", "format": "date-time", "description": "Advisory claimed time (display only); the authoritative bound is the block's confirmation under chain-specific slack." },
+            "hash": {
+              "description": "The timestamped hash; MUST equal the record's documentId.",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+            },
+            "chain": { "type": "string", "enum": ["bitcoin", "ethereum"], "description": "Anchoring chain." },
+            "blockHeight": { "type": "integer", "minimum": 0, "description": "Block height (advisory locator; blockHash is authoritative under reorgs)." },
+            "blockHash": { "type": "string", "description": "Block hash — the reorg-resistant locator a verifier confirms is on the canonical chain." },
+            "txId": { "type": "string", "description": "Anchoring transaction id." },
+            "merkleProof": {
               "type": "array",
-              "items": { "$ref": "#/$defs/merklePathElement" }
+              "description": "Optional SPV proof of txId's inclusion in the block (a full node does not need it).",
+              "items": { "type": "string" }
             }
-          }
+          },
+          "additionalProperties": false
         },
-        "anchor": {
+        {
+          "description": "Aggregated anchor (e.g. OpenTimestamps): many document hashes are batched into one `merkleRoot` committed on-chain by `anchor`. The Merkle leaf is `proof.documentHash` (which MUST equal the record's documentId and `hash`), tied to `merkleRoot` by `proof.path`. `provider`/`calendar` are advisory delivery hints, never trusted — the proof self-verifies against the on-chain anchor (09 §6.5).",
           "type": "object",
-          "description": "Anchor information (for aggregated type)",
+          "required": ["type", "time", "hash", "proof", "merkleRoot", "anchor"],
           "properties": {
-            "chain": { "type": "string" },
-            "blockHeight": { "type": "integer" },
-            "txId": { "type": "string" }
-          }
+            "type": { "const": "aggregated", "description": "Aggregated (Merkle-batched) anchor." },
+            "time": { "type": "string", "format": "date-time", "description": "Advisory claimed time (display only); the authoritative bound is the anchor block's confirmation." },
+            "hash": {
+              "description": "The timestamped hash; MUST equal both the record's documentId and proof.documentHash.",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+            },
+            "proof": {
+              "type": "object",
+              "description": "Inclusion proof of documentHash in the aggregate Merkle tree.",
+              "required": ["documentHash", "path"],
+              "properties": {
+                "documentHash": {
+                  "description": "The Merkle leaf — the aggregated document hash; MUST equal the record's documentId.",
+                  "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+                },
+                "path": {
+                  "type": "array",
+                  "description": "Sibling chain from documentHash up to merkleRoot.",
+                  "items": { "$ref": "#/$defs/merklePathElement" }
+                }
+              },
+              "additionalProperties": false
+            },
+            "merkleRoot": {
+              "description": "The aggregate Merkle root committed on-chain by anchor.",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+            },
+            "provider": { "type": "string", "description": "Advisory aggregation provider (display only)." },
+            "calendar": { "type": "string", "description": "Advisory calendar URL that delivers the proof; untrusted — the proof self-verifies against the on-chain anchor (display only)." },
+            "anchor": {
+              "type": "object",
+              "description": "On-chain commitment of merkleRoot.",
+              "required": ["chain", "txId"],
+              "properties": {
+                "chain": { "type": "string", "enum": ["bitcoin", "ethereum"], "description": "Anchoring chain." },
+                "blockHeight": { "type": "integer", "minimum": 0, "description": "Anchor block height (advisory locator)." },
+                "blockHash": { "type": "string", "description": "Anchor block hash (reorg-resistant locator)." },
+                "txId": { "type": "string", "description": "Anchoring transaction id." }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
-      }
+      ]
     },
     "derivation": {
       "type": "object",
@@ -220,7 +240,8 @@
           "description": "Sibling hash",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
