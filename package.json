@@ -20,6 +20,7 @@
     "check:signature-set": "npx tsx scripts/check-signature-set.ts",
     "check:lineage": "npx tsx scripts/check-lineage.ts",
     "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
+    "check:schema-closure": "npx tsx scripts/check-schema-closure.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

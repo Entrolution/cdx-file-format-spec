@@ -56,7 +56,8 @@
           "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
           "maxItems": 1024
         }
-      }
+      },
+      "additionalProperties": false
     },
     "merkle": {
       "type": "object",
@@ -76,7 +77,8 @@
           "description": "Hash algorithm used",
           "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "timestamps": {
       "type": "array",
@@ -93,6 +95,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "actor": {
       "type": "object",
@@ -109,7 +112,8 @@
           "type": "string",
           "description": "Organization name"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "timestamp": {
       "description": "A trusted-timestamp anchor proving the document hash existed at or before a point in time (core 09 §6). Discriminated by `type` into three closed branches, each carrying exactly the fields its verification procedure requires. The timestamped hash MUST equal the record's `documentId` (and, on a frozen/published document, the signature-authenticated `manifest.id`) — see 09 §6.2; `time` is advisory only, the authoritative time comes from the validated proof (09 §6.6).",
@@ -225,7 +229,8 @@
           "description": "Specific blocks derived from source",
           "items": { "type": "string" }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "merklePathElement": {
       "type": "object",
