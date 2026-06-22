@@ -306,6 +306,8 @@ Character offsets follow the computation rules defined in the Anchors and Refere
 
 Suggestion statuses: `pending`, `accepted`, `rejected`
 
+> **Collaboration metadata is advisory and unauthenticated.** A comment's, suggestion's, or change's `author`, `content`, and `status`/resolution sit in no signature scope and are not bound by the manifest projection, so they are forgeable. A verifier MUST NOT treat a `status: accepted`, an approving comment, or a named `author` as an authenticated decision or identity — it is not a signature. To authenticate an editorial decision (an approval, a sign-off), place it in signed content or bind the approver through a required-signer policy (security extension, Identity Authority and Signature Set Integrity).
+
 ### 4.6 Reactions
 
 ```json

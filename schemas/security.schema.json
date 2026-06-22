@@ -209,7 +209,7 @@
       "required": ["documentId"],
       "properties": {
         "documentId": {
-          "description": "Content hash (must match top-level documentId)",
+          "description": "The signed, authoritative document ID; MUST equal the recomputed manifest.id (security extension section 9.4). The unsigned top-level documentId is an advisory copy of this value.",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "manifest": {
@@ -352,7 +352,7 @@
           "pattern": "^\\d+\\.\\d+$"
         },
         "documentId": {
-          "description": "Document content hash being signed",
+          "description": "The document content hash. This unsigned top-level copy is ADVISORY: the authoritative, signed binding is each signature's scope.documentId, which MUST equal the recomputed manifest.id (security extension section 9.4). A verifier MUST NOT treat this field as authenticated.",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         },
         "signatures": {

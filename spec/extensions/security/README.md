@@ -175,12 +175,12 @@ H( protected || "." || signature )
 
 To verify a signature and assign it a state (section 3.8):
 
-1. Extract the document ID from the manifest and recompute it from the content (integrity)
+1. Extract the document ID from the manifest (`manifest.id`) and recompute it from the content; the two MUST be equal, or the document fails integrity and every signature over it is `invalid`
 2. If the document state is `frozen` or `published`, require that every signature covers the manifest projection (Section 9.8); reject the document otherwise
 3. For each signature, compute the inputs to the state rules (a WebAuthn signature computes them per section 6.3 instead of steps a–e):
    a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `sigT` well-formed and not after the reference time; and exactly one credential path that is internally consistent — for X.509, `x5c` present, the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10), and the leaf public key's type and curve are consistent with `alg` (an `alg`-versus-key mismatch — e.g. `ES256` over a non-P-256 key — is `invalid`, the X.509 analogue of the keyId and WebAuthn rules); for keyId, `kid` present and well-formed, the self-certifying methods' encoded key usable with `alg`, and a well-formed `jkt` for `did:web` (section 3.11). This is a header-shape check: for `did:web` it does **not** depend on resolution — an unresolvable key is decided at the trust path (step d), not here. A failure makes the state `invalid`
    b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the credential's public key — the leaf certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or, for `did:web`, the resolved verification method whose thumbprint matches the signed `jkt` (section 3.11). A failure makes the state `invalid`. For `did:web`, if no matching key can be resolved the signature is not evaluated here — the credential is key-unavailable and decided at the trust path (step d)
-   c. **Scope.** Verify `scope.documentId` matches the top-level `documentId`, and when `scope.manifest`/`scope.layouts` are present perform the scoped checks (section 9.5)
+   c. **Scope.** Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`, step 1) — the signed scope is the authoritative binding of what the signature covers. The top-level `signatures.documentId` is an **unsigned, advisory** convenience copy that MUST also equal it, but a verifier MUST NOT treat it as authenticated (Section 9.4). When `scope.manifest`/`scope.layouts` are present, perform the scoped checks (section 9.5). A `scope.documentId` that does not equal the recomputed `manifest.id` makes the state `invalid`
    d. **Trust path.** Anchor the credential to verifier-configured trust, yielding `anchored`, `untrusted`, or `unknown`: validate the `x5c` chain against the trust store (section 3.9), or anchor the resolved `kid` against the verifier's pin (section 3.11). For `did:web` this step performs the HTTPS resolution and the `jkt` key-match; an unresolvable or unmatched key is `unknown` (key-unavailable)
    e. **Revocation and validity.** Determine the credential's revocation status and validity window relative to the reference time — a validated signature-timestamp's time T when present (sections 3.6, 7.5), else the untrusted `sigT` (section 7.4)
 4. Combine these inputs into a state using the production rules of section 3.8, and report it
@@ -227,6 +227,7 @@ The authoritative signer identity is the **subject** (and subject-alternative na
 - The signing certificate is already bound by the signature: `x5c` is part of the signed protected header (section 3.4), so substituting any certificate changes the signing input and breaks verification (rule 1). The header additionally carries `x5t#S256`, which MUST equal `BASE64URL(SHA-256(DER(x5c[0])))` — the unpadded base64url SHA-256 of the DER bytes `x5c[0]` decodes to — as a JAdES-conformant, fail-fast consistency check identifying the leaf certificate. A verifier MUST reject (`invalid`) a signature whose `x5t#S256` does not match `x5c[0]`.
 - For the **keyId** credential path there is no certificate subject; the authoritative identity is the resolved-and-anchored `kid` itself (the DID, or its resolved controller — section 3.11). The same advisory rule applies: a verifier MUST NOT present `signer.name`/`email` as the identity in preference to the DID. A DID that appears only as an advisory identifier elsewhere — a `signer` field, or a provenance/author `identifier` — is **not** authenticated by being named; only a signature's resolved-and-anchored credential carries authenticated identity.
 - For the **WebAuthn** credential path the authoritative identity is the verifier's binding of the **pinned `publicKey`** (section 6). `credentialId` and `signer` fields are advisory only — a verifier MUST NOT present them as the authenticated identity.
+- **In-archive editorial and collaboration metadata is advisory, never authenticated.** The same principle governs everything an editor or reviewer writes into the archive: a core annotation's `author`/`content` (`security/annotations.json`), and a collaboration comment's, suggestion's, or change's `author`/`content`/`status`/resolution (the collaboration extension). None of it sits in a signature scope or the manifest projection, so all of it is forgeable. A verifier MUST NOT treat such a field as an authenticated identity or an authenticated decision — an `accepted` status, an approving comment, or an `author` named as a DID is **not** a signature, and an `author` that happens to be DID-shaped is not authenticated by being named (it is an advisory identifier, as above). To authenticate an editorial decision — an approval, a sign-off — place it in **signed content**, or bind the approver through a **required-signer policy** (Section 3.12); do not rely on an annotation or a workflow status. (An authenticated-annotation construction is out of scope for this version.)
 
 ### 3.11 keyId Resolution
 
@@ -624,7 +625,7 @@ The `scope` object is serialized using JCS ([RFC 8785](https://www.rfc-editor.or
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `documentId` | string | Yes | Content hash (MUST match top-level `documentId`) |
+| `documentId` | string | Yes | The signed, authoritative document ID. It MUST equal the recomputed `manifest.id` (Section 3.7 step 1). The unsigned top-level `signatures.documentId` is an advisory copy that MUST also equal it but is never itself authenticated. |
 | `manifest` | object | Conditional | The manifest projection (Section 9.7). REQUIRED on a `frozen` or `published` document; otherwise optional. |
 | `layouts` | object | No | Map of layout path → layout file hash. Attests visual appearance. |
 
@@ -634,7 +635,7 @@ The `scope` object is **closed**: it is validated with `additionalProperties: fa
 
 With `scope` always present, the scoped checks extend section 3.7 step 3:
 
-   a. Verify `scope.documentId` matches the top-level `documentId`
+   a. Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`); the unsigned top-level `signatures.documentId` MUST also match but is advisory, never authenticated (Section 9.4)
    b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
    c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
    d. The JWS signature is over the signing input `BASE64URL(protected) + "." + JCS(scope)` (section 3.4); the signature's trust evaluation is deferred per section 3.7
