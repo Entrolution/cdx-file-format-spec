@@ -33,6 +33,8 @@ export const CLOSED_SCHEMAS: string[] = [
   'presentation.schema.json',
   'manifest.schema.json',
   'security.schema.json',
+  'semantic.schema.json',
+  'collaboration.schema.json',
 ];
 
 // A syntactically valid algorithm-prefixed digest for hash-typed fields.
@@ -780,5 +782,108 @@ export const closureVectors: ClosureVector[] = [
     description: 'ltvData.revocationInfo',
     validInstance: { ocsp: ['aaaa'] },
     invalidInstance: { ocsp: ['aaaa'], bogus: 1 },
+  },
+
+  // --- semantic (file-shape parts; marks/blocks are content-reached → 4.1e) ---
+  {
+    schema: 'semantic.schema.json',
+    description: 'root (manifest config {bibliography, glossary})',
+    validInstance: { bibliography: 'semantic/bibliography.json' },
+    invalidInstance: { bibliography: 'semantic/bibliography.json', bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/bibliographyFile',
+    description: 'bibliographyFile',
+    validInstance: { version: '0.1', entries: [] },
+    invalidInstance: { version: '0.1', entries: [], bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/bibliographyEntry',
+    description: 'bibliographyEntry stays OPEN (CSL)',
+    // CSL is an open vocabulary — an arbitrary entry field MUST be accepted; teeth via the `id` required.
+    validInstance: { id: 'x', type: 'book', vendorField: 1 },
+    invalidInstance: { type: 'book' },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/glossaryFile',
+    description: 'glossaryFile',
+    validInstance: { version: '0.1', terms: [] },
+    invalidInstance: { version: '0.1', terms: [], bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/glossaryTerm',
+    description: 'glossaryTerm (file term, no type const)',
+    validInstance: { id: 'algorithm', term: 'Algorithm', definition: 'A finite sequence of instructions.' },
+    invalidInstance: { id: 'algorithm', term: 'Algorithm', definition: 'A finite sequence of instructions.', bogus: 1 },
+  },
+
+  // --- collaboration -------------------------------------------------------
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/commentsFile',
+    description: 'commentsFile',
+    validInstance: { version: '0.2', comments: [] },
+    invalidInstance: { version: '0.2', comments: [], bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/changesFile',
+    description: 'changesFile',
+    validInstance: { version: '0.2', changes: [] },
+    invalidInstance: { version: '0.2', changes: [], bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/comment',
+    description: 'comment (unevaluatedProperties teeth over open baseComment)',
+    validInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi' },
+    invalidInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/highlight',
+    description: 'highlight',
+    validInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z' },
+    invalidInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/suggestion',
+    description: 'suggestion',
+    validInstance: { id: 's1', type: 'suggestion', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', originalText: 'a', suggestedText: 'b' },
+    invalidInstance: { id: 's1', type: 'suggestion', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', originalText: 'a', suggestedText: 'b', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/reaction',
+    description: 'reaction',
+    validInstance: { id: 'r1', type: 'reaction', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', emoji: 'thumbsup' },
+    invalidInstance: { id: 'r1', type: 'reaction', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', emoji: 'thumbsup', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/reply',
+    description: 'reply',
+    validInstance: { id: 'rp1', author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'ok' },
+    invalidInstance: { id: 'rp1', author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'ok', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/change',
+    description: 'change closed; before/after stay open block snapshots',
+    // before/after carry arbitrary block-snapshot keys that MUST be accepted; teeth via a stray top-level key.
+    validInstance: { id: 'ch1', type: 'modify', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, timestamp: '2025-01-01T00:00:00Z', before: { type: 'paragraph', children: [] }, after: { type: 'heading', level: 2 } },
+    invalidInstance: { id: 'ch1', type: 'modify', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, timestamp: '2025-01-01T00:00:00Z', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/changePosition',
+    description: 'changePosition',
+    validInstance: { after: 'b1' },
+    invalidInstance: { after: 'b1', bogus: 1 },
   },
 ];

@@ -125,7 +125,8 @@
             }
           }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "highlight": {
       "allOf": [
@@ -140,7 +141,8 @@
             }
           }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "suggestion": {
       "allOf": [
@@ -164,7 +166,8 @@
             }
           }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "reaction": {
       "allOf": [
@@ -180,7 +183,8 @@
             }
           }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "commentEntry": {
       "oneOf": [
@@ -237,11 +241,13 @@
         },
         "before": {
           "type": "object",
-          "description": "Content state before the change (for modify/delete)"
+          "description": "Content state before the change (for modify/delete). Intentionally open: a verbatim block snapshot whose shape is the content block model, not constrained here.",
+          "additionalProperties": true
         },
         "after": {
           "type": "object",
-          "description": "Content state after the change (for modify/insert)"
+          "description": "Content state after the change (for modify/insert). Intentionally open: a verbatim block snapshot whose shape is the content block model, not constrained here.",
+          "additionalProperties": true
         },
         "author": {
           "$ref": "#/$defs/author"
@@ -254,28 +260,6 @@
         "status": {
           "$ref": "#/$defs/changeStatus",
           "default": "pending"
-        }
-      },
-      "additionalProperties": false
-    },
-    "crdtMetadata": {
-      "type": "object",
-      "description": "CRDT metadata for block-level synchronization",
-      "properties": {
-        "clock": {
-          "type": "object",
-          "description": "Vector clock for causal ordering",
-          "additionalProperties": {
-            "type": "integer"
-          }
-        },
-        "origin": {
-          "type": "string",
-          "description": "Site/peer ID where this version originated"
-        },
-        "seq": {
-          "type": "integer",
-          "description": "Local sequence number"
         }
       },
       "additionalProperties": false

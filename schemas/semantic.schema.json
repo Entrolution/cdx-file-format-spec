@@ -395,6 +395,50 @@
         }
       },
       "additionalProperties": true
+    },
+    "bibliographyFile": {
+      "type": "object",
+      "description": "Schema for semantic/bibliography.json (external CSL bibliography file)",
+      "required": ["version", "entries"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+        "entries": {
+          "type": "array",
+          "description": "CSL JSON bibliography entries",
+          "items": { "$ref": "#/$defs/bibliographyEntry" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "glossaryTerm": {
+      "type": "object",
+      "description": "A glossary term entry in semantic/glossary.json",
+      "required": ["id", "term", "definition"],
+      "properties": {
+        "id": { "type": "string", "description": "Unique term identifier" },
+        "term": { "type": "string", "description": "The term being defined" },
+        "definition": { "type": "string", "description": "Definition of the term" },
+        "see": {
+          "type": "array",
+          "description": "Related term IDs",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "glossaryFile": {
+      "type": "object",
+      "description": "Schema for semantic/glossary.json (external glossary file)",
+      "required": ["version", "terms"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+        "terms": {
+          "type": "array",
+          "description": "Glossary term entries",
+          "items": { "$ref": "#/$defs/glossaryTerm" }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -408,5 +452,6 @@
       "type": "string",
       "description": "Path to glossary file (e.g., 'semantic/glossary.json')"
     }
-  }
+  },
+  "additionalProperties": false
 }
