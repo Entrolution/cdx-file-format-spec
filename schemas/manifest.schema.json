@@ -80,7 +80,8 @@
             { "type": "null" }
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "extensions": {
       "type": "array",
@@ -103,7 +104,8 @@
           "description": "Custom metadata references",
           "additionalProperties": { "type": "string" }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "phantoms": {
       "type": "object",
@@ -114,7 +116,8 @@
           "description": "Path to phantom clusters file",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "lineage": {
       "type": "object",
@@ -157,7 +160,8 @@
           "type": "string",
           "description": "Description of changes from parent"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "provenance": {
       "description": "Path to provenance record file",
@@ -166,8 +170,25 @@
     "signaturePolicy": {
       "description": "Document signature policy: the required-signer set that binds the signature set against stripping and downgrade (Security Extension §3.12). Bound by the signed manifest projection (§9.7).",
       "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/signaturePolicy"
+    },
+    "academic": {
+      "type": "object",
+      "description": "Academic Extension manifest configuration (e.g. the numbering config path). The extension owns this object's shape, so it is left open here."
+    },
+    "semantic": {
+      "type": "object",
+      "description": "Semantic Extension manifest configuration (e.g. bibliography/glossary file paths). The extension owns this object's shape, so it is left open here."
+    },
+    "legal": {
+      "type": "object",
+      "description": "Legal Extension manifest configuration (e.g. citation style, jurisdiction). The extension owns this object's shape, so it is left open here."
+    },
+    "collaboration": {
+      "type": "object",
+      "description": "Collaboration Extension manifest configuration (e.g. comments/changes file paths). The extension owns this object's shape, so it is left open here."
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "fileReference": {
       "type": "object",
@@ -195,7 +216,8 @@
           "minimum": 0,
           "description": "Number of content blocks"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "presentationReference": {
       "type": "object",
@@ -227,7 +249,8 @@
           "format": "date-time",
           "description": "When presentation was generated"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "assetCategory": {
       "type": "object",
@@ -247,7 +270,8 @@
           "description": "Path to index file",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "extension": {
       "type": "object",
@@ -270,7 +294,8 @@
           "description": "Extension-specific configuration paths or inline settings",
           "additionalProperties": true
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -92,3 +92,6 @@ jobs:
 
       - name: Check provenance timestamp
         run: npm run check:provenance-timestamp
+
+      - name: Check schema closure
+        run: npm run check:schema-closure

@@ -77,10 +77,10 @@ export const rules: Rule[] = [
   { test: /^phantoms\/clusters\.json$/, schema: 'phantoms.schema.json' },
   { test: /^security\/signatures\.json$/, schema: 'security.schema.json' },
   { test: /^security\/annotations\.json$/, schema: 'annotations.schema.json' },
-  // semantic.schema's root describes the manifest-level config, not the file
-  // contents, so this validation is currently vacuous. Follow-up: add
-  // bibliographyFile / glossaryFile $defs and route here, like academic above.
-  { test: /^semantic\/(bibliography|glossary)\.json$/, schema: 'semantic.schema.json', note: 'root-only (file contents unvalidated — follow-up: add file-shape $defs)' },
+  // semantic file parts validate against their file-shape $defs (the schema root
+  // is the manifest-level config, not the file contents).
+  { test: /^semantic\/bibliography\.json$/, schema: 'semantic.schema.json', ref: '#/$defs/bibliographyFile' },
+  { test: /^semantic\/glossary\.json$/, schema: 'semantic.schema.json', ref: '#/$defs/glossaryFile' },
 ];
 
 export function ruleFor(relPath: string): Rule | undefined {

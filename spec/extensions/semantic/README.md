@@ -110,7 +110,6 @@ Location: `semantic/bibliography.json`
 ```json
 {
   "version": "0.1",
-  "style": "apa",
   "entries": [
     {
       "id": "smith2024",

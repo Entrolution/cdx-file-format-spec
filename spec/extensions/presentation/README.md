@@ -124,7 +124,9 @@ For professional printing:
 }
 ```
 
-### 4.2 Spot Colors
+### 4.2 Color Definitions
+
+A color definition is discriminated by `type`. An `rgb` or `cmyk` color carries a `value` (a hex string for `rgb`, comma-separated components for `cmyk`); a `spot` color carries a `name` and a `fallback` hex color for non-spot rendering.
 
 ```json
 {
@@ -133,6 +135,14 @@ For professional printing:
       "type": "spot",
       "name": "PANTONE 286 C",
       "fallback": "#0033a0"
+    },
+    "body-text": {
+      "type": "rgb",
+      "value": "#1a1a1a"
+    },
+    "rich-black": {
+      "type": "cmyk",
+      "value": "0,0,0,1"
     }
   }
 }

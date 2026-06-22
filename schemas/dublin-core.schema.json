@@ -111,9 +111,11 @@
           ],
           "description": "Rights statement"
         }
-      }
+      },
+      "additionalProperties": false
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "rightsObject": {
       "type": "object",
@@ -131,7 +133,8 @@
           "format": "uri",
           "description": "License URL"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "creatorObject": {
       "type": "object",
@@ -157,7 +160,8 @@
           "format": "email",
           "description": "Contact email address"
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

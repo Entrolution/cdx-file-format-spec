@@ -26,6 +26,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "asset": {
       "type": "object",
@@ -59,7 +60,8 @@
         },
         "metadata": {
           "type": "object",
-          "description": "Type-specific metadata"
+          "description": "Type-specific metadata (image dimensions, font weight, etc.). Intentionally open: the shape is asset-type-specific and extensible, so unknown keys are allowed by design.",
+          "additionalProperties": true
         },
         "license": {
           "$ref": "#/$defs/license"
@@ -71,77 +73,8 @@
             "$ref": "#/$defs/imageVariant"
           }
         }
-      }
-    },
-    "imageMetadata": {
-      "type": "object",
-      "properties": {
-        "width": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Width in pixels"
-        },
-        "height": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Height in pixels"
-        },
-        "colorSpace": {
-          "type": "string",
-          "description": "Color space (sRGB, Display P3, etc.)"
-        },
-        "hasAlpha": {
-          "type": "boolean",
-          "description": "Whether image has transparency"
-        },
-        "dpi": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Dots per inch"
-        }
-      }
-    },
-    "fontMetadata": {
-      "type": "object",
-      "properties": {
-        "family": {
-          "type": "string",
-          "description": "Font family name"
-        },
-        "weight": {
-          "type": "integer",
-          "minimum": 100,
-          "maximum": 900,
-          "description": "Font weight"
-        },
-        "style": {
-          "type": "string",
-          "enum": ["normal", "italic", "oblique"],
-          "description": "Font style"
-        },
-        "unicodeRange": {
-          "type": "string",
-          "description": "Supported Unicode ranges"
-        }
-      }
-    },
-    "embedMetadata": {
-      "type": "object",
-      "properties": {
-        "filename": {
-          "type": "string",
-          "description": "Original filename"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description"
-        },
-        "created": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Original file creation date"
-        }
-      }
+      },
+      "additionalProperties": false
     },
     "imageVariant": {
       "type": "object",
@@ -161,7 +94,8 @@
           "minimum": 0,
           "description": "Variant file size in bytes"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "fontFamily": {
       "type": "object",
@@ -190,10 +124,12 @@
                 "type": "string",
                 "enum": ["normal", "italic", "oblique"]
               }
-            }
+            },
+            "additionalProperties": false
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "license": {
       "type": "object",
@@ -207,7 +143,8 @@
           "format": "uri",
           "description": "License URL"
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

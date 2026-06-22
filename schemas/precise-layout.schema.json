@@ -32,7 +32,8 @@
           "type": "string",
           "description": "Page height with unit"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "contentHash": {
       "description": "Hash of content when layout was generated. Must match current content hash for FROZEN/PUBLISHED.",
@@ -62,6 +63,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "page": {
       "type": "object",
@@ -78,7 +80,8 @@
             "$ref": "#/$defs/preciseElement"
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "preciseElement": {
       "type": "object",
@@ -126,7 +129,8 @@
             "$ref": "#/$defs/linePrecision"
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "transform": {
       "type": "object",
@@ -145,7 +149,8 @@
                 "x": { "type": "number" },
                 "y": { "type": "number" }
               },
-              "required": ["x", "y"]
+              "required": ["x", "y"],
+              "additionalProperties": false
             }
           ]
         },
@@ -181,11 +186,13 @@
                 "x": { "type": "string" },
                 "y": { "type": "string" }
               },
-              "required": ["x", "y"]
+              "required": ["x", "y"],
+              "additionalProperties": false
             }
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "linePrecision": {
       "type": "object",
@@ -204,7 +211,8 @@
           "type": "string",
           "description": "Line height"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "pageTemplate": {
       "type": "object",
@@ -216,7 +224,8 @@
             "bottom": { "type": "string" },
             "left": { "type": "string" },
             "right": { "type": "string" }
-          }
+          },
+          "additionalProperties": false
         },
         "header": {
           "$ref": "#/$defs/headerFooter"
@@ -224,7 +233,8 @@
         "footer": {
           "$ref": "#/$defs/headerFooter"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "headerFooter": {
       "type": "object",
@@ -241,7 +251,8 @@
           "type": "string",
           "description": "Vertical position"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "fontMetrics": {
       "type": "object",
@@ -273,7 +284,8 @@
           "type": "integer",
           "description": "Descender depth in font units (typically negative)"
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
