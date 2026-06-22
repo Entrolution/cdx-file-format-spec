@@ -19,6 +19,7 @@
     "check:webauthn": "npx tsx scripts/check-webauthn.ts",
     "check:signature-set": "npx tsx scripts/check-signature-set.ts",
     "check:lineage": "npx tsx scripts/check-lineage.ts",
+    "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

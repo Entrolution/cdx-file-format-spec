@@ -1,0 +1,19 @@
+{
+  "version": "1.1",
+  "terms": {
+    "title": "Certificate of Authenticity",
+    "creator": [
+      "Acme Notary Service"
+    ],
+    "subject": [
+      "Provenance",
+      "Timestamp",
+      "Notarization"
+    ],
+    "description": "A frozen, signed document whose provenance record carries a trusted timestamp bound to the document hash.",
+    "date": "2025-03-01",
+    "type": "Text",
+    "format": "application/vnd.cdx+json",
+    "language": "en"
+  }
+}

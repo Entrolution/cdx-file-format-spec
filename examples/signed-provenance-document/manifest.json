@@ -1,0 +1,31 @@
+{
+  "cdx": "0.1",
+  "id": "sha256:10bcd23e4b51d89aa73a4599f970bb06138a389de5cfa3f2c8057a77a046f733",
+  "state": "frozen",
+  "hashAlgorithm": "sha256",
+  "created": "2025-03-01T09:00:00Z",
+  "modified": "2025-03-01T09:00:00Z",
+  "content": {
+    "path": "content/document.json",
+    "hash": "sha256:5ba107c9dc61030000da92f9cc149e77ac89e0870c1796ba1b850a636ba90460"
+  },
+  "security": {
+    "signatures": "security/signatures.json",
+    "encryption": null
+  },
+  "extensions": [
+    {
+      "id": "cdx.security",
+      "version": "0.1",
+      "required": true
+    }
+  ],
+  "metadata": {
+    "dublinCore": "metadata/dublin-core.json"
+  },
+  "provenance": "provenance/record.json",
+  "lineage": {
+    "parent": null,
+    "version": 1
+  }
+}

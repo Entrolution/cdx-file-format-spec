@@ -89,3 +89,6 @@ jobs:
 
       - name: Check lineage
         run: npm run check:lineage
+
+      - name: Check provenance timestamp
+        run: npm run check:provenance-timestamp
