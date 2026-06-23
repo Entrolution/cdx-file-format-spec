@@ -39,7 +39,7 @@ This divide creates workflow friction, format conversion overhead, and lost fide
 
 - Efficient compression using modern algorithms (Zstandard, AVIF)
 - Clear document state machine (draft → review → frozen/signed)
-- State-aware presentation (reactive for drafts, precise for frozen/published)
+- State-aware presentation (reactive for drafts, precise when page-precise fidelity is required)
 - Block-level proofs (prove a section exists without revealing the whole document)
 - Timestamp anchoring (RFC 3161, blockchain)
 - Accessibility built-in (WCAG-aligned)
@@ -109,20 +109,20 @@ CDX uses **progressive enhancement** for presentation — the level of layout pr
 |----------------|-------------------------|---------------|
 | DRAFT | Reactive only (hints/styles) | Nothing — content flows freely |
 | REVIEW | Reactive (precise optional) | Nothing — still editing |
-| FROZEN | Reactive + **precise required** | Content immutable; appearance locked |
+| FROZEN | Reactive (precise when fidelity required) | Content immutable; included layout locked |
 | PUBLISHED | Same as FROZEN | Authoritative, immutable record |
 
 ### Why This Matters
 
-When a document reaches FROZEN or PUBLISHED state, its **precise layout** (exact coordinates for every element) becomes part of the immutable record:
+When a frozen or published document includes a **precise layout** (exact coordinates for every element), that layout becomes part of the immutable record:
 
 - **Semantic content is the hash**: The document ID covers semantic content only — what it says, not how it looks
 - **Appearance is locked alongside content**: Precise layouts are immutable when frozen, but separate from the content hash. Use scoped signatures (Security Extension) for appearance attestation
 - **Citations are reliable**: "Page 7, line 23" means the same thing in every viewer
-- **Legal/archival integrity**: Frozen documents render pixel-perfectly, forever
+- **Legal/archival integrity**: documents that assert page-precise fidelity render pixel-perfectly, forever
 - **No viewer inconsistency**: Unlike PDF, whose appearance varies by renderer
 
-This is the key insight: **the state machine isn't just about workflow** — it enforces the relationship between content stability and presentation precision. You can't freeze a document without committing to exactly how it looks.
+This is the key insight: **the state machine isn't just about workflow** — it ties presentation precision to content stability. Freezing always locks the semantic content; documents that assert page-precise fidelity also commit the precise layout that shows exactly how they look.
 
 ```
 DRAFT                    FROZEN/PUBLISHED
@@ -131,7 +131,7 @@ DRAFT                    FROZEN/PUBLISHED
 │ (JSON blocks)   │      │ (JSON blocks)   │    (content hash)
 ├─────────────────┤      ├─────────────────┤
 │ Reactive hints  │  →   │ Reactive hints  │
-│ (optional)      │      │ + Precise layout│ ← Required, immutable
+│ (optional)      │      │ + Precise layout│ ← When fidelity required
 └─────────────────┘      │ (exact coords)  │    (scoped signatures
                          └─────────────────┘     for attestation)
 ```
@@ -145,6 +145,7 @@ The specification is modular:
 - [Container Format](spec/core/01-container-format.md) - ZIP-based packaging
 - [Manifest](spec/core/02-manifest.md) - Document metadata and structure
 - [Content Blocks](spec/core/03-content-blocks.md) - Semantic content model
+- [Anchors and References](spec/core/03a-anchors-and-references.md) - Unified sub-block addressing
 - [Presentation Layers](spec/core/04-presentation-layers.md) - Rendering instructions
 - [Asset Embedding](spec/core/05-asset-embedding.md) - Images, fonts, files
 - [Document Hashing](spec/core/06-document-hashing.md) - Content-addressable identity
@@ -159,6 +160,9 @@ The specification is modular:
 - [Presentation Extension](spec/extensions/presentation/) - Advanced layout, print styling
 - [Forms Extension](spec/extensions/forms/) - Input fields, validation
 - [Semantic Extension](spec/extensions/semantic/) - JSON-LD, knowledge graphs, citations
+- [Academic Extension](spec/extensions/academic/) - Theorems, proofs, exercises, algorithms, equations
+- [Phantoms Extension](spec/extensions/phantoms/) - Off-page annotation clusters
+- [Legal Extension](spec/extensions/legal/) - Legal citations, clause references, jurisdiction metadata
 
 ## Quick Start
 
@@ -176,7 +180,7 @@ document.cdx
 │   ├── defaults.json      # Base styles
 │   ├── paginated.json     # Print hints (reactive)
 │   ├── continuous.json    # Screen hints (reactive)
-│   └── layouts/           # Precise layouts (required for FROZEN/PUBLISHED)
+│   └── layouts/           # Precise layouts (when fidelity required)
 │       ├── letter.json    # US Letter format coordinates
 │       └── a4.json        # A4 format coordinates
 ├── assets/
