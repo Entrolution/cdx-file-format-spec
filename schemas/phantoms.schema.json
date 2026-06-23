@@ -152,16 +152,7 @@
         "blocks": {
           "type": "array",
           "description": "Array of content blocks (uses core content block model)",
-          "items": {
-            "type": "object",
-            "required": ["type"],
-            "properties": {
-              "type": {
-                "type": "string",
-                "description": "Block type identifier"
-              }
-            }
-          }
+          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
         }
       },
       "additionalProperties": false

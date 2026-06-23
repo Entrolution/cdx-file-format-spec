@@ -5,33 +5,41 @@
   "description": "Schema for academic extension blocks and marks in a CDX document",
   "$defs": {
     "abstractBlock": {
-      "type": "object",
-      "description": "Abstract block for papers and reports",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "academic:abstract" },
-        "children": {
-          "type": "array",
-          "description": "Abstract content (paragraph blocks)"
-        },
-        "keywords": {
-          "type": "array",
-          "description": "List of keywords/key phrases",
-          "items": { "type": "string" }
-        },
-        "sections": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
           "type": "object",
-          "description": "Structured abstract sections",
-          "additionalProperties": {
-            "type": "array",
-            "description": "Section content (paragraph blocks)"
-          }
+          "description": "Abstract block for papers and reports",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "academic:abstract" },
+            "children": {
+              "type": "array",
+              "description": "Abstract content (paragraph blocks)",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            },
+            "keywords": {
+              "type": "array",
+              "description": "List of keywords/key phrases",
+              "items": { "type": "string" }
+            },
+            "sections": {
+              "type": "object",
+              "description": "Structured abstract sections",
+              "additionalProperties": {
+                "type": "array",
+                "description": "Section content (paragraph blocks)",
+                "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+              }
+            }
+          },
+          "oneOf": [
+            { "required": ["children"] },
+            { "required": ["sections"] }
+          ]
         }
-      },
-      "oneOf": [
-        { "required": ["children"] },
-        { "required": ["sections"] }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "theoremVariant": {
       "type": "string",
@@ -96,71 +104,83 @@
       "enum": ["heading1", "heading2", "heading3", "heading4", "heading5", "heading6", "none"]
     },
     "theoremBlock": {
-      "type": "object",
-      "description": "Theorem-like environment block",
-      "required": ["type", "variant", "children"],
-      "properties": {
-        "type": { "const": "academic:theorem" },
-        "variant": {
-          "type": "string",
-          "description": "Variant name (built-in or custom)"
-        },
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for cross-referencing"
-        },
-        "number": {
-          "type": "string",
-          "description": "Explicit number (e.g., '2.3.8')"
-        },
-        "numbering": {
-          "type": "string",
-          "description": "Numbering mode",
-          "enum": ["auto", "none"]
-        },
-        "title": {
-          "type": "string",
-          "description": "Custom title (e.g., 'Maximum Principle')"
-        },
-        "uses": {
-          "type": "array",
-          "description": "Content Anchor URIs of dependencies",
-          "items": { "type": "string" }
-        },
-        "restate": {
-          "type": "boolean",
-          "description": "If true, this is a restatement of a previously stated theorem",
-          "default": false
-        },
-        "children": {
-          "type": "array",
-          "description": "Theorem content blocks"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Theorem-like environment block",
+          "required": ["type", "variant", "children"],
+          "properties": {
+            "type": { "const": "academic:theorem" },
+            "variant": {
+              "type": "string",
+              "description": "Variant name (built-in or custom)"
+            },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier for cross-referencing"
+            },
+            "number": {
+              "type": "string",
+              "description": "Explicit number (e.g., '2.3.8')"
+            },
+            "numbering": {
+              "type": "string",
+              "description": "Numbering mode",
+              "enum": ["auto", "none"]
+            },
+            "title": {
+              "type": "string",
+              "description": "Custom title (e.g., 'Maximum Principle')"
+            },
+            "uses": {
+              "type": "array",
+              "description": "Content Anchor URIs of dependencies",
+              "items": { "type": "string" }
+            },
+            "restate": {
+              "type": "boolean",
+              "description": "If true, this is a restatement of a previously stated theorem",
+              "default": false
+            },
+            "children": {
+              "type": "array",
+              "description": "Theorem content blocks",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "proofBlock": {
-      "type": "object",
-      "description": "Proof block",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "academic:proof" },
-        "of": {
-          "type": "string",
-          "description": "Content Anchor URI to the theorem being proved"
-        },
-        "title": {
-          "type": "string",
-          "description": "Override title (default: 'Proof')"
-        },
-        "method": { "$ref": "#/$defs/proofMethod" },
-        "qed": { "$ref": "#/$defs/qedStyle" },
-        "children": {
-          "type": "array",
-          "description": "Proof content blocks"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Proof block",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "academic:proof" },
+            "of": {
+              "type": "string",
+              "description": "Content Anchor URI to the theorem being proved"
+            },
+            "title": {
+              "type": "string",
+              "description": "Override title (default: 'Proof')"
+            },
+            "method": { "$ref": "#/$defs/proofMethod" },
+            "qed": { "$ref": "#/$defs/qedStyle" },
+            "children": {
+              "type": "array",
+              "description": "Proof content blocks",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "solution": {
       "type": "object",
@@ -175,7 +195,8 @@
         },
         "children": {
           "type": "array",
-          "description": "Solution content blocks"
+          "description": "Solution content blocks",
+          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
         }
       },
       "additionalProperties": false
@@ -191,73 +212,88 @@
         },
         "children": {
           "type": "array",
-          "description": "Part problem statement"
+          "description": "Part problem statement",
+          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
         },
         "hints": {
           "type": "array",
-          "description": "Part-specific hints"
+          "description": "Part-specific hints",
+          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
         },
         "solution": { "$ref": "#/$defs/solution" }
       },
       "additionalProperties": false
     },
     "exerciseBlock": {
-      "type": "object",
-      "description": "Exercise/problem block",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "academic:exercise" },
-        "id": {
-          "type": "string",
-          "description": "Unique identifier"
-        },
-        "number": {
-          "type": "string",
-          "description": "Exercise number"
-        },
-        "difficulty": { "$ref": "#/$defs/difficulty" },
-        "children": {
-          "type": "array",
-          "description": "Problem statement (preamble if parts exist)"
-        },
-        "parts": {
-          "type": "array",
-          "description": "Multi-part sub-exercises",
-          "items": { "$ref": "#/$defs/exercisePart" }
-        },
-        "hints": {
-          "type": "array",
-          "description": "Hint paragraphs"
-        },
-        "solution": { "$ref": "#/$defs/solution" }
-      },
-      "additionalProperties": false
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Exercise/problem block",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "academic:exercise" },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier"
+            },
+            "number": {
+              "type": "string",
+              "description": "Exercise number"
+            },
+            "difficulty": { "$ref": "#/$defs/difficulty" },
+            "children": {
+              "type": "array",
+              "description": "Problem statement (preamble if parts exist)",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            },
+            "parts": {
+              "type": "array",
+              "description": "Multi-part sub-exercises",
+              "items": { "$ref": "#/$defs/exercisePart" }
+            },
+            "hints": {
+              "type": "array",
+              "description": "Hint paragraphs",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            },
+            "solution": { "$ref": "#/$defs/solution" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "exerciseSetBlock": {
-      "type": "object",
-      "description": "Container for grouped exercises with shared context",
-      "required": ["type", "exercises"],
-      "properties": {
-        "type": { "const": "academic:exercise-set" },
-        "id": {
-          "type": "string",
-          "description": "Unique identifier"
-        },
-        "title": {
-          "type": "string",
-          "description": "Set title"
-        },
-        "preamble": {
-          "type": "array",
-          "description": "Shared context/instructions for all exercises"
-        },
-        "exercises": {
-          "type": "array",
-          "description": "Array of exercise blocks",
-          "items": { "$ref": "#/$defs/exerciseBlock" }
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Container for grouped exercises with shared context",
+          "required": ["type", "exercises"],
+          "properties": {
+            "type": { "const": "academic:exercise-set" },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier"
+            },
+            "title": {
+              "type": "string",
+              "description": "Set title"
+            },
+            "preamble": {
+              "type": "array",
+              "description": "Shared context/instructions for all exercises",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            },
+            "exercises": {
+              "type": "array",
+              "description": "Array of exercise blocks",
+              "items": { "$ref": "#/$defs/exerciseBlock" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "equationLine": {
       "type": "object",
@@ -284,23 +320,28 @@
       "additionalProperties": false
     },
     "equationGroupBlock": {
-      "type": "object",
-      "description": "Multi-line equation environment",
-      "required": ["type", "lines"],
-      "properties": {
-        "type": { "const": "academic:equation-group" },
-        "environment": { "$ref": "#/$defs/equationEnvironment" },
-        "id": {
-          "type": "string",
-          "description": "Group identifier"
-        },
-        "lines": {
-          "type": "array",
-          "description": "Array of equation lines",
-          "items": { "$ref": "#/$defs/equationLine" }
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Multi-line equation environment",
+          "required": ["type", "lines"],
+          "properties": {
+            "type": { "const": "academic:equation-group" },
+            "environment": { "$ref": "#/$defs/equationEnvironment" },
+            "id": {
+              "type": "string",
+              "description": "Group identifier"
+            },
+            "lines": {
+              "type": "array",
+              "description": "Array of equation lines",
+              "items": { "$ref": "#/$defs/equationLine" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "algorithmParameter": {
       "type": "object",
@@ -345,55 +386,60 @@
       "additionalProperties": false
     },
     "algorithmBlock": {
-      "type": "object",
-      "description": "Algorithm block with line-numbered pseudocode",
-      "required": ["type", "lines"],
-      "properties": {
-        "type": { "const": "academic:algorithm" },
-        "id": {
-          "type": "string",
-          "description": "Unique identifier"
-        },
-        "number": {
-          "type": "string",
-          "description": "Algorithm number"
-        },
-        "title": {
-          "type": "string",
-          "description": "Algorithm name"
-        },
-        "caption": {
-          "type": "string",
-          "description": "Description caption"
-        },
-        "lineNumbering": {
-          "type": "boolean",
-          "description": "Show line numbers",
-          "default": true
-        },
-        "startLine": {
-          "type": "integer",
-          "description": "Starting line number",
-          "minimum": 1,
-          "default": 1
-        },
-        "lines": {
-          "type": "array",
-          "description": "Pseudocode lines",
-          "items": { "$ref": "#/$defs/algorithmLine" }
-        },
-        "inputs": {
-          "type": "array",
-          "description": "Input parameters",
-          "items": { "$ref": "#/$defs/algorithmParameter" }
-        },
-        "outputs": {
-          "type": "array",
-          "description": "Output description",
-          "items": { "$ref": "#/$defs/algorithmParameter" }
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Algorithm block with line-numbered pseudocode",
+          "required": ["type", "lines"],
+          "properties": {
+            "type": { "const": "academic:algorithm" },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier"
+            },
+            "number": {
+              "type": "string",
+              "description": "Algorithm number"
+            },
+            "title": {
+              "type": "string",
+              "description": "Algorithm name"
+            },
+            "caption": {
+              "type": "string",
+              "description": "Description caption"
+            },
+            "lineNumbering": {
+              "type": "boolean",
+              "description": "Show line numbers",
+              "default": true
+            },
+            "startLine": {
+              "type": "integer",
+              "description": "Starting line number",
+              "minimum": 1,
+              "default": 1
+            },
+            "lines": {
+              "type": "array",
+              "description": "Pseudocode lines",
+              "items": { "$ref": "#/$defs/algorithmLine" }
+            },
+            "inputs": {
+              "type": "array",
+              "description": "Input parameters",
+              "items": { "$ref": "#/$defs/algorithmParameter" }
+            },
+            "outputs": {
+              "type": "array",
+              "description": "Output description",
+              "items": { "$ref": "#/$defs/algorithmParameter" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "theoremRefMark": {
       "type": "object",

@@ -35,6 +35,10 @@ export const CLOSED_SCHEMAS: string[] = [
   'security.schema.json',
   'semantic.schema.json',
   'collaboration.schema.json',
+  'content.schema.json',
+  'academic.schema.json',
+  'legal.schema.json',
+  'forms.schema.json',
 ];
 
 // A syntactically valid algorithm-prefixed digest for hash-typed fields.
@@ -526,13 +530,6 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'presentation.schema.json',
-    ref: '#/$defs/presentationReference',
-    description: 'presentationReference',
-    validInstance: { type: 'presentation:reference', target: '#b1' },
-    invalidInstance: { type: 'presentation:reference', target: '#b1', bogus: 1 },
-  },
-  {
-    schema: 'presentation.schema.json',
     ref: '#/$defs/indexMark',
     description: 'indexMark',
     validInstance: { type: 'index', term: 'entropy' },
@@ -885,5 +882,332 @@ export const closureVectors: ClosureVector[] = [
     description: 'changePosition',
     validInstance: { after: 'b1' },
     invalidInstance: { after: 'b1', bogus: 1 },
+  },
+
+  // --- content: block dispatch, open-escape, leaf + mark closure (4.1e) -----
+  // The block dispatch is exercised through content#/$defs/block: a valid block
+  // is accepted (incl. the shared blockBase id/attributes) and the same block
+  // with one unknown key is rejected (the self-contained branch has teeth).
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'core block carries shared blockBase id/attributes',
+    validInstance: { type: 'paragraph', id: 'p1', attributes: { dir: 'ltr', lang: 'en' }, children: [] },
+    invalidInstance: { type: 'paragraph', id: 'p1', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'open escape: unknown namespaced block passes; bare unknown type rejected',
+    // A namespaced extension we do not recognise is open-world (fields unchecked);
+    // a bare (non-namespaced) unknown type is malformed per Content Blocks section 5.
+    validInstance: { type: 'myorg:widget', anything: 1, more: [true] },
+    invalidInstance: { type: 'bogus', anything: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'text node block (dual-context leaf) closed',
+    validInstance: { type: 'text', value: 'hi', marks: ['bold'] },
+    invalidInstance: { type: 'text', value: 'hi', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'image with bound presentation float',
+    validInstance: { type: 'image', src: 'assets/images/x.png', alt: 'x', float: { position: 'top', span: 'column' } },
+    invalidInstance: { type: 'image', src: 'assets/images/x.png', alt: 'x', float: { position: 'top' }, bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'figure children constrained to figure-content item types',
+    validInstance: { type: 'figure', children: [{ type: 'image', src: 'a.png', alt: 'a' }, { type: 'figcaption', children: [] }] },
+    invalidInstance: { type: 'figure', children: [{ type: 'paragraph', children: [] }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'signature.signer (inline ad-hoc person) closed',
+    validInstance: { type: 'signature', signatureType: 'digital', signer: { name: 'Ada', title: 'CEO' } },
+    invalidInstance: { type: 'signature', signatureType: 'digital', signer: { name: 'Ada', bogus: 1 } },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/blockAttributes',
+    description: 'blockAttributes closed (semantic JSON-LD stays open)',
+    validInstance: { dir: 'rtl', lang: 'ar', semantic: { '@type': 'Article', vocabExtra: true } },
+    invalidInstance: { dir: 'rtl', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/linkMark',
+    description: 'linkMark closed',
+    validInstance: { type: 'link', href: '#x', title: 't' },
+    invalidInstance: { type: 'link', href: '#x', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/anchorMark',
+    description: 'anchorMark closed',
+    validInstance: { type: 'anchor', id: 'a1' },
+    invalidInstance: { type: 'anchor', id: 'a1', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/mathMark',
+    description: 'mathMark closed',
+    validInstance: { type: 'math', format: 'latex', source: 'x^2' },
+    invalidInstance: { type: 'math', format: 'latex', source: 'x^2', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/highlightToken',
+    description: 'highlightToken closed',
+    validInstance: { type: 'keyword', value: 'const' },
+    invalidInstance: { type: 'keyword', value: 'const', bogus: 1 },
+  },
+
+  // --- extension block dispatch teeth (4.1e) -------------------------------
+  // Each authored extension block type is now wired into content#/$defs/block.
+  // A minimal valid instance is accepted and the same block with an unknown key
+  // is rejected (the wired branch closes via unevaluatedProperties:false).
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:abstract wired + closed',
+    validInstance: { type: 'academic:abstract', children: [] },
+    invalidInstance: { type: 'academic:abstract', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:theorem wired + closed',
+    validInstance: { type: 'academic:theorem', variant: 'theorem', id: 't1', children: [] },
+    invalidInstance: { type: 'academic:theorem', variant: 'theorem', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:proof wired + closed',
+    validInstance: { type: 'academic:proof', children: [] },
+    invalidInstance: { type: 'academic:proof', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:algorithm wired + closed',
+    validInstance: { type: 'academic:algorithm', lines: [] },
+    invalidInstance: { type: 'academic:algorithm', lines: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:equation-group wired + closed',
+    validInstance: { type: 'academic:equation-group', lines: [] },
+    invalidInstance: { type: 'academic:equation-group', lines: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:exercise-set wired + closed',
+    validInstance: { type: 'academic:exercise-set', exercises: [] },
+    invalidInstance: { type: 'academic:exercise-set', exercises: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic:exercise wired + closed (top-level + nested)',
+    validInstance: { type: 'academic:exercise', children: [] },
+    invalidInstance: { type: 'academic:exercise', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:footnote wired + closed',
+    validInstance: { type: 'semantic:footnote', number: 1, content: 'note' },
+    invalidInstance: { type: 'semantic:footnote', number: 1, content: 'note', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:bibliography wired + closed',
+    validInstance: { type: 'semantic:bibliography', style: 'apa' },
+    invalidInstance: { type: 'semantic:bibliography', style: 'apa', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:term wired + closed',
+    validInstance: { type: 'semantic:term', term: 'T', definition: 'D' },
+    invalidInstance: { type: 'semantic:term', term: 'T', definition: 'D', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:ref wired + closed',
+    validInstance: { type: 'semantic:ref', target: '#x' },
+    invalidInstance: { type: 'semantic:ref', target: '#x', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:glossary wired + closed',
+    validInstance: { type: 'semantic:glossary', sort: 'alphabetical' },
+    invalidInstance: { type: 'semantic:glossary', sort: 'alphabetical', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:measurement wired + closed',
+    validInstance: { type: 'semantic:measurement', value: 1, unit: 'm' },
+    invalidInstance: { type: 'semantic:measurement', value: 1, unit: 'm', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'legal:caption wired + closed',
+    validInstance: { type: 'legal:caption', court: 'Supreme Court' },
+    invalidInstance: { type: 'legal:caption', court: 'Supreme Court', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'legal:signatureBlock wired + closed',
+    validInstance: { type: 'legal:signatureBlock', role: 'counsel', signer: { name: 'Ada' } },
+    invalidInstance: { type: 'legal:signatureBlock', role: 'counsel', signer: { name: 'Ada' }, bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'legal:tableOfAuthorities wired + closed',
+    validInstance: { type: 'legal:tableOfAuthorities', title: 'Authorities' },
+    invalidInstance: { type: 'legal:tableOfAuthorities', title: 'Authorities', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:form wired + closed (children allow core + field blocks)',
+    validInstance: { type: 'forms:form', children: [{ type: 'heading', level: 2, children: [] }, { type: 'forms:submit' }] },
+    invalidInstance: { type: 'forms:form', children: [], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:textInput wired + closed; baseFormField props accepted (allOf fix)',
+    // The latent forms bug rejected baseFormField fields (name/label/placeholder)
+    // across the $ref; the unevaluatedProperties:false restructure accepts them.
+    validInstance: { type: 'forms:textInput', name: 'email', label: 'Email', placeholder: 'you@x.com', inputType: 'email' },
+    invalidInstance: { type: 'forms:textInput', name: 'email', notAField: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:textArea wired + closed',
+    validInstance: { type: 'forms:textArea', name: 'bio', label: 'Bio', rows: 6 },
+    invalidInstance: { type: 'forms:textArea', name: 'bio', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:checkbox wired + closed',
+    validInstance: { type: 'forms:checkbox', name: 'agree', label: 'Agree', defaultChecked: false },
+    invalidInstance: { type: 'forms:checkbox', name: 'agree', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:radioGroup wired + closed',
+    validInstance: { type: 'forms:radioGroup', name: 'plan', options: [{ value: 'a', label: 'A' }] },
+    invalidInstance: { type: 'forms:radioGroup', name: 'plan', options: [{ value: 'a', label: 'A' }], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:dropdown wired + closed',
+    validInstance: { type: 'forms:dropdown', name: 'country', options: [{ value: 'gb', label: 'UK' }] },
+    invalidInstance: { type: 'forms:dropdown', name: 'country', options: [{ value: 'gb', label: 'UK' }], bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:datePicker wired + closed',
+    validInstance: { type: 'forms:datePicker', name: 'dob', label: 'DOB' },
+    invalidInstance: { type: 'forms:datePicker', name: 'dob', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:signature wired + closed',
+    validInstance: { type: 'forms:signature', name: 'sig', label: 'Sign' },
+    invalidInstance: { type: 'forms:signature', name: 'sig', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:submit wired + closed',
+    validInstance: { type: 'forms:submit', label: 'Send' },
+    invalidInstance: { type: 'forms:submit', label: 'Send', bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'presentation:reference wired + closed',
+    validInstance: { type: 'presentation:reference', target: '#fig1', format: 'Figure #' },
+    invalidInstance: { type: 'presentation:reference', target: '#fig1', bogus: 1 },
+  },
+
+  // --- per-schema fragment coverage for CLOSED_SCHEMAS (4.1e) ---------------
+  // The extension block teeth above run through content#/$defs/block, so each
+  // extension schema also owns a self-contained closed-def vector so the
+  // CLOSED_SCHEMAS coverage check (every closed schema owns >=1 vector) holds.
+  {
+    schema: 'academic.schema.json',
+    ref: '#/$defs/equationLine',
+    description: 'academic equationLine closed',
+    validInstance: { value: 'e=mc^2', number: '1' },
+    invalidInstance: { value: 'e=mc^2', bogus: 1 },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/legalCiteMark',
+    description: 'legal legalCiteMark closed',
+    validInstance: { type: 'legal:cite', citation: 'Roe v. Wade', category: 'cases' },
+    invalidInstance: { type: 'legal:cite', citation: 'Roe v. Wade', category: 'cases', bogus: 1 },
+  },
+  {
+    schema: 'forms.schema.json',
+    ref: '#/$defs/validation',
+    description: 'forms validation closed',
+    validInstance: { required: true, minLength: 1, message: 'required' },
+    invalidInstance: { required: true, bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/citationMark',
+    description: 'semantic citationMark closed',
+    validInstance: { type: 'citation', refs: ['doe2020'], locator: '12' },
+    invalidInstance: { type: 'citation', refs: ['doe2020'], bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/footnoteMark',
+    description: 'semantic footnoteMark closed',
+    validInstance: { type: 'footnote', number: 1 },
+    invalidInstance: { type: 'footnote', number: 1, bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/entityMark',
+    description: 'semantic entityMark closed',
+    validInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q1' },
+    invalidInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q1', bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/glossaryMark',
+    description: 'semantic glossaryMark closed',
+    validInstance: { type: 'glossary', ref: 'term-1' },
+    invalidInstance: { type: 'glossary', ref: 'term-1', bogus: 1 },
   },
 ];

@@ -52,38 +52,43 @@
       "additionalProperties": false
     },
     "tableOfAuthoritiesBlock": {
-      "type": "object",
-      "description": "Table of Authorities block for auto-generated citation index",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "legal:tableOfAuthorities" },
-        "id": {
-          "type": "string",
-          "description": "Block identifier"
-        },
-        "title": {
-          "type": "string",
-          "description": "Section title",
-          "default": "Table of Authorities"
-        },
-        "categories": {
-          "type": "array",
-          "description": "Category configuration for grouping",
-          "items": { "$ref": "#/$defs/toaCategoryConfig" }
-        },
-        "pageReferences": {
-          "type": "boolean",
-          "description": "Include page references",
-          "default": true
-        },
-        "passimThreshold": {
-          "type": "integer",
-          "description": "Number of references before showing 'passim'",
-          "minimum": 1,
-          "default": 5
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Table of Authorities block for auto-generated citation index",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "legal:tableOfAuthorities" },
+            "id": {
+              "type": "string",
+              "description": "Block identifier"
+            },
+            "title": {
+              "type": "string",
+              "description": "Section title",
+              "default": "Table of Authorities"
+            },
+            "categories": {
+              "type": "array",
+              "description": "Category configuration for grouping",
+              "items": { "$ref": "#/$defs/toaCategoryConfig" }
+            },
+            "pageReferences": {
+              "type": "boolean",
+              "description": "Include page references",
+              "default": true
+            },
+            "passimThreshold": {
+              "type": "integer",
+              "description": "Number of references before showing 'passim'",
+              "minimum": 1,
+              "default": 5
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "party": {
       "type": "object",
@@ -100,75 +105,80 @@
       }
     },
     "captionBlock": {
-      "type": "object",
-      "description": "Court caption block",
-      "required": ["type", "court"],
-      "properties": {
-        "type": { "const": "legal:caption" },
-        "id": {
-          "type": "string",
-          "description": "Block identifier"
-        },
-        "court": {
-          "type": "string",
-          "description": "Court name"
-        },
-        "caseNumber": {
-          "type": "string",
-          "description": "Case or docket number"
-        },
-        "parties": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
           "type": "object",
-          "description": "Parties to the case",
+          "description": "Court caption block",
+          "required": ["type", "court"],
           "properties": {
-            "plaintiff": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "type": { "const": "legal:caption" },
+            "id": {
+              "type": "string",
+              "description": "Block identifier"
             },
-            "defendant": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "court": {
+              "type": "string",
+              "description": "Court name"
             },
-            "appellant": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "caseNumber": {
+              "type": "string",
+              "description": "Case or docket number"
             },
-            "appellee": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "parties": {
+              "type": "object",
+              "description": "Parties to the case",
+              "properties": {
+                "plaintiff": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                },
+                "defendant": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                },
+                "appellant": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                },
+                "appellee": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                },
+                "petitioner": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                },
+                "respondent": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "$ref": "#/$defs/party" }
+                  ]
+                }
+              }
             },
-            "petitioner": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "docket": {
+              "type": "string",
+              "description": "Docket or term information"
             },
-            "respondent": {
-              "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/party" }
-              ]
+            "judge": {
+              "type": "string",
+              "description": "Assigned judge"
             }
           }
-        },
-        "docket": {
-          "type": "string",
-          "description": "Docket or term information"
-        },
-        "judge": {
-          "type": "string",
-          "description": "Assigned judge"
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "signatureBlockSigner": {
       "type": "object",
@@ -210,28 +220,33 @@
       }
     },
     "signatureBlockBlock": {
-      "type": "object",
-      "description": "Legal signature block with attorney information",
-      "required": ["type", "role", "signer"],
-      "properties": {
-        "type": { "const": "legal:signatureBlock" },
-        "id": {
-          "type": "string",
-          "description": "Block identifier"
-        },
-        "role": {
-          "type": "string",
-          "description": "Role of the signatory",
-          "enum": ["counsel", "attorney", "party", "witness", "notary"]
-        },
-        "signer": { "$ref": "#/$defs/signatureBlockSigner" },
-        "date": {
-          "type": "string",
-          "format": "date",
-          "description": "Date of signature"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Legal signature block with attorney information",
+          "required": ["type", "role", "signer"],
+          "properties": {
+            "type": { "const": "legal:signatureBlock" },
+            "id": {
+              "type": "string",
+              "description": "Block identifier"
+            },
+            "role": {
+              "type": "string",
+              "description": "Role of the signatory",
+              "enum": ["counsel", "attorney", "party", "witness", "notary"]
+            },
+            "signer": { "$ref": "#/$defs/signatureBlockSigner" },
+            "date": {
+              "type": "string",
+              "format": "date",
+              "description": "Date of signature"
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     }
   },
   "type": "object",

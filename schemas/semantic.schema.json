@@ -46,7 +46,8 @@
           "description": "If true, omit the author name from the citation",
           "default": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "footnoteMark": {
       "type": "object",
@@ -69,6 +70,7 @@
           "description": "Unique footnote identifier for cross-referencing"
         }
       },
+      "additionalProperties": false,
       "oneOf": [
         { "required": ["number"] },
         { "required": ["symbol"] }
@@ -94,7 +96,8 @@
           "type": "string",
           "description": "Knowledge graph origin (e.g., 'wikidata', 'dbpedia')"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "glossaryMark": {
       "type": "object",
@@ -106,38 +109,43 @@
           "type": "string",
           "description": "Reference to the term definition ID"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "footnoteBlock": {
-      "type": "object",
-      "description": "Footnote content block",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "semantic:footnote" },
-        "number": {
-          "type": "integer",
-          "description": "Footnote number (must match corresponding mark)",
-          "minimum": 1
-        },
-        "symbol": {
-          "type": "string",
-          "description": "Symbol-based footnote marker (must match corresponding mark)",
-          "enum": ["asterisk", "dagger", "ddagger", "section", "parallel", "paragraph"]
-        },
-        "id": {
-          "type": "string",
-          "description": "Unique identifier (must match mark if present)"
-        },
-        "children": {
-          "type": "array",
-          "description": "Rich footnote content (paragraph blocks)"
-        },
-        "content": {
-          "type": "string",
-          "description": "Simple text content (alternative to children)"
-        }
-      },
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Footnote content block",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "semantic:footnote" },
+            "number": {
+              "type": "integer",
+              "description": "Footnote number (must match corresponding mark)",
+              "minimum": 1
+            },
+            "symbol": {
+              "type": "string",
+              "description": "Symbol-based footnote marker (must match corresponding mark)",
+              "enum": ["asterisk", "dagger", "ddagger", "section", "parallel", "paragraph"]
+            },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier (must match mark if present)"
+            },
+            "children": {
+              "type": "array",
+              "description": "Rich footnote content (paragraph blocks)",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            },
+            "content": {
+              "type": "string",
+              "description": "Simple text content (alternative to children)"
+            }
+          }
+        },
         {
           "oneOf": [
             { "required": ["number"] },
@@ -150,7 +158,8 @@
             { "required": ["content"] }
           ]
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "bibliographyEntry": {
       "type": "object",
@@ -246,133 +255,164 @@
       "additionalProperties": true
     },
     "bibliographyBlock": {
-      "type": "object",
-      "description": "Bibliography block for rendering citations",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "semantic:bibliography" },
-        "style": {
-          "type": "string",
-          "description": "Citation style (e.g., 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver')"
-        },
-        "title": {
-          "type": "string",
-          "description": "Bibliography section title"
-        },
-        "filter": {
-          "type": ["string", "null"],
-          "description": "Filter expression for selective bibliography"
-        },
-        "entries": {
-          "type": "array",
-          "description": "Inline CSL JSON entries (alternative to external bibliography.json)",
-          "items": { "$ref": "#/$defs/bibliographyEntry" }
-        }
-      }
-    },
-    "termBlock": {
-      "type": "object",
-      "description": "Glossary term definition block",
-      "required": ["type", "term", "definition"],
-      "properties": {
-        "type": { "const": "semantic:term" },
-        "id": {
-          "type": "string",
-          "description": "Unique term identifier"
-        },
-        "term": {
-          "type": "string",
-          "description": "The term being defined"
-        },
-        "definition": {
-          "type": "string",
-          "description": "Definition of the term"
-        },
-        "see": {
-          "type": "array",
-          "description": "Related term IDs",
-          "items": { "type": "string" }
-        }
-      }
-    },
-    "refBlock": {
-      "type": "object",
-      "description": "Cross-reference block for internal or external references",
-      "required": ["type", "target"],
-      "properties": {
-        "type": { "const": "semantic:ref" },
-        "target": {
-          "type": "string",
-          "description": "Target reference (Content Anchor URI for internal, URL for external)"
-        },
-        "format": {
-          "type": "string",
-          "description": "Display format template (e.g., 'Section {number}')"
-        },
-        "external": {
-          "type": "boolean",
-          "description": "If true, target is an external URL",
-          "default": false
-        },
-        "children": {
-          "type": "array",
-          "description": "Display content (text nodes)"
-        }
-      }
-    },
-    "glossaryBlock": {
-      "type": "object",
-      "description": "Glossary block for rendering collected term definitions",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "semantic:glossary" },
-        "title": {
-          "type": "string",
-          "description": "Glossary section title"
-        },
-        "sort": {
-          "type": "string",
-          "description": "Sort order for terms",
-          "enum": ["alphabetical", "appearance", "none"]
-        }
-      }
-    },
-    "measurementBlock": {
-      "type": "object",
-      "description": "Semantic measurement with linked data integration",
-      "required": ["type", "value", "unit"],
-      "properties": {
-        "type": { "const": "semantic:measurement" },
-        "value": {
-          "type": "number",
-          "description": "Numeric measurement value"
-        },
-        "unit": {
-          "type": "string",
-          "description": "Unit of measurement"
-        },
-        "schema": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
           "type": "object",
-          "description": "Schema.org QuantitativeValue representation",
+          "description": "Bibliography block for rendering citations",
+          "required": ["type"],
           "properties": {
-            "@type": {
+            "type": { "const": "semantic:bibliography" },
+            "style": {
               "type": "string",
-              "const": "QuantitativeValue"
+              "description": "Citation style (e.g., 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver')"
             },
-            "value": {
-              "type": "number"
-            },
-            "unitCode": {
+            "title": {
               "type": "string",
-              "description": "UN/CEFACT unit code"
+              "description": "Bibliography section title"
             },
-            "unitText": {
-              "type": "string",
-              "description": "Human-readable unit name"
+            "filter": {
+              "type": ["string", "null"],
+              "description": "Filter expression for selective bibliography"
+            },
+            "entries": {
+              "type": "array",
+              "description": "Inline CSL JSON entries (alternative to external bibliography.json)",
+              "items": { "$ref": "#/$defs/bibliographyEntry" }
             }
           }
         }
-      }
+      ],
+      "unevaluatedProperties": false
+    },
+    "termBlock": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Glossary term definition block",
+          "required": ["type", "term", "definition"],
+          "properties": {
+            "type": { "const": "semantic:term" },
+            "id": {
+              "type": "string",
+              "description": "Unique term identifier"
+            },
+            "term": {
+              "type": "string",
+              "description": "The term being defined"
+            },
+            "definition": {
+              "type": "string",
+              "description": "Definition of the term"
+            },
+            "see": {
+              "type": "array",
+              "description": "Related term IDs",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "refBlock": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Cross-reference block for internal or external references",
+          "required": ["type", "target"],
+          "properties": {
+            "type": { "const": "semantic:ref" },
+            "target": {
+              "type": "string",
+              "description": "Target reference (Content Anchor URI for internal, URL for external)"
+            },
+            "format": {
+              "type": "string",
+              "description": "Display format template (e.g., 'Section {number}')"
+            },
+            "external": {
+              "type": "boolean",
+              "description": "If true, target is an external URL",
+              "default": false
+            },
+            "children": {
+              "type": "array",
+              "description": "Display content (text nodes)",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/textNode" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "glossaryBlock": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Glossary block for rendering collected term definitions",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "semantic:glossary" },
+            "title": {
+              "type": "string",
+              "description": "Glossary section title"
+            },
+            "sort": {
+              "type": "string",
+              "description": "Sort order for terms",
+              "enum": ["alphabetical", "appearance", "none"]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "measurementBlock": {
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Semantic measurement with linked data integration",
+          "required": ["type", "value", "unit"],
+          "properties": {
+            "type": { "const": "semantic:measurement" },
+            "value": {
+              "type": "number",
+              "description": "Numeric measurement value"
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement"
+            },
+            "schema": {
+              "type": "object",
+              "description": "Schema.org QuantitativeValue representation",
+              "properties": {
+                "@type": {
+                  "type": "string",
+                  "const": "QuantitativeValue"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "unitCode": {
+                  "type": "string",
+                  "description": "UN/CEFACT unit code"
+                },
+                "unitText": {
+                  "type": "string",
+                  "description": "Human-readable unit name"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "jsonLdAnnotation": {
       "type": "object",

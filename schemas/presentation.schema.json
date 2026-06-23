@@ -833,21 +833,26 @@
       "additionalProperties": false
     },
     "presentationReference": {
-      "type": "object",
-      "description": "Cross-reference block for figure/table/section references",
-      "required": ["type", "target"],
-      "properties": {
-        "type": { "const": "presentation:reference" },
-        "target": {
-          "type": "string",
-          "description": "Content Anchor URI (internal references start with #)"
-        },
-        "format": {
-          "type": "string",
-          "description": "Display format template (e.g., 'Figure #')"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Cross-reference block for figure/table/section references",
+          "required": ["type", "target"],
+          "properties": {
+            "type": { "const": "presentation:reference" },
+            "target": {
+              "type": "string",
+              "description": "Content Anchor URI (internal references start with #)"
+            },
+            "format": {
+              "type": "string",
+              "description": "Display format template (e.g., 'Figure #')"
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "indexMark": {
       "type": "object",

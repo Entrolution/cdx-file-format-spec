@@ -204,40 +204,47 @@
       }
     },
     "formContainer": {
-      "type": "object",
-      "description": "Form container block",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "forms:form" },
-        "id": {
-          "type": "string",
-          "description": "Unique form identifier"
-        },
-        "action": {
-          "type": "string",
-          "format": "uri",
-          "description": "Form submission URL"
-        },
-        "method": {
-          "type": "string",
-          "enum": ["GET", "POST"],
-          "description": "HTTP method for submission",
-          "default": "POST"
-        },
-        "encoding": {
-          "type": "string",
-          "description": "Form encoding type",
-          "default": "application/json"
-        },
-        "children": {
-          "type": "array",
-          "description": "Form field blocks"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Form container block",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "forms:form" },
+            "id": {
+              "type": "string",
+              "description": "Unique form identifier"
+            },
+            "action": {
+              "type": "string",
+              "format": "uri",
+              "description": "Form submission URL"
+            },
+            "method": {
+              "type": "string",
+              "enum": ["GET", "POST"],
+              "description": "HTTP method for submission",
+              "default": "POST"
+            },
+            "encoding": {
+              "type": "string",
+              "description": "Form encoding type",
+              "default": "application/json"
+            },
+            "children": {
+              "type": "array",
+              "description": "Form field blocks and other content blocks",
+              "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "textInputBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -259,13 +266,14 @@
               "type": "string",
               "description": "Autocomplete hint"
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "textAreaBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -283,13 +291,14 @@
               "minimum": 1,
               "description": "Maximum character length"
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "checkboxBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -301,13 +310,14 @@
               "description": "Initial checked state",
               "default": false
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "radioGroupBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -324,13 +334,14 @@
               "type": "string",
               "description": "Default selected value"
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "dropdownBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -357,13 +368,14 @@
               "description": "Allow multiple selections",
               "default": false
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "datePickerBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -388,13 +400,14 @@
               "description": "Include time selection",
               "default": false
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "signatureBlock": {
       "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
         { "$ref": "#/$defs/baseFormField" },
         {
           "type": "object",
@@ -411,41 +424,33 @@
               "minimum": 50,
               "description": "Signature pad height in pixels"
             }
-          },
-          "additionalProperties": false
+          }
         }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "submitBlock": {
-      "type": "object",
-      "description": "Form submit button",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "forms:submit" },
-        "id": {
-          "type": "string",
-          "description": "Unique block identifier"
-        },
-        "label": {
-          "type": "string",
-          "description": "Button label",
-          "default": "Submit"
+      "allOf": [
+        { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Form submit button",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "forms:submit" },
+            "id": {
+              "type": "string",
+              "description": "Unique block identifier"
+            },
+            "label": {
+              "type": "string",
+              "description": "Button label",
+              "default": "Submit"
+            }
+          }
         }
-      },
-      "additionalProperties": false
-    },
-    "formBlock": {
-      "oneOf": [
-        { "$ref": "#/$defs/formContainer" },
-        { "$ref": "#/$defs/textInputBlock" },
-        { "$ref": "#/$defs/textAreaBlock" },
-        { "$ref": "#/$defs/checkboxBlock" },
-        { "$ref": "#/$defs/radioGroupBlock" },
-        { "$ref": "#/$defs/dropdownBlock" },
-        { "$ref": "#/$defs/datePickerBlock" },
-        { "$ref": "#/$defs/signatureBlock" },
-        { "$ref": "#/$defs/submitBlock" }
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "dataFile": {
       "type": "object",

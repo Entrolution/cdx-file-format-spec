@@ -433,6 +433,8 @@ The core `figure` block supports basic `numbering` ("auto", "none", or explicit 
 
 The `numberingConfig` field provides extended numbering configuration beyond the core `numbering` field. The core `numbering` field (string or integer) controls basic numbering mode, while `numberingConfig` provides presentation-specific formatting options.
 
+> **Note:** The closed `figure` block schema currently validates only the core `numbering` field. `numberingConfig` is described here as a planned capability; its full shape is not yet part of the schema, so the closed `figure` block does not accept it today. Schematizing `numberingConfig` is deferred to a future revision.
+
 ```json
 {
   "type": "figure",
