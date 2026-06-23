@@ -39,7 +39,7 @@ assets/
 
 ### 3.1 Index File
 
-Each asset category has an index file (`index.json`) that catalogs all assets:
+Each asset category declared in the manifest MUST have its own index file located at `assets/<category>/index.json`, where `<category>` is the corresponding key in the manifest's `assets` object. Asset `path` values within an index are resolved relative to that category directory. The index catalogs all assets in the category:
 
 ```json
 {

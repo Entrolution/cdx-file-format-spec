@@ -4,13 +4,15 @@ This directory contains JSON Schema definitions for validating CDX document comp
 
 ## Schema Files
 
+The tables below are the canonical registry of CDX part paths: each schema is paired with the archive path(s) it governs.
+
 | Schema | Purpose | Validates |
 |--------|---------|-----------|
 | `manifest.schema.json` | Document manifest | `manifest.json` |
 | `content.schema.json` | Semantic content blocks | `content/document.json` |
 | `presentation.schema.json` | Presentation layer | `presentation/*.json` |
 | `precise-layout.schema.json` | Precise layouts | `presentation/layouts/*.json` |
-| `asset-index.schema.json` | Asset index | `assets/index.json` |
+| `asset-index.schema.json` | Asset index | `assets/<category>/index.json` |
 | `dublin-core.schema.json` | Dublin Core metadata | `metadata/dublin-core.json` |
 | `provenance.schema.json` | Provenance records | `provenance/record.json` |
 | `anchor.schema.json` | Content anchor definitions | (shared definitions) |
@@ -23,6 +25,7 @@ This directory contains JSON Schema definitions for validating CDX document comp
 |--------|---------|-----------|
 | `semantic.schema.json` | Semantic extension | `semantic:*` blocks and marks |
 | `academic.schema.json` | Academic extension | `academic:*` blocks and marks |
+| `legal.schema.json` | Legal extension | `legal:*` blocks and marks |
 | `collaboration.schema.json` | Collaboration extension | `collaboration/comments.json`, `collaboration/changes.json` |
 | `forms.schema.json` | Forms extension | `forms/data.json`, `forms:*` blocks |
 | `security.schema.json` | Security extension | `security/signatures.json`, `security/encryption.json` |
