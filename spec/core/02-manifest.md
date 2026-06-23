@@ -62,6 +62,13 @@ The manifest MUST be:
 | `extensions` | array | Active extension declarations |
 | `lineage` | object | Version history and parent reference |
 | `phantoms` | object | Phantom layer reference (Phantom Extension) |
+| `hashAlgorithm` | string | Hash algorithm for the document ID (default `sha256`) |
+| `provenance` | string | Path to the provenance record file |
+| `signaturePolicy` | object | Required-signer policy (Security Extension) |
+| `academic` | object | Academic Extension configuration |
+| `semantic` | object | Semantic Extension configuration |
+| `legal` | object | Legal Extension configuration |
+| `collaboration` | object | Collaboration Extension configuration |
 
 ## 4. Field Definitions
 
@@ -327,6 +334,59 @@ Version history and document relationships. The manifest lineage provides a summ
 | `version` | integer | No | Sequential version number |
 | `branch` | string | No | Branch identifier for parallel versions |
 | `note` | string | No | Description of changes from parent |
+
+### 4.14 `hashAlgorithm` (Optional)
+
+The hash algorithm used to compute the document `id`. Defaults to `sha256` when omitted.
+
+```json
+{
+  "hashAlgorithm": "sha256"
+}
+```
+
+When present, this value MUST match the algorithm prefix of the `id`. See the Document Hashing specification for the supported algorithms and computation rules.
+
+### 4.15 `provenance` (Optional)
+
+Path to the provenance record file, which carries the document's extended lineage chain, derivation history, and timestamps beyond the summary in `lineage`.
+
+```json
+{
+  "provenance": "provenance/record.json"
+}
+```
+
+The canonical location is `provenance/record.json`. See the Provenance and Lineage specification.
+
+### 4.16 `signaturePolicy` (Optional)
+
+The document's signature policy. Its `requiredSigners` set binds the signature set against stripping and downgrade: the policy rides in the signed manifest projection, so every manifest-covering signature attests it. While any such signature survives, the set is tamper-evident — a stripped required signer is detected (survivors still declare it required), and editing the set breaks each survivor's manifest coverage.
+
+```json
+{
+  "signaturePolicy": {
+    "requiredSigners": [ ... ]
+  }
+}
+```
+
+See the Security Extension specification.
+
+### 4.17 Extension Configuration (`academic`, `semantic`, `legal`, `collaboration`) (Optional)
+
+Top-level configuration objects for the correspondingly named extensions. Each is an open object whose shape is defined by the extension that owns it — for example, file-path pointers or rendering options — and appears at the manifest root only when that extension is active.
+
+```json
+{
+  "academic": { ... },
+  "semantic": { ... },
+  "legal": { ... },
+  "collaboration": { ... }
+}
+```
+
+See the relevant extension specification for each object's shape.
 
 ## 5. Validation
 
