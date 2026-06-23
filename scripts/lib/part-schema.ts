@@ -13,9 +13,11 @@ import { createAjv, loadSchema } from './ajv-utils.js';
 // Schema dependencies (schemas that need other schemas loaded first so their
 // cross-file $refs resolve at compile time).
 const schemaDependencies: Record<string, string[]> = {
-  'content.schema.json': ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json'],
+  'content.schema.json': ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'],
   'collaboration.schema.json': ['anchor.schema.json'],
-  'phantoms.schema.json': ['anchor.schema.json'],
+  // phantoms embeds the core content block model (phantomContent.blocks → content
+  // block dispatch), so it needs content plus content's whole cross-file cluster.
+  'phantoms.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json', 'content.schema.json'],
   'security.schema.json': ['anchor.schema.json'],
   'annotations.schema.json': ['anchor.schema.json'],
   // dublin-core references anchor.schema.json#/$defs/mimeType (the shared

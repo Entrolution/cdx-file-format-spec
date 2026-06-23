@@ -128,8 +128,169 @@
         {
           "if": { "properties": { "type": { "const": "admonition" } } },
           "then": { "$ref": "#/$defs/admonition" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "tableRow" } } },
+          "then": { "$ref": "#/$defs/tableRow" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "tableCell" } } },
+          "then": { "$ref": "#/$defs/tableCell" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:abstract" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/abstractBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:theorem" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/theoremBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:proof" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/proofBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:algorithm" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/algorithmBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:equation-group" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/equationGroupBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:exercise-set" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/exerciseSetBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "academic:exercise" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/exerciseBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:footnote" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/footnoteBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:bibliography" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/bibliographyBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:term" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/termBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:ref" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/refBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:glossary" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/glossaryBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "semantic:measurement" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/measurementBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "legal:caption" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/captionBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "legal:signatureBlock" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/signatureBlockBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "legal:tableOfAuthorities" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/tableOfAuthoritiesBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:form" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/formContainer" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:textInput" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/textInputBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:textArea" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/textAreaBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:checkbox" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/checkboxBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:radioGroup" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/radioGroupBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:dropdown" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/dropdownBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:datePicker" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/datePickerBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:signature" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/signatureBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "forms:submit" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/forms.schema.json#/$defs/submitBlock" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "presentation:reference" } } },
+          "then": { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/presentationReference" }
+        },
+        {
+          "$comment": "Open escape. Known block types are validated strictly by their branch above. An unrecognized type MUST be namespaced (per Content Blocks section 5, extension blocks MUST use a namespaced type): unknown namespaced types pass unchecked (open-world 'ignore unrecognized'), while a bare unknown type is rejected as malformed.",
+          "if": {
+            "not": {
+              "properties": {
+                "type": {
+                  "enum": [
+                    "text", "paragraph", "heading", "list", "listItem", "blockquote",
+                    "codeBlock", "image", "table", "tableRow", "tableCell", "math",
+                    "definitionList", "definitionItem", "definitionTerm", "definitionDescription",
+                    "measurement", "signature", "svg", "barcode", "figure", "figcaption",
+                    "horizontalRule", "break", "admonition",
+                    "academic:abstract", "academic:theorem", "academic:proof", "academic:algorithm",
+                    "academic:equation-group", "academic:exercise-set", "academic:exercise",
+                    "semantic:footnote", "semantic:bibliography", "semantic:term", "semantic:ref",
+                    "semantic:glossary", "semantic:measurement",
+                    "legal:caption", "legal:signatureBlock", "legal:tableOfAuthorities",
+                    "forms:form", "forms:textInput", "forms:textArea", "forms:checkbox",
+                    "forms:radioGroup", "forms:dropdown", "forms:datePicker", "forms:signature",
+                    "forms:submit", "presentation:reference"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": { "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9._:-]+$" }
+            }
+          }
         }
       ]
+    },
+    "blockBase": {
+      "type": "object",
+      "description": "Common identity fields shared by every block (core and extension). Block defs compose this via allOf and close with unevaluatedProperties:false, so a block is recognized by type/id/attributes in both the dispatch context and when referenced directly as a child.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Block type identifier"
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique block identifier (shares the document-wide ID namespace with anchor IDs)"
+        },
+        "attributes": {
+          "$ref": "#/$defs/blockAttributes"
+        }
+      }
     },
     "blockAttributes": {
       "type": "object",
@@ -157,42 +318,49 @@
           "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/jsonLdAnnotation",
           "description": "JSON-LD semantic annotation for this block"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "textNode": {
-      "type": "object",
-      "required": ["type", "value"],
-      "properties": {
-        "type": { "const": "text" },
-        "value": {
-          "type": "string",
-          "description": "Text content"
-        },
-        "marks": {
-          "type": "array",
-          "description": "Formatting marks",
-          "items": {
-            "oneOf": [
-              {
-                "type": "string",
-                "enum": ["bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript"]
-              },
-              { "$ref": "#/$defs/linkMark" },
-              { "$ref": "#/$defs/anchorMark" },
-              { "$ref": "#/$defs/mathMark" },
-              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/citationMark" },
-              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/footnoteMark" },
-              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/entityMark" },
-              { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/glossaryMark" },
-              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/theoremRefMark" },
-              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/equationRefMark" },
-              { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/algorithmRefMark" },
-              { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/indexMark" },
-              { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/legalCiteMark" }
-            ]
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "text" },
+            "value": {
+              "type": "string",
+              "description": "Text content"
+            },
+            "marks": {
+              "type": "array",
+              "description": "Formatting marks",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": ["bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript"]
+                  },
+                  { "$ref": "#/$defs/linkMark" },
+                  { "$ref": "#/$defs/anchorMark" },
+                  { "$ref": "#/$defs/mathMark" },
+                  { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/citationMark" },
+                  { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/footnoteMark" },
+                  { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/entityMark" },
+                  { "$ref": "https://cdx.dev/schemas/semantic.schema.json#/$defs/glossaryMark" },
+                  { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/theoremRefMark" },
+                  { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/equationRefMark" },
+                  { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/algorithmRefMark" },
+                  { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/indexMark" },
+                  { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/legalCiteMark" }
+                ]
+              }
+            }
           }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "linkMark": {
       "type": "object",
@@ -207,7 +375,8 @@
           "type": "string",
           "description": "Link title"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "anchorMark": {
       "type": "object",
@@ -219,7 +388,8 @@
           "description": "Unique anchor identifier (shares namespace with block IDs)",
           "pattern": "^[A-Za-z0-9._-]+$"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "mathMark": {
       "type": "object",
@@ -235,107 +405,144 @@
           "type": "string",
           "description": "Math content in specified format"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "paragraph": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "paragraph" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/textNode" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "paragraph" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/textNode" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "heading": {
-      "type": "object",
-      "required": ["type", "level", "children"],
-      "properties": {
-        "type": { "const": "heading" },
-        "level": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 6,
-          "description": "Heading level"
-        },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/textNode" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "level", "children"],
+          "properties": {
+            "type": { "const": "heading" },
+            "level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "description": "Heading level"
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/textNode" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "list": {
-      "type": "object",
-      "required": ["type", "ordered", "children"],
-      "properties": {
-        "type": { "const": "list" },
-        "ordered": {
-          "type": "boolean",
-          "description": "Whether list is ordered"
-        },
-        "start": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Starting number for ordered lists"
-        },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/listItem" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "ordered", "children"],
+          "properties": {
+            "type": { "const": "list" },
+            "ordered": {
+              "type": "boolean",
+              "description": "Whether list is ordered"
+            },
+            "start": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Starting number for ordered lists"
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/listItem" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "listItem": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "listItem" },
-        "checked": {
-          "type": ["boolean", "null"],
-          "description": "Checkbox state (null = not a checkbox)"
-        },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/block" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "listItem" },
+            "checked": {
+              "type": ["boolean", "null"],
+              "description": "Checkbox state (null = not a checkbox)"
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/block" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "blockquote": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "blockquote" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/block" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "blockquote" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/block" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "codeBlock": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "codeBlock" },
-        "language": {
-          "type": "string",
-          "description": "Programming language identifier"
-        },
-        "highlighting": {
-          "type": "string",
-          "enum": ["none", "tokens"],
-          "description": "Highlighting mode: 'none' for plain text, 'tokens' for pre-tokenized highlighting"
-        },
-        "tokens": {
-          "type": "array",
-          "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens')",
-          "items": { "$ref": "#/$defs/highlightToken" }
-        },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/textNode" },
-          "maxItems": 1
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "codeBlock" },
+            "language": {
+              "type": "string",
+              "description": "Programming language identifier"
+            },
+            "highlighting": {
+              "type": "string",
+              "enum": ["none", "tokens"],
+              "description": "Highlighting mode: 'none' for plain text, 'tokens' for pre-tokenized highlighting"
+            },
+            "tokens": {
+              "type": "array",
+              "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens')",
+              "items": { "$ref": "#/$defs/highlightToken" }
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/textNode" },
+              "maxItems": 1
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "highlightToken": {
       "type": "object",
@@ -358,376 +565,492 @@
           "type": "string",
           "description": "Token text content"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "image": {
-      "type": "object",
-      "required": ["type", "src", "alt"],
-      "properties": {
-        "type": { "const": "image" },
-        "src": {
-          "type": "string",
-          "description": "Image source path or URL"
-        },
-        "alt": {
-          "type": "string",
-          "description": "Alternative text"
-        },
-        "title": {
-          "type": "string",
-          "description": "Image title/caption"
-        },
-        "width": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Width in pixels"
-        },
-        "height": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Height in pixels"
-        }
-      }
-    },
-    "table": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "table" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/tableRow" }
-        }
-      }
-    },
-    "tableRow": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "tableRow" },
-        "header": {
-          "type": "boolean",
-          "description": "Whether row is a header row"
-        },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/tableCell" }
-        }
-      }
-    },
-    "tableCell": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "tableCell" },
-        "colspan": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 1,
-          "description": "Number of columns to span"
-        },
-        "rowspan": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 1,
-          "description": "Number of rows to span"
-        },
-        "align": {
-          "type": "string",
-          "enum": ["left", "center", "right"],
-          "description": "Text alignment"
-        },
-        "children": {
-          "type": "array",
-          "description": "Block-level content (typically paragraph blocks)",
-          "items": { "$ref": "#/$defs/block" }
-        }
-      }
-    },
-    "math": {
-      "type": "object",
-      "required": ["type", "display", "format", "value"],
-      "properties": {
-        "type": { "const": "math" },
-        "display": {
-          "type": "boolean",
-          "description": "Display mode (true) vs inline (false)"
-        },
-        "format": {
-          "type": "string",
-          "enum": ["latex", "mathml"],
-          "description": "Math content format"
-        },
-        "value": {
-          "type": "string",
-          "description": "Math content"
-        }
-      }
-    },
-    "horizontalRule": {
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "horizontalRule" }
-      }
-    },
-    "break": {
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "break" }
-      }
-    },
-    "definitionList": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "definitionList" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/definitionItem" },
-          "minItems": 1
-        }
-      }
-    },
-    "definitionItem": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "definitionItem" },
-        "children": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              { "$ref": "#/$defs/definitionTerm" },
-              { "$ref": "#/$defs/definitionDescription" }
-            ]
-          },
-          "minItems": 2
-        }
-      }
-    },
-    "definitionTerm": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "definitionTerm" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/textNode" }
-        }
-      }
-    },
-    "definitionDescription": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "definitionDescription" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/block" }
-        }
-      }
-    },
-    "measurement": {
-      "type": "object",
-      "required": ["type", "value", "display"],
-      "properties": {
-        "type": { "const": "measurement" },
-        "value": {
-          "type": "number",
-          "description": "Numeric value"
-        },
-        "uncertainty": {
-          "type": "number",
-          "description": "Measurement uncertainty"
-        },
-        "uncertaintyNotation": {
-          "type": "string",
-          "enum": ["parenthetical", "plusminus", "range", "percent"],
-          "description": "How uncertainty is displayed"
-        },
-        "exponent": {
-          "type": "integer",
-          "description": "Power of 10 for scientific notation"
-        },
-        "unit": {
-          "type": "string",
-          "description": "Unit of measurement"
-        },
-        "display": {
-          "type": "string",
-          "description": "Human-readable display string"
-        }
-      }
-    },
-    "signature": {
-      "type": "object",
-      "required": ["type", "signatureType"],
-      "properties": {
-        "type": { "const": "signature" },
-        "signatureType": {
-          "type": "string",
-          "enum": ["handwritten", "digital", "electronic", "stamp"],
-          "description": "Type of signature"
-        },
-        "image": {
-          "type": "string",
-          "description": "Path to signature image"
-        },
-        "signer": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
           "type": "object",
+          "required": ["type", "src", "alt"],
           "properties": {
-            "name": {
+            "type": { "const": "image" },
+            "src": {
               "type": "string",
-              "description": "Signer's full name"
+              "description": "Image source path or URL"
+            },
+            "alt": {
+              "type": "string",
+              "description": "Alternative text"
             },
             "title": {
               "type": "string",
-              "description": "Professional title"
+              "description": "Image title/caption"
             },
-            "organization": {
-              "type": "string",
-              "description": "Organization name"
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Width in pixels"
             },
-            "email": {
-              "type": "string",
-              "description": "Contact email"
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Height in pixels"
             },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier"
+            "float": {
+              "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/float",
+              "description": "Float positioning for this image (presentation extension)"
             }
           }
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp"
-        },
-        "purpose": {
-          "type": "string",
-          "enum": ["certification", "approval", "witness", "acknowledgment", "authorship"],
-          "description": "Purpose of the signature"
-        },
-        "digitalSignatureRef": {
-          "type": "string",
-          "description": "Reference to cryptographic signature"
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
-    "svg": {
-      "type": "object",
-      "required": ["type", "alt"],
-      "properties": {
-        "type": { "const": "svg" },
-        "src": {
-          "type": "string",
-          "description": "Path to SVG file"
-        },
-        "content": {
-          "type": "string",
-          "description": "Inline SVG content"
-        },
-        "alt": {
-          "type": "string",
-          "description": "Alternative text"
-        },
-        "title": {
-          "type": "string",
-          "description": "Title/caption"
-        },
-        "width": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Display width in pixels"
-        },
-        "height": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Display height in pixels"
-        }
-      },
-      "oneOf": [
-        { "required": ["src"] },
-        { "required": ["content"] }
-      ]
-    },
-    "barcode": {
-      "type": "object",
-      "required": ["type", "format", "data", "alt"],
-      "properties": {
-        "type": { "const": "barcode" },
-        "format": {
-          "type": "string",
-          "enum": ["qr", "datamatrix", "code128", "code39", "ean13", "ean8", "upca", "pdf417"],
-          "description": "Barcode format"
-        },
-        "data": {
-          "type": "string",
-          "description": "Encoded content"
-        },
-        "alt": {
-          "type": "string",
-          "description": "Alternative text description"
-        },
-        "errorCorrection": {
-          "type": "string",
-          "enum": ["L", "M", "Q", "H"],
-          "description": "Error correction level (QR/DataMatrix)"
-        },
-        "size": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Rendered size in pixels"
-        },
-        "quietZone": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Quiet zone size in modules"
-        }
-      }
-    },
-    "figure": {
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "figure" },
-        "numbering": {
-          "oneOf": [
-            { "type": "string", "enum": ["auto", "none"] },
-            { "type": "integer", "minimum": 1 }
-          ],
-          "description": "Figure numbering mode"
-        },
-        "children": {
-          "type": "array",
-          "description": "Figure content and optional caption",
-          "minItems": 1,
-          "maxItems": 2
-        },
-        "subfigures": {
-          "type": "array",
-          "description": "Array of subfigure objects for multi-panel figures",
-          "items": { "$ref": "#/$defs/subfigure" },
-          "minItems": 1
-        },
-        "caption": {
-          "oneOf": [
-            { "type": "string", "description": "Simple caption text" },
-            {
+    "table": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "table" },
+            "children": {
               "type": "array",
-              "description": "Rich caption with text nodes",
+              "items": { "$ref": "#/$defs/tableRow" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "tableRow": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "tableRow" },
+            "header": {
+              "type": "boolean",
+              "description": "Whether row is a header row"
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/tableCell" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "tableCell": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "tableCell" },
+            "colspan": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "description": "Number of columns to span"
+            },
+            "rowspan": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "description": "Number of rows to span"
+            },
+            "align": {
+              "type": "string",
+              "enum": ["left", "center", "right"],
+              "description": "Text alignment"
+            },
+            "children": {
+              "type": "array",
+              "description": "Block-level content (typically paragraph blocks)",
+              "items": { "$ref": "#/$defs/block" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "math": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "display", "format", "value"],
+          "properties": {
+            "type": { "const": "math" },
+            "display": {
+              "type": "boolean",
+              "description": "Display mode (true) vs inline (false)"
+            },
+            "format": {
+              "type": "string",
+              "enum": ["latex", "mathml"],
+              "description": "Math content format"
+            },
+            "value": {
+              "type": "string",
+              "description": "Math content"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "horizontalRule": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "horizontalRule" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "break": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "break" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "definitionList": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "definitionList" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/definitionItem" },
+              "minItems": 1
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "definitionItem": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "definitionItem" },
+            "children": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "$ref": "#/$defs/definitionTerm" },
+                  { "$ref": "#/$defs/definitionDescription" }
+                ]
+              },
+              "minItems": 2
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "definitionTerm": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "definitionTerm" },
+            "children": {
+              "type": "array",
               "items": { "$ref": "#/$defs/textNode" }
             }
-          ],
-          "description": "Overall figure caption (used with subfigures)"
+          }
         }
-      },
-      "oneOf": [
-        { "required": ["children"] },
-        { "required": ["subfigures"] }
-      ]
+      ],
+      "unevaluatedProperties": false
+    },
+    "definitionDescription": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "definitionDescription" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/block" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "measurement": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "value", "display"],
+          "properties": {
+            "type": { "const": "measurement" },
+            "value": {
+              "type": "number",
+              "description": "Numeric value"
+            },
+            "uncertainty": {
+              "type": "number",
+              "description": "Measurement uncertainty"
+            },
+            "uncertaintyNotation": {
+              "type": "string",
+              "enum": ["parenthetical", "plusminus", "range", "percent"],
+              "description": "How uncertainty is displayed"
+            },
+            "exponent": {
+              "type": "integer",
+              "description": "Power of 10 for scientific notation"
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement"
+            },
+            "display": {
+              "type": "string",
+              "description": "Human-readable display string"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "signature": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "signatureType"],
+          "properties": {
+            "type": { "const": "signature" },
+            "signatureType": {
+              "type": "string",
+              "enum": ["handwritten", "digital", "electronic", "stamp"],
+              "description": "Type of signature"
+            },
+            "image": {
+              "type": "string",
+              "description": "Path to signature image"
+            },
+            "signer": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Signer's full name"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Professional title"
+                },
+                "organization": {
+                  "type": "string",
+                  "description": "Organization name"
+                },
+                "email": {
+                  "type": "string",
+                  "description": "Contact email"
+                },
+                "id": {
+                  "type": "string",
+                  "description": "Unique identifier"
+                }
+              },
+              "additionalProperties": false
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO 8601 timestamp"
+            },
+            "purpose": {
+              "type": "string",
+              "enum": ["certification", "approval", "witness", "acknowledgment", "authorship"],
+              "description": "Purpose of the signature"
+            },
+            "digitalSignatureRef": {
+              "type": "string",
+              "description": "Reference to cryptographic signature"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "svg": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "alt"],
+          "properties": {
+            "type": { "const": "svg" },
+            "src": {
+              "type": "string",
+              "description": "Path to SVG file"
+            },
+            "content": {
+              "type": "string",
+              "description": "Inline SVG content"
+            },
+            "alt": {
+              "type": "string",
+              "description": "Alternative text"
+            },
+            "title": {
+              "type": "string",
+              "description": "Title/caption"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Display width in pixels"
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Display height in pixels"
+            }
+          },
+          "oneOf": [
+            { "required": ["src"] },
+            { "required": ["content"] }
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "barcode": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "format", "data", "alt"],
+          "properties": {
+            "type": { "const": "barcode" },
+            "format": {
+              "type": "string",
+              "enum": ["qr", "datamatrix", "code128", "code39", "ean13", "ean8", "upca", "pdf417"],
+              "description": "Barcode format"
+            },
+            "data": {
+              "type": "string",
+              "description": "Encoded content"
+            },
+            "alt": {
+              "type": "string",
+              "description": "Alternative text description"
+            },
+            "errorCorrection": {
+              "type": "string",
+              "enum": ["L", "M", "Q", "H"],
+              "description": "Error correction level (QR/DataMatrix)"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Rendered size in pixels"
+            },
+            "quietZone": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Quiet zone size in modules"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "figure": {
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "figure" },
+            "numbering": {
+              "oneOf": [
+                { "type": "string", "enum": ["auto", "none"] },
+                { "type": "integer", "minimum": 1 }
+              ],
+              "description": "Figure numbering mode"
+            },
+            "children": {
+              "type": "array",
+              "description": "Figure content and optional caption",
+              "minItems": 1,
+              "maxItems": 2,
+              "items": {
+                "oneOf": [
+                  { "$ref": "#/$defs/image" },
+                  { "$ref": "#/$defs/svg" },
+                  { "$ref": "#/$defs/table" },
+                  { "$ref": "#/$defs/math" },
+                  { "$ref": "#/$defs/barcode" },
+                  { "$ref": "#/$defs/figcaption" }
+                ]
+              }
+            },
+            "subfigures": {
+              "type": "array",
+              "description": "Array of subfigure objects for multi-panel figures",
+              "items": { "$ref": "#/$defs/subfigure" },
+              "minItems": 1
+            },
+            "caption": {
+              "oneOf": [
+                { "type": "string", "description": "Simple caption text" },
+                {
+                  "type": "array",
+                  "description": "Rich caption with text nodes",
+                  "items": { "$ref": "#/$defs/textNode" }
+                }
+              ],
+              "description": "Overall figure caption (used with subfigures)"
+            },
+            "float": {
+              "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/float",
+              "description": "Float positioning for this figure (presentation extension)"
+            }
+          },
+          "oneOf": [
+            { "required": ["children"] },
+            { "required": ["subfigures"] }
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "subfigure": {
       "type": "object",
@@ -759,40 +1082,53 @@
           ],
           "description": "Subfigure-specific caption"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "figcaption": {
-      "type": "object",
-      "required": ["type", "children"],
-      "properties": {
-        "type": { "const": "figcaption" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/textNode" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "const": "figcaption" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/textNode" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "admonition": {
-      "type": "object",
-      "description": "Callout box for notes, warnings, tips, and other highlighted content",
-      "required": ["type", "variant", "children"],
-      "properties": {
-        "type": { "const": "admonition" },
-        "variant": {
-          "type": "string",
-          "description": "Admonition type",
-          "enum": ["note", "tip", "info", "warning", "caution", "danger", "important", "example"]
-        },
-        "title": {
-          "type": "string",
-          "description": "Custom title (defaults to variant label)"
-        },
-        "children": {
-          "type": "array",
-          "description": "Block-level content (typically paragraph blocks)",
-          "items": { "$ref": "#/$defs/block" }
+      "allOf": [
+        { "$ref": "#/$defs/blockBase" },
+        {
+          "type": "object",
+          "description": "Callout box for notes, warnings, tips, and other highlighted content",
+          "required": ["type", "variant", "children"],
+          "properties": {
+            "type": { "const": "admonition" },
+            "variant": {
+              "type": "string",
+              "description": "Admonition type",
+              "enum": ["note", "tip", "info", "warning", "caution", "danger", "important", "example"]
+            },
+            "title": {
+              "type": "string",
+              "description": "Custom title (defaults to variant label)"
+            },
+            "children": {
+              "type": "array",
+              "description": "Block-level content (typically paragraph blocks)",
+              "items": { "$ref": "#/$defs/block" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     }
   }
 }

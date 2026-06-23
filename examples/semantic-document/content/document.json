@@ -178,8 +178,7 @@
     },
     {
       "type": "semantic:bibliography",
-      "style": "apa",
-      "title": null
+      "style": "apa"
     }
   ]
 }

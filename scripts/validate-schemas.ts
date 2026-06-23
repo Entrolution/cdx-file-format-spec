@@ -28,10 +28,12 @@ const dependentSchemas: DependentSchema[] = [
   { schema: 'annotations.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'asset-index.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'collaboration.schema.json', refs: ['anchor.schema.json'] },
-  { schema: 'content.schema.json', refs: ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json'] },
+  { schema: 'content.schema.json', refs: ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },
   { schema: 'dublin-core.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'manifest.schema.json', refs: ['anchor.schema.json'] },
-  { schema: 'phantoms.schema.json', refs: ['anchor.schema.json'] },
+  // phantoms embeds the content block model, which dispatches across the whole
+  // content + extension-schema cluster.
+  { schema: 'phantoms.schema.json', refs: ['anchor.schema.json', 'content.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },
   { schema: 'precise-layout.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'provenance.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'security.schema.json', refs: ['anchor.schema.json'] },
