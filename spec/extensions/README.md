@@ -71,7 +71,6 @@ Most extensions store data in dedicated directories:
 | collaboration | `collaboration/` | `comments.json`, `changes.json` |
 | security | `security/` | `signatures.json`, `encryption.json` |
 | phantoms | `phantoms/` | `clusters.json` |
-| legal | `legal/` | `citations.json` |
 
 ### Shared Definitions
 

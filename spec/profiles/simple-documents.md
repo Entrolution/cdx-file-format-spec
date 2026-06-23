@@ -80,6 +80,8 @@ Simple Documents do not need:
   "cdx": "0.1",
   "id": "pending",
   "state": "draft",
+  "created": "2025-01-15T10:30:00Z",
+  "modified": "2025-01-15T10:30:00Z",
   "content": {
     "path": "content/document.json"
   },
@@ -96,6 +98,8 @@ Simple Documents do not need:
 | `cdx` | Yes | Specification version |
 | `id` | Yes | Use `"pending"` for drafts |
 | `state` | Yes | Typically `"draft"` for simple documents |
+| `created` | Yes | ISO 8601 creation timestamp |
+| `modified` | Yes | ISO 8601 last modification timestamp |
 | `content` | Yes | Path to content file |
 | `metadata.dublinCore` | Yes | Path to Dublin Core metadata |
 | `extensions` | No | Simple Documents use no extensions |
@@ -109,6 +113,8 @@ Simple Documents do not need:
   "cdx": "0.1",
   "id": "pending",
   "state": "draft",
+  "created": "2025-01-15T10:30:00Z",
+  "modified": "2025-01-15T10:30:00Z",
   "content": {
     "path": "content/document.json"
   },
@@ -116,14 +122,11 @@ Simple Documents do not need:
     "dublinCore": "metadata/dublin-core.json"
   },
   "assets": {
-    "index": [
-      {
-        "id": "cover",
-        "type": "image",
-        "path": "assets/images/cover.jpg",
-        "mimeType": "image/jpeg"
-      }
-    ]
+    "images": {
+      "count": 1,
+      "totalSize": 102400,
+      "index": "assets/images/index.json"
+    }
   }
 }
 ```
@@ -397,6 +400,8 @@ A minimal novel in three files:
   "cdx": "0.1",
   "id": "pending",
   "state": "draft",
+  "created": "2025-01-15T10:30:00Z",
+  "modified": "2025-01-15T10:30:00Z",
   "content": {
     "path": "content/document.json"
   },

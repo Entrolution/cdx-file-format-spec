@@ -39,12 +39,12 @@ Presentation precision evolves with document maturity. The presentation layer fo
 |----------------|-------------------------|-----------|
 | **DRAFT** | Reactive only | Content is fluid, layout doesn't matter yet |
 | **REVIEW** | Reactive (precise optional) | Reviewers see approximate pagination |
-| **FROZEN** | Reactive + **precise required** | Layout becomes part of immutable record |
-| **PUBLISHED** | Same as FROZEN | Authoritative appearance, pixel-perfect |
+| **FROZEN** | Reactive (precise when page-precise fidelity is required) | Content immutable; an included layout is locked too |
+| **PUBLISHED** | Same as FROZEN | Authoritative, immutable record |
 
 ### 3.2 Why State-Awareness Matters
 
-1. **Provenance integrity** — When frozen, the precise layout is immutable alongside the content. The document ID covers semantic content; use scoped signatures (Security Extension) for appearance attestation
+1. **Provenance integrity** — When a frozen document includes a precise layout, that layout is immutable alongside the content. The document ID covers semantic content; use scoped signatures (Security Extension) for appearance attestation
 2. **Legal/academic needs** — Citations reference "page 7, line 23" with confidence
 3. **Lifecycle alignment** — Precision emerges naturally as documents mature
 4. **No capability loss** — Semantic content always present for accessibility/search
@@ -60,11 +60,11 @@ Presentation precision evolves with document maturity. The presentation layer fo
 
 When transitioning to FROZEN or PUBLISHED state:
 
-1. At least one precise layout MUST exist
-2. The layout's `contentHash` MUST match current content hash
-3. If layout is stale, transition MUST fail
+1. If the document asserts page-precise fidelity (e.g. citable pagination or print/legal use), at least one precise layout MUST exist; otherwise a precise layout is RECOMMENDED but not required
+2. Any precise layout present MUST have a `contentHash` matching the current content hash
+3. If a present layout is stale, the transition MUST fail
 
-This ensures that when a document is "frozen," its appearance is frozen too.
+Freezing always locks the semantic content (the document ID). When a precise layout is included, its appearance is locked alongside the content and attested via scoped signatures (Security Extension).
 
 ## 4. Presentation File Structure
 
@@ -78,7 +78,7 @@ presentation/
 ├── continuous.json       # Reactive: scroll layout hints
 ├── responsive.json       # Reactive: viewport adaptation
 └── layouts/              # Precise: exact coordinates
-    ├── letter.json       # Required for FROZEN/PUBLISHED
+    ├── letter.json       # Used when page-precise fidelity is required
     └── a4.json           # Additional formats (optional)
 ```
 
@@ -182,7 +182,7 @@ Supported units:
 
 | Unit | Description | Use |
 |------|-------------|-----|
-| `px` | Pixels (72 per inch for print) | Absolute sizing |
+| `px` | Pixels (96 per inch, CSS reference pixel) | Absolute sizing |
 | `pt` | Points (1/72 inch) | Typography |
 | `em` | Relative to font size | Responsive sizing |
 | `rem` | Relative to root font size | Consistent sizing |
@@ -635,7 +635,7 @@ If `contentHash` doesn't match current content hash, the presentation should be 
 
 ## 12. Precise Layouts
 
-Precise layouts provide exact coordinates for every element, enabling pixel-perfect reproduction regardless of rendering implementation. They are **required** for FROZEN and PUBLISHED documents.
+Precise layouts provide exact coordinates for every element, enabling pixel-perfect reproduction regardless of rendering implementation. They are **required** for FROZEN and PUBLISHED documents that assert page-precise fidelity (e.g. citable pagination or print/legal use), and **RECOMMENDED** otherwise.
 
 ### 12.1 Location
 
@@ -810,8 +810,8 @@ Layout Hash:  sha256:abc123...  ✗ Stale - content has changed
 |-------|------------------------|-----------------|
 | DRAFT | No | No |
 | REVIEW | No | Optional |
-| FROZEN | **Yes** | **Yes** (must match) |
-| PUBLISHED | **Yes** | **Yes** (must match) |
+| FROZEN | When page-precise fidelity is asserted (else recommended) | **Yes**, if a layout is present |
+| PUBLISHED | When page-precise fidelity is asserted (else recommended) | **Yes**, if a layout is present |
 
 ## 13. Fallback Behavior
 

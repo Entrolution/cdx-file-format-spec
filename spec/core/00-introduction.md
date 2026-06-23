@@ -108,7 +108,7 @@ document.cdx
 ├── presentation/
 │   ├── paginated.json      # Fixed layout presentation (optional)
 │   ├── continuous.json     # Reflow presentation (optional)
-│   └── layouts/            # Precise layouts (required for FROZEN/PUBLISHED)
+│   └── layouts/            # Precise layouts (when page-precise fidelity is required)
 │       ├── letter.json     # US Letter format coordinates
 │       └── a4.json         # A4 format coordinates
 ├── assets/
@@ -173,6 +173,7 @@ Extension specifications (optional modules) are defined separately:
 - Phantom Extension
 - Forms Extension
 - Semantic Extension
+- Academic Extension
 - Legal Extension
 
 ### 1.8 Versioning
