@@ -284,12 +284,12 @@ The disposition depends on document state because state is a contract (section 2
 | Unsupported **required** extension (`required: true`) | REJECT | REJECT |
 | Unsupported **optional** extension (Manifest section 4.10) | IGNORE — degrade; SHOULD surface | IGNORE |
 | Unrecognized file or directory in the archive (Container Format) | IGNORE | IGNORE |
-| Unknown **namespaced** block type (Content Blocks section 5) | IGNORE — render a fallback when provided | IGNORE |
-| Unknown **bare**, non-namespaced block type | REJECT | REJECT |
+| Unknown **namespaced** block or mark type (Content Blocks sections 5, 5.1) | IGNORE — render a fallback (block) or the unmarked text (mark) | IGNORE |
+| Unknown **bare**, non-namespaced block or mark type | REJECT | REJECT |
 | Missing the required `content` part | REJECT | REJECT |
 | Missing required metadata — the Dublin Core part or a required term | WARNING | INTEGRITY-ERROR |
 | Missing another referenced part (presentation, provenance, …) | WARNING | INTEGRITY-ERROR |
-| Structurally malformed block of a **known** type | WARNING | INTEGRITY-ERROR |
+| Structurally malformed block or mark of a **known** type | WARNING | INTEGRITY-ERROR |
 | Dangling anchor reference (Anchors and References section 7.2) | WARNING | INTEGRITY-ERROR |
 | Dangling asset reference — a canonicalization error once the ID is computed (Document Hashing section 4.3.1) | WARNING | INTEGRITY-ERROR |
 | File `hash` or document-ID mismatch (Document Hashing section 6.3) | WARNING | INTEGRITY-ERROR |
