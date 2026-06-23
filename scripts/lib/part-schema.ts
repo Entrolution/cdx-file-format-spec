@@ -53,10 +53,6 @@ export interface Rule {
   test: RegExp;
   schema: string;
   ref?: string;
-  // Set when validation is known to be against a root schema that does NOT
-  // describe the part-file contents (i.e. currently vacuous). Reported as a
-  // warning rather than a clean ✓ so the gap is not mistaken for real coverage.
-  note?: string;
 }
 
 // Ordered rule table — FIRST match wins, so more-specific paths come first

@@ -433,7 +433,7 @@ When a document containing forms is frozen or published:
 
 When a form is submitted (`"submitted": true` in `forms/data.json`):
 
-- The submission state is recorded in the form data file
+- The submission state is recorded in the form data file, with the submission time in `submittedAt`
 - For archival purposes, implementations MAY create a new document version with form data folded into the content layer, producing a new document ID that captures the filled state
 
 ### 6.4 Hashing Exclusion

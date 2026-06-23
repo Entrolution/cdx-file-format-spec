@@ -928,6 +928,13 @@ export const closureVectors: ClosureVector[] = [
   {
     schema: 'content.schema.json',
     ref: '#/$defs/block',
+    description: 'figure numberingConfig bound + closed (presentation extension)',
+    validInstance: { type: 'figure', children: [{ type: 'image', src: 'a.png', alt: 'a' }], numberingConfig: { style: 'Figure #', chapter: true } },
+    invalidInstance: { type: 'figure', children: [{ type: 'image', src: 'a.png', alt: 'a' }], numberingConfig: { style: 'Figure #', bogus: 1 } },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
     description: 'signature.signer (inline ad-hoc person) closed',
     validInstance: { type: 'signature', signatureType: 'digital', signer: { name: 'Ada', title: 'CEO' } },
     invalidInstance: { type: 'signature', signatureType: 'digital', signer: { name: 'Ada', bogus: 1 } },

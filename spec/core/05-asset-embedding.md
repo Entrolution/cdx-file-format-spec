@@ -200,7 +200,7 @@ Content blocks reference images by path:
 |-------|------|-------------|
 | `family` | string | Font family name |
 | `weight` | integer | Font weight (100-900) |
-| `style` | string | Font style (normal, italic) |
+| `style` | string | Font style (normal, italic, oblique) |
 | `unicodeRange` | string | Supported Unicode ranges |
 
 ### 5.3 Font Families

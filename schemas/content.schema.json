@@ -1042,6 +1042,10 @@
             "float": {
               "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/float",
               "description": "Float positioning for this figure (presentation extension)"
+            },
+            "numberingConfig": {
+              "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/numberingConfig",
+              "description": "Extended figure numbering configuration (presentation extension)"
             }
           },
           "oneOf": [

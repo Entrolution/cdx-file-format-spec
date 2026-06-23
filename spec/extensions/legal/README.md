@@ -26,6 +26,8 @@ The Legal Extension provides specialized blocks and marks for legal documents, i
 }
 ```
 
+A document-level default citation style MAY be set in the manifest's `legal` configuration object as `citationStyle` (e.g. `bluebook`); individual citations MAY override it.
+
 ## 3. Legal Citation Mark
 
 The `legal:cite` mark annotates text with legal citation information for automatic Table of Authorities generation.
@@ -215,6 +217,8 @@ Oxford University Standard for Citation of Legal Authorities (UK)
 }
 ```
 
+The `parties` object supports the role keys `plaintiff`, `defendant`, `appellant`, `appellee`, `petitioner`, and `respondent`; the caption MAY also name the assigned `judge`.
+
 ### 6.2 Signature Block
 
 Legal documents often require specific signature block formats:
@@ -233,6 +237,8 @@ Legal documents often require specific signature block formats:
   }
 }
 ```
+
+The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, or `notary`; the signer object MAY also include a `fax` number.
 
 ## 7. Examples
 

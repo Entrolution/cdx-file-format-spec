@@ -548,6 +548,8 @@ Location: `provenance/record.json`
 }
 ```
 
+The `relationship` field describes how the derived document relates to its source: one of `excerpt`, `quotation`, `translation`, `revision`, or `derivation`.
+
 ### 8.2 Provenance Queries
 
 The provenance record enables queries like:

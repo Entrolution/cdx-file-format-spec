@@ -22,7 +22,9 @@
  *
  * Matching is exact-token (see specTokens), so `config` does not spuriously match
  * `configuration`. The token class includes ':' so namespaced discriminators like
- * `academic:theorem` are matched whole.
+ * `academic:theorem` are matched whole. Warned values the tokenizer cannot
+ * represent (containing '/', '+', '*', e.g. `PDF/A-1`, `ECDH-ES+A256KW`) fall back
+ * to a literal substring check (see undocumentedWarned); gated names stay exact.
  *
  * Future: generate the spec's field tables from the schemas so drift is
  * impossible by construction rather than detected after the fact.
@@ -138,6 +140,19 @@ function undocumented(names: Map<string, string>, tokens: Set<string>): Array<[s
     .sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+// Like `undocumented`, but for the WARNED categories (optional fields, enum
+// values). A value counts as documented if its exact token is present OR — for
+// values the tokenizer cannot represent (containing '/', '+', '*', etc., such as
+// `PDF/A-1` or `ECDH-ES+A256KW`) — its literal form appears as a substring of the
+// spec text. Gated categories stay strictly token-exact so a non-tokenizable
+// required prop can never be cleared by a coincidental substring.
+const TOKENIZABLE = /^[A-Za-z0-9_@.:-]+$/;
+function undocumentedWarned(names: Map<string, string>, tokens: Set<string>, specText: string): Array<[string, string]> {
+  return [...names.entries()]
+    .filter(([name]) => (TOKENIZABLE.test(name) ? !tokens.has(name) : !specText.includes(name)))
+    .sort((a, b) => a[0].localeCompare(b[0]));
+}
+
 function printList(items: Array<[string, string]>): void {
   for (const [name, source] of items) {
     console.log(`    ${name}`);
@@ -193,8 +208,9 @@ const declaredWithoutSchema = [...declaredTypes]
   .map(t => [t, 'spec via `Always "<type>"` idiom'] as [string, string]);
 
 // Warnings (schema -> spec): optional fields / enum values with no mention.
-const undocumentedOptional = undocumented(optional, tokens);
-const undocumentedEnums = undocumented(facts.enums, tokens);
+// Uses the substring fallback so non-tokenizable values (e.g. `PDF/A-1`) are matchable.
+const undocumentedOptional = undocumentedWarned(optional, tokens, specText);
+const undocumentedEnums = undocumentedWarned(facts.enums, tokens, specText);
 
 const gatedCount =
   undocumentedTypes.length + undocumentedRequired.length + declaredWithoutSchema.length;
@@ -219,7 +235,7 @@ if (undocumentedOptional.length > 0) {
   printList(undocumentedOptional);
 }
 if (undocumentedEnums.length > 0) {
-  console.log(`\n⚠ ${undocumentedEnums.length} enum value(s) not found in the spec (informational; values containing '/' or '+' may be tokenization artifacts):`);
+  console.log(`\n⚠ ${undocumentedEnums.length} enum value(s) not found in the spec (review: document or remove):`);
   printList(undocumentedEnums);
 }
 
