@@ -113,7 +113,7 @@ Presentation styling uses a subset of CSS properties. This provides familiarity 
 **Typography:**
 - `fontFamily` - Font family stack
 - `fontSize` - Font size (with units)
-- `fontWeight` - Font weight (100-900 or keywords)
+- `fontWeight` - Font weight (100-900, or keywords `normal`/`bold`/`bolder`/`lighter`)
 - `fontStyle` - normal, italic
 - `lineHeight` - Line height (unitless ratio or with units)
 - `letterSpacing` - Letter spacing
@@ -159,6 +159,8 @@ The `writingMode` property controls the direction of text flow and block progres
 **Borders:**
 - `borderWidth`, `borderStyle`, `borderColor`
 - Individual sides: `borderTopWidth`, etc.
+- Per-side shorthands: `borderTop`, `borderBottom`, `borderLeft`, `borderRight`
+- `borderCollapse` - table border model (`collapse` or `separate`)
 
 **Background:**
 - `backgroundColor`

@@ -83,7 +83,7 @@ for (const exampleName of exampleDirs) {
     }
 
     if (validate(data)) {
-      console.log(`  ${rule.note ? '⚠' : '✓'} ${relPath}${rule.note ? ` — ${rule.note}` : ''}`);
+      console.log(`  ✓ ${relPath}`);
       validated++;
     } else {
       console.log(`  ✗ ${relPath}`);

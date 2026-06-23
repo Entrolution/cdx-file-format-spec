@@ -327,7 +327,7 @@ function selfValidate(outputDir: string, relPaths: string[]): void {
     const data = JSON.parse(fs.readFileSync(path.join(outputDir, relPath), 'utf8'));
     const validate = getValidator(rule.schema, rule.ref);
     if (validate(data)) {
-      console.log(`  ${rule.note ? '⚠' : '✓'} ${relPath}${rule.note ? ` — ${rule.note}` : ''}`);
+      console.log(`  ✓ ${relPath}`);
     } else {
       ok = false;
       console.error(`  ✗ ${relPath}`);

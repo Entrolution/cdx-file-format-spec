@@ -130,6 +130,8 @@ Location: `semantic/bibliography.json`
 }
 ```
 
+Entries follow CSL JSON, so any CSL field is permitted — including `ISSN`, `publisher-place`, an `issued` object with `day` (alongside `month`/`year`), and author objects that use `literal` for organizational names.
+
 ### 4.3 Citation Styles
 
 Supported styles:
@@ -386,6 +388,8 @@ The semantic extension provides `semantic:measurement` for measurements with lin
 | `value` | number | Yes | Numeric measurement value |
 | `unit` | string | Yes | Unit of measurement |
 | `schema` | object | No | Schema.org QuantitativeValue for linked data |
+
+The `schema` object follows Schema.org QuantitativeValue, using `unitCode` (UN/CEFACT code) and an optional `unitText` for the human-readable unit.
 
 #### 6.2.1 Core vs Semantic Measurements
 

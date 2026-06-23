@@ -175,6 +175,8 @@ A color definition is discriminated by `type`. An `rgb` or `cmyk` color carries 
 }
 ```
 
+The `standard` field selects the print/archival output intent. Supported values: `PDF/X-1a`, `PDF/X-3`, `PDF/X-4`, `PDF/A-1`, `PDF/A-2`, and `PDF/A-3`.
+
 ## 5. Master Pages
 
 ### 5.1 Definition
@@ -431,9 +433,7 @@ Span options: `column`, `page`, `spread`
 
 The core `figure` block supports basic `numbering` ("auto", "none", or explicit number). This extension adds chapter-based numbering via the `numberingConfig` field:
 
-The `numberingConfig` field provides extended numbering configuration beyond the core `numbering` field. The core `numbering` field (string or integer) controls basic numbering mode, while `numberingConfig` provides presentation-specific formatting options.
-
-> **Note:** The closed `figure` block schema currently validates only the core `numbering` field. `numberingConfig` is described here as a planned capability; its full shape is not yet part of the schema, so the closed `figure` block does not accept it today. Schematizing `numberingConfig` is deferred to a future revision.
+The `numberingConfig` field provides extended numbering configuration beyond the core `numbering` field. The core `numbering` field (string or integer) controls basic numbering mode, while `numberingConfig` provides presentation-specific formatting options (`style`, a format template such as `"Figure #"`, and `chapter`, a boolean enabling chapter-based numbering).
 
 ```json
 {
@@ -488,6 +488,8 @@ The `presentation:reference` block's `target` field uses Content Anchor URI synt
   }
 }
 ```
+
+The `leaders` style is one of `none`, `dots`, `dashes`, or `underline`.
 
 ### 8.2 List of Figures/Tables
 
@@ -560,6 +562,8 @@ In content:
 ```
 
 ### 10.2 Footnote Styling
+
+The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-end`. The `numbering` style is one of `1`, `a`, `A`, `i`, `I`, or `*` (symbolic/asterisk).
 
 ```json
 {

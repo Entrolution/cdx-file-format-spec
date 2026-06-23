@@ -1048,6 +1048,21 @@
         }
       },
       "additionalProperties": false
+    },
+    "numberingConfig": {
+      "type": "object",
+      "description": "Extended figure numbering configuration (chapter-based numbering, format template). Defined here for reference by the content figure block.",
+      "properties": {
+        "style": {
+          "type": "string",
+          "description": "Numbering format template (e.g. \"Figure #\")"
+        },
+        "chapter": {
+          "type": "boolean",
+          "description": "Whether figure numbering is chapter-based"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
