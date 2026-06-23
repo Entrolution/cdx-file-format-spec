@@ -238,6 +238,8 @@ Implementations SHOULD validate that anchor targets (block IDs, named anchor IDs
 - **FROZEN/PUBLISHED**: Broken anchors produce an **error** because content is immutable, so a broken anchor indicates corruption or invalid construction.
 - Named anchor IDs that collide with block IDs MUST produce an error in all states, since the shared namespace requires uniqueness.
 
+These severities are the WARNING and INTEGRITY-ERROR dispositions of State Machine section 5.4.
+
 ### 7.3 Range Validation
 
 - `start` MUST be less than `end`

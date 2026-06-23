@@ -275,13 +275,13 @@ These hashes are computed from the raw asset bytes. When a content block referen
 1. Decompress file from archive
 2. Compute hash of decompressed bytes
 3. Compare with hash in manifest
-4. Reject on mismatch
+4. On mismatch, apply the state-keyed disposition (section 6.3; State Machine section 5.4)
 
 **Document-level verification:**
 1. Verify all file hashes
 2. Recompute document ID from canonical content
 3. Compare with ID in manifest
-4. Reject on mismatch
+4. On mismatch, apply the state-keyed disposition (section 6.3; State Machine section 5.4)
 
 ### 6.3 Hash Mismatch Handling
 
@@ -292,7 +292,7 @@ These hashes are computed from the raw asset bytes. When a content block referen
 | frozen | Error (document integrity compromised) |
 | published | Error (document integrity compromised) |
 
-For frozen/published documents, hash mismatches indicate tampering or corruption.
+For frozen/published documents, hash mismatches indicate tampering or corruption. The frozen/published *Error* disposition is the INTEGRITY-ERROR of State Machine section 5.4: the document MUST NOT be presented as valid and MUST NOT be edited in place, but MAY be shown read-only behind a prominent integrity warning.
 
 ## 7. Draft Documents
 

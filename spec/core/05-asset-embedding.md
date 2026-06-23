@@ -340,7 +340,7 @@ Each asset's hash MUST be verified when loading:
 1. Read asset file from archive
 2. Compute hash of file contents
 3. Compare with hash in index
-4. Reject on mismatch
+4. On mismatch, apply the state-keyed disposition of State Machine section 5.4 — a WARNING in draft/review, an INTEGRITY-ERROR in frozen/published
 
 ### 8.2 Hash Algorithm
 
