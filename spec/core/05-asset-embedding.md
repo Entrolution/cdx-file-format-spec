@@ -68,6 +68,8 @@ Each asset category declared in the manifest MUST have its own index file locate
 | `hash` | string | Yes | Content hash |
 | `metadata` | object | No | Type-specific metadata |
 
+**Reference resolution.** A content block references an asset by an archive-relative path — `image.src`, `svg.src`, `signature.image`, or a `link` mark `href` (Content Blocks). To resolve it, construct each registered asset's archive path by joining its category directory (`assets/` + the category key under `manifest.assets`) with the entry's `path`, and match the reference — after path normalization (no `.`/`..` segments, case-sensitive) — against it; the matching entry's bytes are the referenced asset. This is the same resolution that binds an asset's content into the document ID (Document Hashing section 4.3.1), so a reference beginning with `assets/` that matches no registered asset is invalid. A reference marked `external`, carrying a URL scheme, or beginning with `#` is not an asset path.
+
 ### 3.3 Asset IDs
 
 Asset IDs:
@@ -406,16 +408,24 @@ Identical assets (same hash) SHOULD be stored only once:
   "assets": [
     {
       "id": "logo-header",
-      "path": "logo.png",
+      "path": "header-logo.png",
+      "type": "image/png",
+      "size": 12096,
       "hash": "sha256:abc123..."
     },
     {
       "id": "logo-footer",
+      "path": "footer-logo.png",
+      "type": "image/png",
+      "size": 12096,
+      "hash": "sha256:abc123...",
       "aliasOf": "logo-header"
     }
   ]
 }
 ```
+
+`aliasOf` marks that an entry's bytes are identical to another entry's — a hint that storage tooling MAY keep the bytes once. Each entry still carries its own `path`, `type`, `size`, and `hash`; reference resolution (Document Hashing section 4.3.1) uses the entry's own `path` and `hash` and does not dereference `aliasOf`.
 
 ## 11. Validation
 

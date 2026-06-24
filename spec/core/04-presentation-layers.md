@@ -839,6 +839,10 @@ A presentation's `type` (`paginated`, `continuous`, `responsive`) is a **closed*
 
 An implementation that recognizes the `type` but does not implement that presentation mode falls back to default rendering (section 13.1); the document's content is unaffected.
 
+### 13.4 Dangling Presentation Reference
+
+A presentation rule targets content by `blockId` (a `pageElement`) or `blockRefs` (a `section`). If a referenced block does not exist in the content — a stale reference, or a typo — the reader omits that rule and renders the affected content with default styling, surfacing a warning (State Machine section 5.4). Because presentation is outside the document-hash boundary (Document Hashing section 4.1a), a dangling presentation reference degrades rendering but never impugns document integrity, in any state. The presentation file's own integrity — its hash, and its coverage by a signature on a frozen or published document — is a separate matter, dispositioned by the integrity rows of State Machine section 5.4.
+
 ## 14. Print Considerations
 
 ### 14.1 Page Breaks
