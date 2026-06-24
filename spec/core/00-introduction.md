@@ -52,6 +52,16 @@ The CDX format addresses these issues through the following design goals:
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this specification are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
+This specification defines three conformance classes. Each class's requirements are stated in full by the normative sections cross-referenced below; this section names the classes and gathers those references. The design goals in section 1.2 are rationale, not conformance criteria — they are not RFC 2119 requirements and impose no obligation on any class.
+
+- **Conformant document** — a CDX archive that satisfies the structural and integrity requirements of the core specification: the Container Format, the required-field and validation rules of the Manifest (section 5), the Content Blocks model, Document Hashing, and the State Machine. A document that declares an extension with `required: true` (Manifest section 4.10) is conformant only if it also satisfies that extension's requirements. Declared profiles (section 4.18 of the Manifest) place no additional requirements on a conformant document.
+
+- **Conformant producer** — an implementation that writes CDX (an authoring tool, exporter, or converter). A producer MUST emit conformant documents and MUST honor the writer-side state rules (State Machine section 5.2): it MUST NOT modify the content of a frozen or published document in place.
+
+- **Conformant consumer** — an implementation that reads CDX (a reader, renderer, or validator). A consumer MUST honor the reader-side state rules (State Machine section 5.1), perform the load-time validation for the document's state (State Machine section 5.3), and apply the failure dispositions of State Machine section 5.4 — in particular it MUST reject what that section requires rejecting and MUST NOT present an integrity-failed document as authentic.
+
+Producing-conformance and consuming-conformance are independent: a read-only viewer is a conformant consumer without being a producer, and a one-way exporter is a conformant producer without being a consumer. Conformance is defined against CDX core (plus any declared `required` extensions) and never against a profile — profiles are non-normative guidance (see the Profiles specification).
+
 ### 1.4 Terminology
 
 This section defines key terms used throughout the specification.
