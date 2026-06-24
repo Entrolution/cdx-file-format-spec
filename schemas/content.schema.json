@@ -633,6 +633,14 @@
             "float": {
               "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/float",
               "description": "Float positioning for this image (presentation extension)"
+            },
+            "external": {
+              "type": "boolean",
+              "description": "When true, `src` is an external reference (e.g. an absolute URL) resolved at render time and left verbatim in the canonical content; the image is not packaged in the archive (Document Hashing section 4.3.1)"
+            },
+            "fallback": {
+              "type": "string",
+              "description": "Archive-relative path to a packaged fallback image shown when an external `src` is unavailable; left verbatim in the canonical content, not resolved into the document ID (Document Hashing section 4.3.1)"
             }
           }
         }
@@ -933,6 +941,10 @@
             "digitalSignatureRef": {
               "type": "string",
               "description": "Reference to cryptographic signature"
+            },
+            "external": {
+              "type": "boolean",
+              "description": "When true, `image` is an external reference resolved at render time and left verbatim in the canonical content (Document Hashing section 4.3.1)"
             }
           }
         }
@@ -972,6 +984,10 @@
               "type": "integer",
               "minimum": 1,
               "description": "Display height in pixels"
+            },
+            "external": {
+              "type": "boolean",
+              "description": "When true, `src` is an external reference resolved at render time and left verbatim in the canonical content (Document Hashing section 4.3.1)"
             }
           },
           "oneOf": [

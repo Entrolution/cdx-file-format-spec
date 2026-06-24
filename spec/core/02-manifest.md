@@ -202,6 +202,8 @@ Standard presentation types:
 - `"continuous"` - Vertical scroll for screen
 - `"responsive"` - Reflowable layout
 
+At most one entry MAY set `default: true`; setting it on more than one presentation is invalid. To choose a presentation, a reader uses the entry marked `default: true` when present and of a type it supports, and otherwise the first entry, in array order, whose type it supports. A document MAY declare presentations of several types; presentation is outside the document-hash boundary (Document Hashing section 4.1a), so the choice never affects the document ID.
+
 ### 4.8 `assets` (Optional)
 
 Asset manifest describing embedded resources.

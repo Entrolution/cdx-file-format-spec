@@ -402,10 +402,12 @@ Embedded or referenced image.
 | `title` | string | No | Image title/caption |
 | `width` | integer | No | Intrinsic width in pixels |
 | `height` | integer | No | Intrinsic height in pixels |
+| `external` | boolean | No | When true, `src` is an external URL resolved at render time (left verbatim in the document ID) |
+| `fallback` | string | No | Archive-relative path to a packaged fallback image for an unavailable external `src` (left verbatim) |
 
 Children: None (void element)
 
-For embedded images, `src` MUST be a relative path within the archive (e.g., `assets/images/figure1.png`).
+For an embedded image, `src` MUST be a relative path within the archive (e.g., `assets/images/figure1.png`). An image MAY instead be external: when `external` is `true`, `src` is a URL resolved at render time, and a `fallback` relative path SHOULD be provided for when the external resource is unavailable (Asset Embedding section 9). Canonicalization (Document Hashing section 4.3.1) resolves only an archive-relative `src` to an asset hash; an external `src` and any `fallback` are left verbatim.
 
 ### 4.10 Table
 

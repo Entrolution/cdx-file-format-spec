@@ -292,6 +292,7 @@ The disposition depends on document state because state is a contract (section 2
 | Structurally malformed block or mark of a **known** type | WARNING | INTEGRITY-ERROR |
 | Dangling anchor reference (Anchors and References section 7.2) | WARNING | INTEGRITY-ERROR |
 | Dangling asset reference — a canonicalization error once the ID is computed (Document Hashing section 4.3.1) | WARNING | INTEGRITY-ERROR |
+| Dangling presentation reference — a `blockId` or `blockRefs` targeting a non-existent content block (Presentation Layers section 13.4) | WARNING | WARNING |
 | File `hash` or document-ID mismatch (Document Hashing section 6.3) | WARNING | INTEGRITY-ERROR |
 | Asset hash mismatch (Asset Embedding section 8) | WARNING | INTEGRITY-ERROR |
 | Invalid or missing required signature on a frozen or published document (Security Extension section 3.7) | see note 1 | INTEGRITY-ERROR |

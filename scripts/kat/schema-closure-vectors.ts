@@ -943,6 +943,29 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { type: 'image', src: 'assets/images/x.png', alt: 'x', float: { position: 'top', span: 'column' } },
     invalidInstance: { type: 'image', src: 'assets/images/x.png', alt: 'x', float: { position: 'top' }, bogus: 1 },
   },
+  // External-reference fields (6.3): image/svg/signature MAY carry `external`, and an
+  // image MAY carry a `fallback` path. Optional + closure intact (bogus key rejected).
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'external image: external + fallback accepted; def stays closed',
+    validInstance: { type: 'image', src: 'https://example.com/logo.png', alt: 'Logo', external: true, fallback: 'assets/images/logo-fallback.png' },
+    invalidInstance: { type: 'image', src: 'https://example.com/logo.png', alt: 'Logo', external: true, bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'external svg: external flag accepted; def stays closed',
+    validInstance: { type: 'svg', src: 'https://example.com/x.svg', alt: 'x', external: true },
+    invalidInstance: { type: 'svg', src: 'https://example.com/x.svg', alt: 'x', external: true, bogus: 1 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'external signature image: external flag accepted; def stays closed',
+    validInstance: { type: 'signature', signatureType: 'digital', image: 'https://example.com/sig.png', external: true },
+    invalidInstance: { type: 'signature', signatureType: 'digital', image: 'https://example.com/sig.png', external: true, bogus: 1 },
+  },
   {
     schema: 'content.schema.json',
     ref: '#/$defs/block',
