@@ -833,6 +833,12 @@ For content blocks without styling rules:
 2. Log warning for implementers
 3. Render content in fallback style
 
+### 13.3 Unsupported Presentation Type
+
+A presentation's `type` (`paginated`, `continuous`, `responsive`) is a **closed** set: it selects the file's entire structure, so unlike a content block it has no defined fallback shape, and the set is intentionally not extensible. A `type` outside this set is a validation failure (State Machine section 5.4), not a forward-compatibility escape, and the `type` MUST agree between the manifest's `presentation` reference and the presentation file.
+
+An implementation that recognizes the `type` but does not implement that presentation mode falls back to default rendering (section 13.1); the document's content is unaffected.
+
 ## 14. Print Considerations
 
 ### 14.1 Page Breaks

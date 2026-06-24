@@ -175,6 +175,20 @@ Implementations MUST ignore unrecognized files and directories. This enables:
 - Application-specific metadata
 - Gradual migration between versions
 
+### 7.3 Closed by Default Within Files
+
+While unrecognized *files and directories* are ignored (section 7.2), the JSON inside a part file is validated **closed by default**: every object rejects properties the schema does not define, and every enumerated value set rejects values it does not list. An unknown property or enum value is a validation failure, dispositioned by document state (State Machine section 5.4) — never silently accepted.
+
+Forward compatibility *within* a file is provided only at these enumerated extension points, each deliberately open:
+
+- **Extension block types** — an unrecognized block whose `type` is namespaced (`namespace:type`) passes unchecked; a bare unrecognized type is rejected (Content Blocks section 5).
+- **Extension mark types** — the same rule for marks within a text node (Content Blocks section 5.1).
+- **Extension configuration** — the manifest's per-extension configuration objects and each extension's `config` are open (Manifest sections 4.10, 4.17).
+- **Asset metadata** — an asset entry's `metadata` object is open, its shape being asset-type-specific (Asset Embedding).
+- **Renderer defaults** — a presentation file's free-form style bags — the root `defaults`, each named style's `base` overrides, and a section's `attributes` — are open, carrying renderer- and theme-specific keys (Presentation Layers).
+
+Everything else — manifest fields, Dublin Core terms, presentation modes, asset-index fields, signature structures — is closed: an unknown name there is a defect, not a forward-compatibility signal. An extension adds new structured data under one of the points above, or in a namespaced file or directory (section 7.1) — never by introducing unknown keys into a closed object.
+
 ## 8. Implementation Notes
 
 ### 8.1 Creating Archives

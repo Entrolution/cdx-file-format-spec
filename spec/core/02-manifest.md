@@ -84,7 +84,7 @@ The specification version this document conforms to.
 
 Format: `MAJOR.MINOR` (PATCH omitted for documents)
 
-Implementations MUST reject documents with a major version they do not support.
+Implementations MUST reject documents with a major version they do not support. A higher **minor** version within a supported major version MUST NOT be rejected: an implementation SHOULD process the fields it recognizes and ignore unrecognized additions (a warning disposition — State Machine section 5.4).
 
 ### 4.2 `id` (Required)
 
@@ -275,7 +275,7 @@ Array of active extensions beyond the core specification.
 | `version` | string | Yes | Extension version |
 | `required` | boolean | Yes | Whether extension is required for correct rendering |
 
-If `required` is `true`, implementations that do not support the extension MUST refuse to process the document.
+If `required` is `true`, implementations that do not support the extension MUST refuse to process the document. If `required` is `false`, an implementation that does not support the extension MUST still process the document, ignoring that extension's data and degrading gracefully (State Machine section 5.4).
 
 ### 4.11 `metadata` (Required)
 
@@ -400,9 +400,11 @@ Implementations MUST verify:
 4. Referenced files exist in archive
 5. File hashes match when present
 
+The disposition when any of these checks fails is defined by State Machine section 5.4.
+
 ### 5.2 Hash Verification
 
-For frozen documents, implementations SHOULD verify that referenced file hashes match actual contents. Hash mismatches in frozen documents MUST be reported as errors.
+For frozen and published documents, implementations MUST verify that referenced file hashes match actual contents; a mismatch is an INTEGRITY-ERROR (State Machine section 5.4).
 
 ### 5.3 State Consistency
 

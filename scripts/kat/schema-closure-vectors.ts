@@ -911,6 +911,31 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { type: 'text', value: 'hi', marks: ['bold'] },
     invalidInstance: { type: 'text', value: 'hi', bogus: 1 },
   },
+  // Mark open escape (6.2): unknown marks MUST be namespaced — the mark analogue
+  // of the block dispatch escape above. A namespaced unknown mark passes as a bare
+  // string or a typed object; a bare unknown mark (incl. a misspelled core mark)
+  // is rejected; a known mark name in the wrong form is rejected (no smuggling).
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'mark escape: unknown namespaced mark (bare string) passes; bare unknown mark rejected',
+    validInstance: { type: 'text', value: 'x', marks: ['myorg:flag'] },
+    invalidInstance: { type: 'text', value: 'x', marks: ['highlight'] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'mark escape: unknown namespaced mark (typed object) passes; misspelled core mark rejected',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'myorg:flag', data: 1 }] },
+    invalidInstance: { type: 'text', value: 'x', marks: ['itlaic'] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'mark escape excludes known marks: core mark accepted; known namespaced mark in bare-string form rejected',
+    validInstance: { type: 'text', value: 'x', marks: ['bold'] },
+    invalidInstance: { type: 'text', value: 'x', marks: ['legal:cite'] },
+  },
   {
     schema: 'content.schema.json',
     ref: '#/$defs/block',

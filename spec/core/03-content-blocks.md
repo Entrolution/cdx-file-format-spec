@@ -1005,9 +1005,12 @@ Example:
 
 ### 5.1 Extension Mark Types
 
-Extensions MAY define additional mark types for use within text nodes. Unlike block types, extension marks are NOT required to use a namespace prefix — marks operate within the text node's `marks` array where the collision risk is lower. However, extensions MAY use a namespace prefix (e.g., `legal:cite`) when the unqualified name could cause confusion with marks from other extensions.
+Extensions MAY define additional mark types for use within text nodes. An extension mark that is not registered in the core schema MUST use a namespace prefix (e.g., `myorg:flag`), exactly as extension block types do (section 5). The schema validates marks with an open escape: a recognized mark is checked strictly against its definition; an unrecognized **namespaced** mark passes unchecked (open-world forward compatibility); and an unrecognized **bare**, non-namespaced mark is rejected as malformed — which keeps a misspelled core mark (such as `itlaic`) from being silently accepted as an unknown mark. A reader's disposition for each case is given in the State Machine (section 5.4).
+
+A few registered marks carry a namespaced identifier of their own (for example `legal:cite`); these belong to the known set and are validated strictly, not treated as unknown.
 
 Extension marks:
+- MUST use a namespace prefix unless registered in the core schema
 - SHOULD be documented in the extension specification
 - MUST define their field table (type, required fields, optional fields)
 - SHOULD avoid names that collide with core marks or marks from commonly-paired extensions
