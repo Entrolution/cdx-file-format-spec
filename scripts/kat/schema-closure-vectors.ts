@@ -596,6 +596,14 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'manifest.schema.json',
+    description: 'advisory profile declaration accepted as a string',
+    // the optional `profile` hint is accepted (a bare string); a non-string is rejected.
+    // Removing the schema slot makes the valid instance fail (closed root rejects the key) — the field's teeth.
+    validInstance: { cdx: '0.1', id: HASH, state: 'draft', created: '2020-01-01T00:00:00Z', modified: '2020-01-01T00:00:00Z', content: { path: 'content/document.json', hash: HASH }, metadata: { dublinCore: 'metadata/dublin-core.json' }, profile: 'simple' },
+    invalidInstance: { cdx: '0.1', id: HASH, state: 'draft', created: '2020-01-01T00:00:00Z', modified: '2020-01-01T00:00:00Z', content: { path: 'content/document.json', hash: HASH }, metadata: { dublinCore: 'metadata/dublin-core.json' }, profile: 123 },
+  },
+  {
+    schema: 'manifest.schema.json',
     ref: '#/$defs/fileReference',
     description: 'fileReference',
     validInstance: { path: 'content/document.json', hash: HASH },

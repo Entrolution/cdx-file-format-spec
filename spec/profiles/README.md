@@ -1,6 +1,6 @@
 # CDX Profiles
 
-Profiles define subsets of the CDX format optimized for specific use cases. They provide guidance on which features to use (and avoid) for particular document types.
+Profiles describe recommended subsets of CDX features for specific use cases. They provide guidance on which features to use (and avoid) for particular document types. Profiles are non-normative: they define no conformance class and place no requirements on documents or implementations (see Introduction section 1.3).
 
 ## Available Profiles
 
@@ -13,7 +13,7 @@ Profiles define subsets of the CDX format optimized for specific use cases. They
 A profile is **non-normative guidance** that:
 
 - Identifies which features are appropriate for a use case
-- Defines minimal requirements for that use case
+- Recommends a minimal feature set for that use case
 - Provides examples tailored to that use case
 - Offers migration guidance from other formats
 
@@ -23,12 +23,13 @@ Profiles do NOT:
 - Override the core specification
 - Require special handling by implementations
 - Restrict what a valid CDX document can contain
+- Constrain the set of extensions a document may declare
 
-## Profile Conformance
+Because a profile restricts nothing, there is no such thing as "conforming to a profile" and no profile-specific conformance test. A document that uses only a profile's recommended features is simply a valid CDX document; one that goes beyond them is equally valid. Conformance is defined against CDX core, not against any profile (Introduction section 1.3).
 
-Documents are not required to declare profile conformance. A document conforming to a profile is simply a valid CDX document that happens to use only the features recommended by that profile.
+## Declaring a Profile
 
-However, documents MAY declare their intended profile in the manifest for tooling purposes:
+Declaring a profile is optional and purely advisory — a hint about the document's intended use, useful to tooling. Documents MAY declare a profile in the manifest:
 
 ```json
 {
@@ -38,7 +39,9 @@ However, documents MAY declare their intended profile in the manifest for toolin
 }
 ```
 
-Implementations SHOULD ignore unrecognized profile values and treat the document as a standard CDX document.
+A profile declaration never affects how a document is processed: a consumer treats a document that declares a profile as a standard CDX document, honoring every feature it actually contains regardless of whether that feature falls within the declared profile's guidance, and disregards an unrecognized profile value. These are normative requirements on consumers, stated in Manifest section 4.18. A document that declares `profile: "simple"` but contains, say, a table block is therefore still fully valid and is processed normally.
+
+The declaration is a bare identifier with no version component: profiles are not independently versioned, and a profile carries no conformance level to target.
 
 ## Future Profiles
 

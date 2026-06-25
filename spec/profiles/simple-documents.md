@@ -1,7 +1,6 @@
 # Simple Documents Profile
 
 **Profile ID**: `simple`
-**Version**: 0.1
 **Status**: Draft
 
 ## 1. Overview
@@ -13,7 +12,7 @@ The Simple Documents profile defines a minimal subset of CDX for recreational re
 - **Universally renderable** — any CDX reader can display these documents
 - **EPUB-comparable** — similar complexity for similar use cases
 
-This profile is non-normative guidance. Documents conforming to this profile are fully valid CDX documents that happen to use only a subset of available features.
+This profile is non-normative guidance: it recommends a subset of CDX features and places no requirements on documents or implementations. A document that follows this guidance is an ordinary valid CDX document, and so is one that does not — there is no "simple-conformant" test (see the Profiles overview and Introduction section 1.3).
 
 ## 2. Use Cases
 
@@ -102,7 +101,7 @@ Simple Documents do not need:
 | `modified` | Yes | ISO 8601 last modification timestamp |
 | `content` | Yes | Path to content file |
 | `metadata.dublinCore` | Yes | Path to Dublin Core metadata |
-| `extensions` | No | Simple Documents use no extensions |
+| `extensions` | No | Simple Documents typically use no extensions |
 | `assets` | No | Only if images/fonts are embedded |
 | `presentation` | No | Renderers apply defaults |
 
@@ -263,7 +262,7 @@ For simplicity, these block types are discouraged in Simple Documents:
 
 ### 7.1 No Presentation Required
 
-Simple Documents do not require any presentation files. Renderers MUST apply sensible defaults when no presentation is specified:
+Simple Documents do not require any presentation files. Renderers apply sensible defaults when no presentation is specified, for example:
 
 - Continuous vertical scroll layout
 - System fonts or reader-preferred fonts

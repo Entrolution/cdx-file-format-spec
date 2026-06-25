@@ -65,6 +65,7 @@ The manifest MUST be:
 | `hashAlgorithm` | string | Hash algorithm for the document ID (default `sha256`) |
 | `provenance` | string | Path to the provenance record file |
 | `signaturePolicy` | object | Required-signer policy (Security Extension) |
+| `profile` | string | Advisory profile declaration (Profiles) |
 | `academic` | object | Academic Extension configuration |
 | `semantic` | object | Semantic Extension configuration |
 | `legal` | object | Legal Extension configuration |
@@ -389,6 +390,24 @@ Top-level configuration objects for the correspondingly named extensions. Each i
 ```
 
 See the relevant extension specification for each object's shape.
+
+### 4.18 `profile` (Optional)
+
+An advisory declaration of the profile a document targets, as a bare identifier.
+
+```json
+{
+  "profile": "simple"
+}
+```
+
+A profile is non-normative guidance on which features suit a use case (see the Profiles specification); it defines no conformance class (Introduction section 1.3). The `profile` field is therefore advisory only:
+
+- It never affects document validity. A document that declares a profile but uses features outside that profile's guidance is still a fully valid CDX document.
+- A consumer MUST process a document that declares a profile as a standard CDX document — honoring every feature it actually contains regardless of the declared value — and SHOULD ignore an unrecognized profile value.
+- A producer MAY declare a profile to signal intent; doing so imposes no obligation to restrict the document to that profile's recommended features.
+
+The declaration carries no version component and is not bound by the document ID or the signed manifest projection.
 
 ## 5. Validation
 
