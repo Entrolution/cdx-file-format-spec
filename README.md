@@ -152,6 +152,7 @@ The specification is modular:
 - [State Machine](spec/core/07-state-machine.md) - Draft/frozen lifecycle
 - [Metadata](spec/core/08-metadata.md) - Dublin Core and extensions
 - [Provenance and Lineage](spec/core/09-provenance-and-lineage.md) - Hash chains, Merkle trees, timestamping
+- [Renderer Safety](spec/core/10-renderer-safety.md) - Safe URIs and untrusted-content sanitization
 
 ### Extension Specifications (Optional)
 

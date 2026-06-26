@@ -83,9 +83,8 @@
       "properties": {
         "type": { "const": "entity" },
         "uri": {
-          "type": "string",
-          "format": "uri",
-          "description": "URI identifying the entity in a knowledge graph"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+          "description": "URI identifying the entity in a knowledge graph. Constrained to safe schemes (see the Renderer Safety core specification)."
         },
         "entityType": {
           "type": "string",
@@ -326,8 +325,8 @@
           "properties": {
             "type": { "const": "semantic:ref" },
             "target": {
-              "type": "string",
-              "description": "Target reference (Content Anchor URI for internal, URL for external)"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+              "description": "Target reference (Content Anchor URI for internal, URL for external). Constrained to safe schemes (see the Renderer Safety core specification); fragment and relative references remain permitted."
             },
             "format": {
               "type": "string",

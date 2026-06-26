@@ -379,6 +379,8 @@ Each line in the `lines` array:
 
 **Note:** Use either `number` or `tag`, not both. If `tag` is present, it takes precedence.
 
+> **Renderer safety.** Equation `value` and algorithm-line `content` are LaTeX rendered by a math engine, and untrusted LaTeX is a code-execution and denial-of-service surface. A renderer MUST disable file-access and shell-escape constructs and link/HTML-emitting macros, and MUST bound macro expansion, on untrusted source — preferring a restricted (KaTeX-class) renderer over a full TeX system (Renderer Safety section 3.2).
+
 ## 7.3 Chemical Formulas (mhchem)
 
 For chemical formulas and reaction equations, use the core `math` block with the mhchem LaTeX package notation. The mhchem package provides intuitive syntax for molecular formulas and chemical reactions.

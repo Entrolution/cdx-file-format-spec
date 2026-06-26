@@ -13,8 +13,13 @@ import { createAjv, loadSchema } from './ajv-utils.js';
 // Schema dependencies (schemas that need other schemas loaded first so their
 // cross-file $refs resolve at compile time).
 const schemaDependencies: Record<string, string[]> = {
-  'content.schema.json': ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'],
+  'content.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'],
   'collaboration.schema.json': ['anchor.schema.json'],
+  // forms/semantic/presentation reference anchor.schema.json#/$defs/safeUri (the
+  // shared safe-URI definition) for their author-controlled URI fields.
+  'forms.schema.json': ['anchor.schema.json'],
+  'semantic.schema.json': ['anchor.schema.json'],
+  'presentation.schema.json': ['anchor.schema.json'],
   // phantoms embeds the core content block model (phantomContent.blocks → content
   // block dispatch), so it needs content plus content's whole cross-file cluster.
   'phantoms.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json', 'content.schema.json'],

@@ -277,6 +277,8 @@ The `author` field uses a consistent structure throughout the collaboration exte
 
 The `color` field enables consistent visual identification across real-time collaboration sessions. When a user's cursor or selection is shown, implementations SHOULD use this color. If not specified, implementations SHOULD assign a consistent color based on `userId` or `email`.
 
+> **Renderer safety.** `avatar` is constrained to safe image sources (Renderer Safety section 2.2): an `https`/relative URL or a `data:image` raster payload, excluding `data:image/svg+xml` and every script scheme. A renderer MUST validate `color` against the CSS color grammar, or escape it, before injecting it into a stylesheet or `style` attribute (Renderer Safety section 3.3).
+
 ### 4.4 Content Anchors
 
 The `anchor` field uses a ContentAnchor object from the core Anchors and References specification. Block-level, point, and range anchors are supported:

@@ -240,6 +240,8 @@ Legal documents often require specific signature block formats:
 
 The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, or `notary`; the signer object MAY also include a `fax` number. A `legal:signatureBlock` records a signatory for display; it is content, not a cryptographic signature, and attests nothing about execution or notarization (see section 9).
 
+> **Renderer safety.** Signer contact strings (name, address, telephone, fax) and party, judge, and notary names are author-asserted text. A renderer MUST render them as inert, escaped text and MUST NOT auto-linkify or otherwise promote them to a navigation target except through the safe-URI allowlist (Renderer Safety section 3.4).
+
 ## 7. Examples
 
 ### 7.1 Legal Brief with Table of Authorities

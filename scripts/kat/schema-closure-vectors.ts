@@ -1273,4 +1273,72 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { type: 'glossary', ref: 'term-1' },
     invalidInstance: { type: 'glossary', ref: 'term-1', bogus: 1 },
   },
+
+  // --- safe-URI allowlist (anchor safeUri/safeImageUri + the fields applying them) -
+  // These $defs are string allowlists, so the vector pins them the string way:
+  // validInstance is an allowlisted URI that MUST pass, invalidInstance is a
+  // dangerous-scheme URI that MUST be rejected (the allowlist has teeth).
+  {
+    schema: 'anchor.schema.json',
+    ref: '#/$defs/safeUri',
+    description: 'safeUri admits https; rejects javascript:',
+    validInstance: 'https://example.com/page',
+    invalidInstance: 'javascript:alert(1)',
+  },
+  {
+    schema: 'anchor.schema.json',
+    ref: '#/$defs/safeUri',
+    description: 'safeUri admits relative/fragment refs; rejects data: documents',
+    validInstance: 'assets/embeds/quarterly-data.xlsx',
+    invalidInstance: 'data:text/html,<script>alert(1)</script>',
+  },
+  {
+    schema: 'anchor.schema.json',
+    ref: '#/$defs/safeImageUri',
+    description: 'safeImageUri admits data:image raster; rejects data:image/svg+xml (active content)',
+    validInstance: 'data:image/png;base64,iVBORw0KGgo=',
+    invalidInstance: 'data:image/svg+xml,<svg onload=alert(1)>',
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/linkMark',
+    description: 'linkMark.href safe-scheme teeth (javascript: rejected)',
+    validInstance: { type: 'link', href: 'https://example.com' },
+    invalidInstance: { type: 'link', href: 'javascript:alert(1)' },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'forms:form action safe-scheme teeth (javascript: rejected)',
+    validInstance: { type: 'forms:form', action: 'https://api.example.com/submit', children: [{ type: 'forms:submit' }] },
+    invalidInstance: { type: 'forms:form', action: 'javascript:alert(1)', children: [{ type: 'forms:submit' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:ref target safe-scheme teeth (javascript: rejected)',
+    validInstance: { type: 'semantic:ref', target: '#section-3' },
+    invalidInstance: { type: 'semantic:ref', target: 'javascript:alert(1)' },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'presentation:reference target safe-scheme teeth (javascript: rejected)',
+    validInstance: { type: 'presentation:reference', target: '#fig1', format: 'Figure #' },
+    invalidInstance: { type: 'presentation:reference', target: 'javascript:alert(1)', format: 'Figure #' },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/entityMark',
+    description: 'entity.uri safe-scheme teeth (javascript: rejected)',
+    validInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q1' },
+    invalidInstance: { type: 'entity', uri: 'javascript:alert(1)' },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/author',
+    description: 'author.avatar safe-image teeth (javascript: rejected)',
+    validInstance: { name: 'Ada', avatar: 'https://example.com/avatars/jane.png' },
+    invalidInstance: { name: 'Ada', avatar: 'javascript:alert(1)' },
+  },
 ];

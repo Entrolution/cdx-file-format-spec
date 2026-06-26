@@ -400,8 +400,8 @@
       "properties": {
         "type": { "const": "link" },
         "href": {
-          "type": "string",
-          "description": "Link URL or Content Anchor URI (values beginning with '#' are internal references)"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+          "description": "Link URL or Content Anchor URI (values beginning with '#' are internal references). Constrained to safe schemes (see the Renderer Safety core specification); javascript:/data:/file: and other dangerous schemes are rejected."
         },
         "title": {
           "type": "string",

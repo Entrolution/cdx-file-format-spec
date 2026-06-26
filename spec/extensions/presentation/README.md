@@ -457,6 +457,8 @@ The `numberingConfig` field provides extended numbering configuration beyond the
 
 The `presentation:reference` block's `target` field uses Content Anchor URI syntax (see core Anchors and References specification). The `#` prefix identifies internal document references. The block uses the `presentation:` namespace prefix as required by the core content blocks spec (section 5) for extension block types:
 
+> **Renderer safety.** The `target` field is constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected.
+
 ```json
 {
   "type": "text",

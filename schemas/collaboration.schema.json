@@ -21,9 +21,8 @@
               "description": "User identifier in an external system"
             },
             "avatar": {
-              "type": "string",
-              "format": "uri",
-              "description": "URL to avatar image"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+              "description": "URL to avatar image. Constrained to safe image sources (see the Renderer Safety core specification): https/relative or a data:image payload, excluding data:image/svg+xml (active content)."
             },
             "color": {
               "type": "string",
