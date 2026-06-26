@@ -183,6 +183,45 @@
         { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" }
       ],
       "unevaluatedProperties": false
+    },
+    "assetIndex": {
+      "type": "object",
+      "description": "Index for phantoms/assets/index.json. Mirrors the core asset index but, because phantom assets are out-of-hash and unverified (section 5.1), the per-asset content hash is OPTIONAL and the root version is optional: a phantom asset index makes no integrity claim. A consumer MUST treat phantom assets as untrusted regardless of any hash present.",
+      "required": ["assets"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Asset index version",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/phantomAsset" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "phantomAsset": {
+      "type": "object",
+      "description": "One phantom asset. Unlike a core asset, the content `hash` is optional because phantom assets carry no integrity binding.",
+      "required": ["id", "path", "type", "size"],
+      "properties": {
+        "id": { "type": "string", "description": "Asset identifier" },
+        "path": {
+          "description": "Archive-relative path to the asset",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+        },
+        "type": {
+          "description": "Media type",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/mimeType"
+        },
+        "size": { "type": "integer", "minimum": 0, "description": "Asset size in bytes" },
+        "hash": {
+          "description": "Optional content hash (advisory only; phantom assets are out-of-hash)",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

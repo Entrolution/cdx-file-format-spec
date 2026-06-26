@@ -16,7 +16,8 @@
     "hash": "sha256:92500a7583caa81dbf668930afc74c01550a6903458360c6ef030518c5e65adb"
   },
   "metadata": {
-    "dublinCore": "metadata/dublin-core.json"
+    "dublinCore": "metadata/dublin-core.json",
+    "jsonld": "metadata/jsonld.json"
   },
   "semantic": {
     "bibliography": "semantic/bibliography.json",

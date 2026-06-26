@@ -60,10 +60,12 @@ Location: `metadata/jsonld.json`
 {
   "type": "paragraph",
   "id": "definition-1",
-  "semantic": {
-    "@type": "DefinedTerm",
-    "name": "Semantic Document",
-    "description": "A document with machine-readable meaning"
+  "attributes": {
+    "semantic": {
+      "@type": "DefinedTerm",
+      "name": "Semantic Document",
+      "description": "A document with machine-readable meaning"
+    }
   },
   "children": [...]
 }
@@ -356,10 +358,12 @@ Based on Schema.org types:
 ```json
 {
   "type": "table",
-  "semantic": {
-    "@type": "Dataset",
-    "name": "Quarterly Revenue",
-    "description": "Revenue data for Q1-Q4 2024"
+  "attributes": {
+    "semantic": {
+      "@type": "Dataset",
+      "name": "Quarterly Revenue",
+      "description": "Revenue data for Q1-Q4 2024"
+    }
   },
   "children": [...]
 }
@@ -502,14 +506,16 @@ The `semantic:glossary` block renders a collected glossary by aggregating all `s
 ```json
 {
   "type": "blockquote",
-  "semantic": {
-    "source": {
-      "@type": "Book",
-      "name": "The Art of Computer Programming",
-      "author": "Donald Knuth",
-      "datePublished": "1968"
-    },
-    "page": "42"
+  "attributes": {
+    "semantic": {
+      "source": {
+        "@type": "Book",
+        "name": "The Art of Computer Programming",
+        "author": "Donald Knuth",
+        "datePublished": "1968"
+      },
+      "page": "42"
+    }
   },
   "children": [...]
 }
@@ -519,13 +525,17 @@ The `semantic:glossary` block renders a collected glossary by aggregating all `s
 
 ```json
 {
-  "semantic": {
-    "provenance": {
-      "source": "https://data.example.org/dataset/123",
-      "retrieved": "2025-01-10",
-      "license": "CC BY 4.0"
+  "type": "table",
+  "attributes": {
+    "semantic": {
+      "provenance": {
+        "source": "https://data.example.org/dataset/123",
+        "retrieved": "2025-01-10",
+        "license": "CC BY 4.0"
+      }
     }
-  }
+  },
+  "children": [...]
 }
 ```
 

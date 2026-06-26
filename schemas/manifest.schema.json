@@ -99,6 +99,10 @@
           "description": "Path to Dublin Core metadata",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         },
+        "jsonld": {
+          "description": "Path to a document-level JSON-LD metadata file (semantic extension). Out-of-hash advisory data — referenced by path only, with no manifest hash.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+        },
         "custom": {
           "type": "object",
           "description": "Custom metadata references",

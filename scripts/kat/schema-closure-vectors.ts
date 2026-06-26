@@ -851,8 +851,8 @@ export const closureVectors: ClosureVector[] = [
   {
     schema: 'collaboration.schema.json',
     ref: '#/$defs/highlight',
-    description: 'highlight',
-    validInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z' },
+    description: 'highlight carries color + content note; stays closed',
+    validInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', color: '#ffeb3b', content: 'note' },
     invalidInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', bogus: 1 },
   },
   {
@@ -1340,5 +1340,32 @@ export const closureVectors: ClosureVector[] = [
     description: 'author.avatar safe-image teeth (javascript: rejected)',
     validInstance: { name: 'Ada', avatar: 'https://example.com/avatars/jane.png' },
     invalidInstance: { name: 'Ada', avatar: 'javascript:alert(1)' },
+  },
+
+  // --- documented-field representability (S8) -------------------------------
+  // The optional crdt sync field is accepted on a block (and stripped before
+  // hashing); the block stays closed otherwise.
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'block carries optional crdt sync object; def stays closed',
+    validInstance: { type: 'paragraph', crdt: { clientId: 7, clock: 3 }, children: [] },
+    invalidInstance: { type: 'paragraph', crdt: { clientId: 7 }, children: [], bogus: 1 },
+  },
+  // Relaxed phantom asset index: per-asset hash is OPTIONAL (out-of-hash), but
+  // the index and each asset stay closed.
+  {
+    schema: 'phantoms.schema.json',
+    ref: '#/$defs/assetIndex',
+    description: 'phantom assetIndex (no required hash/version) closed',
+    validInstance: { assets: [{ id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1 }] },
+    invalidInstance: { assets: [{ id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1 }], bogus: 1 },
+  },
+  {
+    schema: 'phantoms.schema.json',
+    ref: '#/$defs/phantomAsset',
+    description: 'phantomAsset requires id/path/type/size; hash optional; closed',
+    validInstance: { id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1 },
+    invalidInstance: { id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1, bogus: 1 },
   },
 ];
