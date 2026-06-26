@@ -276,7 +276,7 @@ phantoms/
     └── sketch.png
 ```
 
-The asset index follows the same structure as the core asset index:
+The asset index mirrors the core asset index, but because phantom assets are out-of-hash and unverified (section 5.1), the per-asset content `hash` and the root `version` are OPTIONAL — a phantom asset index makes no integrity claim, and a consumer MUST treat phantom assets as untrusted regardless of any hash present:
 
 ```json
 {

@@ -1,0 +1,10 @@
+{
+  "assets": [
+    {
+      "id": "sketch",
+      "path": "phantoms/assets/sketch.png",
+      "type": "image/png",
+      "size": 15360
+    }
+  ]
+}

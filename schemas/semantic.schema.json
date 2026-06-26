@@ -435,6 +435,21 @@
       },
       "additionalProperties": true
     },
+    "jsonLdDocument": {
+      "type": "object",
+      "description": "Schema for metadata/jsonld.json (document-level JSON-LD). An open JSON-LD graph: arbitrary vocabulary properties are permitted. Referenced by path only (no manifest hash), so it is out-of-hash advisory metadata; a processor MUST NOT dereference its @context from an untrusted document by default (Renderer Safety core specification, section 5).",
+      "properties": {
+        "@context": {
+          "oneOf": [
+            { "type": "string", "format": "uri" },
+            { "type": "object" },
+            { "type": "array" }
+          ],
+          "description": "JSON-LD context"
+        }
+      },
+      "additionalProperties": true
+    },
     "bibliographyFile": {
       "type": "object",
       "description": "Schema for semantic/bibliography.json (external CSL bibliography file)",

@@ -1,0 +1,11 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ScholarlyArticle",
+  "@id": "https://example.org/semantic-document",
+  "name": "Semantic Document Example",
+  "author": {
+    "@type": "Person",
+    "name": "Ada Lovelace"
+  },
+  "keywords": ["semantics", "knowledge graph", "JSON-LD"]
+}

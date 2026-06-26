@@ -67,6 +67,7 @@ export const rules: Rule[] = [
   { test: /^manifest\.json$/, schema: 'manifest.schema.json' },
   { test: /^content\/document\.json$/, schema: 'content.schema.json' },
   { test: /^metadata\/dublin-core\.json$/, schema: 'dublin-core.schema.json' },
+  { test: /^metadata\/jsonld\.json$/, schema: 'semantic.schema.json', ref: '#/$defs/jsonLdDocument' },
   // academic.schema's root is the manifest-level academic config ({numbering: path});
   // the numbering data file is described by the numberingConfig $def.
   { test: /^academic\/numbering\.json$/, schema: 'academic.schema.json', ref: '#/$defs/numberingConfig' },
@@ -78,6 +79,9 @@ export const rules: Rule[] = [
   { test: /^provenance\/record\.json$/, schema: 'provenance.schema.json' },
   { test: /^forms\/data\.json$/, schema: 'forms.schema.json' },
   { test: /^phantoms\/clusters\.json$/, schema: 'phantoms.schema.json' },
+  // Phantom assets use a relaxed index (no required per-asset hash); the core
+  // asset rule is start-anchored on `assets/` and does not match `phantoms/assets/`.
+  { test: /^phantoms\/assets\/index\.json$/, schema: 'phantoms.schema.json', ref: '#/$defs/assetIndex' },
   { test: /^security\/signatures\.json$/, schema: 'security.schema.json' },
   { test: /^security\/annotations\.json$/, schema: 'annotations.schema.json' },
   // semantic file parts validate against their file-shape $defs (the schema root

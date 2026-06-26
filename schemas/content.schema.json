@@ -289,6 +289,11 @@
         },
         "attributes": {
           "$ref": "#/$defs/blockAttributes"
+        },
+        "crdt": {
+          "type": "object",
+          "description": "Transient CRDT synchronization state for the collaboration extension (e.g. a Yjs/Automerge per-node identifier). Library-specific and intentionally open. This field is stripped before the document hash is computed (Document Hashing section 4.3.1), so it never affects the document ID or any signature.",
+          "additionalProperties": true
         }
       }
     },

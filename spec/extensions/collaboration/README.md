@@ -337,14 +337,14 @@ Standard emoji identifiers using Unicode CLDR short names (without colons). Exam
   "author": { "name": "Reviewer" },
   "created": "2025-01-15T14:00:00Z",
   "color": "#ffeb3b",
-  "note": "Important passage to revisit"
+  "content": "Important passage to revisit"
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `color` | string | No | Highlight color (CSS color value, defaults to yellow) |
-| `note` | string | No | Optional note attached to the highlight |
+| `color` | string | No | Highlight color (a CSS color value; a renderer MUST validate or escape it — see the Renderer Safety core specification, section 3.3) |
+| `content` | string | No | Optional note attached to the highlight |
 
 ## 5. Change Tracking
 

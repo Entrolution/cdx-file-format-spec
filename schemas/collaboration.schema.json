@@ -134,6 +134,10 @@
           "type": "object",
           "properties": {
             "type": { "const": "highlight" },
+            "color": {
+              "type": "string",
+              "description": "Highlight color (a CSS color value; a renderer MUST validate or escape it before use — see the Renderer Safety core specification, section 3.3)"
+            },
             "content": {
               "type": "string",
               "description": "Optional note for the highlight"
