@@ -473,6 +473,8 @@ For viewers that don't support forms:
 }
 ```
 
+> **Reader dispositions.** A consumer without forms support treats a `forms:*` block as an unknown namespaced block (State Machine section 5.4): it renders the block's `fallback` if present, otherwise IGNOREs the field. A structurally malformed forms block of a known type is a WARNING in draft/review and an INTEGRITY-ERROR on a frozen or published document. Form filling and submission stay permitted on a frozen or published document because `forms/data.json` is an out-of-hash layer (State Machine section 3.4); a missing or malformed `forms/data.json` is a WARNING in all states.
+
 ## 8. Examples
 
 ### 8.1 Contact Form

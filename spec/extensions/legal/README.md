@@ -152,6 +152,8 @@ The `legal:tableOfAuthorities` block generates an auto-indexed table of all cite
 
 The Legal Extension supports common legal citation styles:
 
+> **Reader dispositions.** The cross-element relationships in this extension are resolved at render time, so their failures are rendering-degradation WARNINGs in all states, never integrity failures (State Machine section 5.4): a `legal:cite` whose `category` matches no Table of Authorities category, a Table of Authorities category with no citing `legal:cite`, and a `format` (or a default `citationStyle`) naming an unimplemented style all degrade gracefully — the reader renders the raw `citation` text and SHOULD surface the unresolved relationship, and MUST NOT invent a category or fail the document.
+
 ### 5.1 Bluebook
 
 The Bluebook: A Uniform System of Citation (US legal standard)
