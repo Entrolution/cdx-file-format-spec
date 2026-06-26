@@ -8,7 +8,7 @@
     {
       "id": "cdx.legal",
       "version": "0.1",
-      "required": false
+      "required": true
     }
   ],
   "content": {

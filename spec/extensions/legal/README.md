@@ -26,7 +26,7 @@ The Legal Extension provides specialized blocks and marks for legal documents, i
 }
 ```
 
-A document-level default citation style MAY be set in the manifest's `legal` configuration object as `citationStyle` (e.g. `bluebook`); individual citations MAY override it.
+A document-level default citation style MAY be set in the manifest's `legal` configuration object as `citationStyle` (e.g. `bluebook`); individual citations MAY override it. Where the `legal` configuration carries operative values — a `jurisdiction` or governing-law selection — the document SHOULD declare the extension `required: true`, so that configuration is bound by the manifest projection (see section 9).
 
 ## 3. Legal Citation Mark
 
@@ -217,7 +217,7 @@ Oxford University Standard for Citation of Legal Authorities (UK)
 }
 ```
 
-The `parties` object supports the role keys `plaintiff`, `defendant`, `appellant`, `appellee`, `petitioner`, and `respondent`; the caption MAY also name the assigned `judge`.
+The `parties` object supports the role keys `plaintiff`, `defendant`, `appellant`, `appellee`, `petitioner`, and `respondent`; the caption MAY also name the assigned `judge`. These caption fields are author-asserted content, not authenticated case identity (see section 9).
 
 ### 6.2 Signature Block
 
@@ -238,7 +238,7 @@ Legal documents often require specific signature block formats:
 }
 ```
 
-The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, or `notary`; the signer object MAY also include a `fax` number.
+The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, or `notary`; the signer object MAY also include a `fax` number. A `legal:signatureBlock` records a signatory for display; it is content, not a cryptographic signature, and attests nothing about execution or notarization (see section 9).
 
 ## 7. Examples
 
@@ -345,7 +345,17 @@ After the first full citation, subsequent references MAY use the short form:
 
 For consecutive citations to the same source, renderers MAY substitute "Id." according to citation style rules.
 
-## 9. Compatibility
+## 9. Integrity Status
+
+Legal constructs span two integrity tiers (see the extensions overview, Integrity Status of Extension Data).
+
+**Captions and signature blocks are advisory identity.** A `legal:caption` (court, case number, parties, judge) and a `legal:signatureBlock` (signer, bar number, firm, role — including `notary` — and date) are ordinary content blocks: their bytes are in the document hash, but a signature attests those bytes, not that the named judge presided, the named parties are real, or the named signatory or notary executed anything. A `legal:signatureBlock` is a typeset signature line, not a cryptographic signature. To bind a real execution, notarization, or approval to the document, use a security-extension signature (security extension, Identity Authority), optionally bound through a required-signer policy (security extension, Signature Set Integrity).
+
+**Jurisdiction and citation style are unauthenticated unless the extension is required.** The `legal` configuration in the manifest (`citationStyle`, `jurisdiction`) is outside the document hash, and the manifest projection binds an extension's configuration only when that extension is declared `required: true` (security extension, Manifest Projection). When the legal extension is declared `required: false`, `manifest.legal` is in neither integrity domain: its `jurisdiction` — a legally operative selection — and its default `citationStyle` can be changed on a signed document without breaking a signature, and because a format-less `legal:cite` renders in the default style, editing that default silently restyles every such citation.
+
+A legal document whose `legal` configuration carries operative values SHOULD declare the extension `required: true`, so the configuration enters the manifest projection and is bound by every manifest-covering signature; alternatively, carry the operative value in signed content. The shipped legal example declares `required: true` for this reason.
+
+## 10. Compatibility
 
 The Legal Extension is compatible with:
 
@@ -353,7 +363,7 @@ The Legal Extension is compatible with:
 - **Presentation Extension**: Table of Authorities uses presentation layer styling
 - **Academic Extension**: Legal documents may use academic numbering for sections
 
-## 10. Future Considerations
+## 11. Future Considerations
 
 Potential future additions:
 

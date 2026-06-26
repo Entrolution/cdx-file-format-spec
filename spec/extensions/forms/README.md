@@ -266,7 +266,7 @@ The `minDate` and `maxDate` fields accept ISO 8601 date strings (e.g., `"2024-01
 | `conditionalValidation` | object | No | Conditional validation rules (see section 4.3) |
 | `fallback` | object | No | Fallback block for non-forms viewers (see section 7) |
 
-The `forms:signature` field captures visual/input signatures (e.g., drawn signatures or typed names) as part of form data. This is distinct from the security extension's cryptographic digital signatures, which provide tamper detection and non-repudiation. For documents requiring both visual and cryptographic signatures, use `forms:signature` for the user-facing input and the security extension for cryptographic verification.
+The `forms:signature` field captures visual/input signatures (e.g., drawn signatures or typed names) as part of form data. This is distinct from the security extension's cryptographic digital signatures, which provide tamper detection and non-repudiation. For documents requiring both visual and cryptographic signatures, use `forms:signature` for the user-facing input and the security extension for cryptographic verification. The field defines only the capture widget; the captured signature itself is stored in `forms/data.json` (see section 6.5), outside the content hash and bound by no signature, so it is advisory and forgeable and provides no integrity, non-repudiation, or binding on its own.
 
 ## 4. Validation
 
@@ -439,6 +439,19 @@ When a form is submitted (`"submitted": true` in `forms/data.json`):
 ### 6.4 Hashing Exclusion
 
 The `forms/` directory is excluded from the content hash computation, alongside other non-content directories (see Document Hashing specification, section 4.1).
+
+### 6.5 Integrity Status
+
+Form structure and form data sit in different integrity tiers (see the extensions overview, Integrity Status of Extension Data):
+
+| Construct | Location | In document hash | Authenticated |
+|-----------|----------|------------------|---------------|
+| Field definitions (blocks, labels, validation rules) | `content/document.json` | Yes | Bytes are bound; a `forms:signature` definition is a capture widget, not a cryptographic signature |
+| Captured form data | `forms/data.json` | No | No — advisory and forgeable |
+
+Everything a respondent enters is stored in `forms/data.json`: the per-field entries in the `values` map — including a captured `forms:signature` image and any consent checkbox — and the submission state (`submitted`, `submittedAt`, `lastModified`). This file is outside the content hash and bound by no signature, so it stays mutable even on a `frozen` or `published` document, and an archive writer can alter or fabricate any of it without changing the document ID or invalidating a signature. The entries named here are examples — *no* value in `forms/data.json` is authenticated.
+
+A verifier or relying party MUST NOT treat a captured value, a captured `forms:signature`, a consent flag, or a `submitted` state as a tamper-evident or non-repudiable record. To bind a respondent's input to the document, fold it into signed content — producing a new document version and ID (section 6.3) — or attest it with a security-extension signature; to authenticate the signer's identity, use the security extension rather than `forms:signature`.
 
 ## 7. Fallback Rendering
 

@@ -214,6 +214,14 @@ This ensures that phantom annotations are commentary on the document, not part o
 
 Because phantoms are outside the hash and bound by no signature, a cluster's or phantom's `author` and content are **advisory and unauthenticated** — forgeable like any other in-archive editorial metadata. A verifier MUST NOT treat a phantom `author` as an authenticated identity (security extension, Identity Authority).
 
+### 5.1 Integrity Status
+
+All phantom data is in neither the document hash nor the manifest projection (see the extensions overview, Integrity Status of Extension Data); it is mutable in every state (section 7), so an archive writer can add, edit, re-anchor, or remove any of it without changing the document ID or invalidating a signature. This applies categorically — every field of `phantoms/clusters.json`, the full content block tree embedded in a phantom, and every byte under `phantoms/assets/` is advisory. Three consequences are easy to miss:
+
+- **Assets are an unverified channel.** `phantoms/assets/` carries no hash in the manifest, and a phantom asset index is not registered in the document's asset categories, so the bytes are bound to nothing. A renderer MUST treat phantom assets as untrusted content.
+- **Anchors can be re-targeted silently.** A cluster `anchor` is a Content Anchor whose optional `contentHash` (Anchors and References specification) detects when its target has changed. Because phantoms are mutable on a `frozen` or `published` document, a note can be re-anchored to a different passage — or left anchored to since-edited content — without breaking a signature. Producers SHOULD populate `contentHash`, and consumers SHOULD warn when it is absent or no longer matches.
+- **Forking MUST NOT rely on the `author` field.** The `author` field is forgeable, so the private-cluster carry-over rule (section 8) MUST determine "the forking user is the phantom author" from local or session identity, never from the in-archive `author`; a private cluster whose author cannot be authenticated MUST be stripped from the fork (fail closed).
+
 ## 6. Scope
 
 Each cluster has a scope controlling its visibility:
@@ -248,6 +256,8 @@ When a document is forked (any state → new DRAFT), phantom clusters are handle
 | `"role:{name}"` | Carried over (role assignments are an application concern) |
 
 **Rationale**: Shared phantoms represent collective knowledge about the document and should travel with it. Private phantoms are personal and should not leak to other users through forks.
+
+The author match for a private cluster MUST be determined from local or session identity, not the in-archive `author`, which is forgeable (see section 5.1).
 
 Forked phantoms receive new cluster and phantom IDs to avoid identity collisions between the original and forked documents.
 

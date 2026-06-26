@@ -306,7 +306,7 @@ Character offsets follow the computation rules defined in the Anchors and Refere
 
 Suggestion statuses: `pending`, `accepted`, `rejected`
 
-> **Collaboration metadata is advisory and unauthenticated.** A comment's, suggestion's, or change's `author`, `content`, and `status`/resolution sit in no signature scope and are not bound by the manifest projection, so they are forgeable. A verifier MUST NOT treat a `status: accepted`, an approving comment, or a named `author` as an authenticated decision or identity — it is not a signature. To authenticate an editorial decision (an approval, a sign-off), place it in signed content or bind the approver through a required-signer policy (security extension, Identity Authority and Signature Set Integrity).
+> **Collaboration metadata is advisory and unauthenticated.** Everything in the collaboration side files — every comment, reply, suggestion, highlight, reaction, tracked change, presence record, and revision entry, and every field they carry (`author`, `content`, `status`, a `resolved` flag, a highlight note, a before/after snapshot, a timestamp) — sits in no signature scope and is not bound by the manifest projection, so all of it is forgeable. A verifier MUST NOT treat a `status: accepted`, an approving comment, a `resolved` flag, or a named `author` as an authenticated decision or identity — it is not a signature. The fields named here are examples, not a closed list; section 10 states the full Integrity Status. To authenticate an editorial decision (an approval, a sign-off), place it in signed content or bind the approver through a required-signer policy (security extension, Identity Authority and Signature Set Integrity).
 
 ### 4.6 Reactions
 
@@ -570,3 +570,14 @@ CRDT-based collaboration handles conflicts automatically:
   ]
 }
 ```
+
+## 10. Integrity Status
+
+The collaboration extension keeps all of its data — comments and replies, suggestions, highlights, reactions, change tracking, presence, and revision history — in side files the manifest references by path only (such as `collaboration/comments.json` and `collaboration/changes.json`) and in related, separately stored collaboration data (revision history and presence). None of it is in the document hash or the manifest projection (see the extensions overview, Integrity Status of Extension Data), so all of it is advisory: it stays mutable on a `frozen` or `published` document, and an archive writer can add, edit, or remove any of it without changing the document ID or invalidating a signature. This applies categorically — every field of every collaboration record is advisory, not only the examples named in section 4.5.
+
+Two constructs invite particular caution because they imitate authenticated state:
+
+- **Revision history** (section 7) is an advisory version chain. Each entry's `documentId` is a recorded string that nothing verifies, and it can disagree with the document's actual history. The authenticated record of derivation is `manifest.lineage` (bound by the manifest projection); prefer it, and treat the revision list as a display convenience.
+- **`baseVersion`** in `collaboration/changes.json` is an advisory hint. Nothing binds the recorded change set, its before/after snapshots, or its anchors to the document it names, and nothing requires `baseVersion` to equal any real document ID. The only authenticated base is `manifest.lineage.parent`.
+
+To authenticate an editorial decision — an approval, an acceptance, a sign-off — place it in signed content, or bind the responsible party through a required-signer policy (security extension, Identity Authority and Signature Set Integrity).
