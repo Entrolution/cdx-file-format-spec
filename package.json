@@ -21,6 +21,7 @@
     "check:lineage": "npx tsx scripts/check-lineage.ts",
     "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
     "check:schema-closure": "npx tsx scripts/check-schema-closure.ts",
+    "check:readme-examples": "npx tsx scripts/check-readme-examples.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {

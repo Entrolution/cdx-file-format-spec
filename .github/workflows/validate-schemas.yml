@@ -95,3 +95,6 @@ jobs:
 
       - name: Check schema closure
         run: npm run check:schema-closure
+
+      - name: Check README examples
+        run: npm run check:readme-examples
