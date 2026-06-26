@@ -291,6 +291,8 @@ The `anchor` field uses a ContentAnchor object from the core Anchors and Referen
 
 Character offsets follow the computation rules defined in the Anchors and References specification.
 
+> **Reader dispositions.** A collaboration anchor lives in an out-of-hash layer, so a dangling anchor — a comment or change targeting a since-removed block, which is a legitimate state for a deletion change — is a WARNING in all states, never an INTEGRITY-ERROR on a frozen or published document (State Machine section 5.4). Likewise a missing or malformed `collaboration/*.json` is a WARNING in all states, and collaboration data stays mutable on a frozen or published document (State Machine section 3.4).
+
 ### 4.5 Suggestions
 
 ```json

@@ -101,10 +101,14 @@ Documents that have been signed and locked.
 
 **Permitted Operations:**
 - Add annotation layer (separate from content)
+- Add/edit/resolve collaboration data — comments, suggestions, replies, tracked-change acceptance (`collaboration/*.json`, outside the hashing boundary)
 - Add additional signatures
 - Add/edit/remove phantom clusters (outside hashing boundary)
+- Fill and submit forms (`forms/data.json`, outside the hashing boundary)
 - Transition to PUBLISHED
 - Fork to new DRAFT
+
+The mutable layers on a frozen document are exactly the out-of-hash layers — core annotations, collaboration data, phantom clusters, and form data — each bound by neither the document hash nor the manifest projection, so operating on them never changes the document ID or invalidates a signature. The failure dispositions for these layers are correspondingly WARNING in every state (section 5.4.2).
 
 **Prohibited Operations:**
 - Edit content
@@ -274,6 +278,8 @@ The line between INTEGRITY-ERROR and REJECT is whether the document can be meani
 
 The disposition depends on document state because state is a contract (section 2.2): `draft` and `review` documents are works in progress whose content is expected to change, so most defects are warnings; `frozen` and `published` documents assert fixed, integrity-checked content, so the same defect is an integrity failure.
 
+A second axis is **integrity-binding**. A defect in material bound to the document's identity or integrity — the content tree, a hash-pinned part (`content`, a `presentation` layer), or the Dublin Core metadata whose projection enters the document ID — escalates to INTEGRITY-ERROR on a frozen or published document, because the document asserts that material is fixed. A defect confined to an **out-of-hash layer** — core annotations, collaboration data, phantom clusters, form data, and other tier-three extension data bound by neither the document hash nor the manifest projection (see the extensions overview, Integrity Status of Extension Data) — is a WARNING in *every* state: its bytes are not part of the authenticated document, so its failure cannot signal tampering, exactly as a dangling presentation reference does not (below). This axis also separates two kinds of reference. A **core anchor reference** — a `link` mark `href` beginning `#`, an `anchor` mark, or a structured Content Anchor — is part of the document's addressing layer, so a dangling one in hashed content is an internal-consistency failure of signed content. An **extension cross-reference** — a citation, footnote, glossary, or academic/legal reference mark — is resolved at render time to inject a label, number, or definition; a dangling one degrades rendering only (the signed bytes remain intact and hash-verified) and is a WARNING in every state.
+
 | Failure class | DRAFT / REVIEW | FROZEN / PUBLISHED |
 |---------------|----------------|--------------------|
 | Archive unreadable, or an unsafe path — `..` or an escaping symlink (Container Format) | REJECT | REJECT |
@@ -290,9 +296,12 @@ The disposition depends on document state because state is a contract (section 2
 | Missing required metadata — the Dublin Core part or a required term | WARNING | INTEGRITY-ERROR |
 | Missing another referenced part (presentation, provenance, …) | WARNING | INTEGRITY-ERROR |
 | Structurally malformed block or mark of a **known** type | WARNING | INTEGRITY-ERROR |
-| Dangling anchor reference (Anchors and References section 7.2) | WARNING | INTEGRITY-ERROR |
+| Dangling **core anchor** reference in hashed content — a `link`/`anchor` Content Anchor (Anchors and References section 7.2) | WARNING | INTEGRITY-ERROR |
 | Dangling asset reference — a canonicalization error once the ID is computed (Document Hashing section 4.3.1) | WARNING | INTEGRITY-ERROR |
 | Dangling presentation reference — a `blockId` or `blockRefs` targeting a non-existent content block (Presentation Layers section 13.4) | WARNING | WARNING |
+| Dangling **extension cross-reference** resolved at render time — a citation, glossary, footnote, or academic/legal cross-reference mark whose target does not resolve | WARNING | WARNING |
+| Dangling anchor originating in an **out-of-hash annotation layer** — a collaboration comment/change anchor or a phantom cluster anchor pointing into content | WARNING | WARNING |
+| Missing or unparseable **out-of-hash extension data** part — a collaboration, phantom, or form data file, or a path-only semantic/academic side file (bibliography, glossary, numbering) | WARNING | WARNING |
 | File `hash` or document-ID mismatch (Document Hashing section 6.3) | WARNING | INTEGRITY-ERROR |
 | Asset hash mismatch (Asset Embedding section 8) | WARNING | INTEGRITY-ERROR |
 | Invalid or missing required signature on a frozen or published document (Security Extension section 3.7) | see note 1 | INTEGRITY-ERROR |

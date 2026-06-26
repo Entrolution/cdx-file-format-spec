@@ -530,6 +530,8 @@ Each line in the `lines` array:
 
 ## 9. Cross-References
 
+> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `theorem-ref`, `equation-ref`, and `algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes the authored display text carried by the text node the mark is on, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
+
 ### 9.1 theorem-ref Mark
 
 Reference a theorem-like block:

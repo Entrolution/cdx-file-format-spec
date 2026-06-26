@@ -111,6 +111,8 @@ Location: `phantoms/clusters.json`
 | `metadata` | object | No | Application-specific metadata (color, collapsed state, etc.) |
 | `phantoms` | array | Yes | Array of phantom objects within this cluster |
 
+> **Reader dispositions.** A cluster `anchor` points into content from the out-of-hash phantom layer, so a dangling cluster anchor — its target block removed — is a WARNING in all states, never an INTEGRITY-ERROR on a frozen or published document (State Machine section 5.4). This is distinct from a broken phantom-to-phantom `connection` target within a cluster, whose disposition is given in section 4.7.
+
 ### 4.3 Phantom Fields
 
 | Field | Type | Required | Description |
