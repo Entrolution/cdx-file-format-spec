@@ -439,6 +439,8 @@ Internal references use Content Anchor URI syntax (see core Anchors and Referenc
 }
 ```
 
+> **Renderer safety.** An entity `uri` and a cross-reference `target` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
+
 ## 8. Glossary
 
 ### 8.1 Term Definition

@@ -842,8 +842,8 @@
           "properties": {
             "type": { "const": "presentation:reference" },
             "target": {
-              "type": "string",
-              "description": "Content Anchor URI (internal references start with #)"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+              "description": "Content Anchor URI (internal references start with #). Constrained to safe schemes (see the Renderer Safety core specification); fragment and relative references remain permitted."
             },
             "format": {
               "type": "string",

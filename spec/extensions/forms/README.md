@@ -54,6 +54,8 @@ The `forms:form` block is a container that groups form fields together. It wraps
 | `encoding` | string | No | Form encoding type. Defaults to `"application/json"`. |
 | `children` | array | Yes | Array of form field blocks and submit buttons |
 
+> **Renderer safety.** The form `action` is constrained to safe schemes (Renderer Safety section 2.1): a `javascript:` or `data:` action carried in signed content would otherwise be a signed code-execution primitive, so it is rejected. A field's `validation.pattern` is a client-side convenience, not a trust boundary — the receiving endpoint MUST re-validate every submitted value, and a renderer MUST bound pattern evaluation against catastrophic backtracking (Renderer Safety section 4).
+
 ### 3.0b Submit Button
 
 The `forms:submit` block renders a submission button within a form.

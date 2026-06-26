@@ -217,9 +217,8 @@
               "description": "Unique form identifier"
             },
             "action": {
-              "type": "string",
-              "format": "uri",
-              "description": "Form submission URL"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+              "description": "Form submission URL. Constrained to safe schemes (see the Renderer Safety core specification): a javascript:/data: action would otherwise be a signed code-execution primitive when carried in signed content."
             },
             "method": {
               "type": "string",

@@ -15,10 +15,7 @@ interface DependentSchema {
 const standaloneSchemas: string[] = [
   'academic.schema.json',
   'anchor.schema.json',
-  'forms.schema.json',
   'legal.schema.json',
-  'presentation.schema.json',
-  'semantic.schema.json',
 ];
 
 // Schemas that reference other schemas. manifest/asset-index/provenance/
@@ -28,9 +25,14 @@ const dependentSchemas: DependentSchema[] = [
   { schema: 'annotations.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'asset-index.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'collaboration.schema.json', refs: ['anchor.schema.json'] },
-  { schema: 'content.schema.json', refs: ['semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },
+  { schema: 'content.schema.json', refs: ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },
   { schema: 'dublin-core.schema.json', refs: ['anchor.schema.json'] },
+  // forms/semantic/presentation reference anchor.schema.json#/$defs/safeUri for
+  // their author-controlled URI fields (form action, entity uri, cross-reference target).
+  { schema: 'forms.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'manifest.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'presentation.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'semantic.schema.json', refs: ['anchor.schema.json'] },
   // phantoms embeds the content block model, which dispatches across the whole
   // content + extension-schema cluster.
   { schema: 'phantoms.schema.json', refs: ['anchor.schema.json', 'content.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },

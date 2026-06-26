@@ -222,6 +222,8 @@ All phantom data is in neither the document hash nor the manifest projection (se
 - **Anchors can be re-targeted silently.** A cluster `anchor` is a Content Anchor whose optional `contentHash` (Anchors and References specification) detects when its target has changed. Because phantoms are mutable on a `frozen` or `published` document, a note can be re-anchored to a different passage — or left anchored to since-edited content — without breaking a signature. Producers SHOULD populate `contentHash`, and consumers SHOULD warn when it is absent or no longer matches.
 - **Forking MUST NOT rely on the `author` field.** The `author` field is forgeable, so the private-cluster carry-over rule (section 8) MUST determine "the forking user is the phantom author" from local or session identity, never from the in-archive `author`; a private cluster whose author cannot be authenticated MUST be stripped from the fork (fail closed).
 
+Beyond integrity, the embedded content block tree is also a *rendering* surface. A renderer MUST apply the same safe-URI allowlist and untrusted-string sanitization to phantom content — link targets, image sources, SVG, math, and style values — that it applies to primary content, and MUST NOT grant phantom or other embedded content any capability (script execution, navigation, network access) it would deny to primary content (Renderer Safety section 6).
+
 ## 6. Scope
 
 Each cluster has a scope controlling its visibility:

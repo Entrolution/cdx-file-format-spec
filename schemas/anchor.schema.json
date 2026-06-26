@@ -25,6 +25,18 @@
       "description": "Media type in lowercase 'type/subtype' form (canonical, no parameters). Shared definition; do not inline a MIME pattern elsewhere.",
       "pattern": "^[a-z]+/[a-zA-Z0-9.+-]+$"
     },
+    "safeUri": {
+      "type": "string",
+      "description": "Allowlisted navigational/link/action URI. Permits https/http (any case), mailto:, fragment (#…) and relative references (including protocol-relative //host and the empty string); every other scheme — javascript:, data:, file:, tel:, ftp:, blob:, vbscript:, ws: — is rejected. This is an authoring guardrail only; the normative boundary is the renderer sanitization rule in the Renderer Safety core specification. Shared definition; do not inline a URI-safety pattern elsewhere.",
+      "$comment": "Default-deny allowlist. The relative branch [^:/?#]* requires any ':' to be preceded by '/', '?' or '#', which is what rejects whitespace/control-character scheme smuggling (e.g. 'ja\\tvascript:') — do not 'simplify' it to .* . No trailing $ anchor is needed: a match can only begin at an allowlisted prefix, so a dangerous scheme can never appear at the start.",
+      "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]?://|[Mm][Aa][Ii][Ll][Tt][Oo]:|#|[^:/?#]*(?:[/?#]|$))"
+    },
+    "safeImageUri": {
+      "type": "string",
+      "description": "Allowlisted image-source URI. As safeUri, but ALSO permits data:image/<subtype>[;params],<payload> for legitimate inline raster images, while still rejecting data:text/html, data:application/*, and every script scheme. Any data:image subtype naming SVG (e.g. data:image/svg+xml) is excluded because inline SVG is active content. Shared definition; do not inline an image-URI-safety pattern elsewhere.",
+      "$comment": "Any image/* subtype whose name contains 'svg' is deliberately excluded from the data: branch — SVG is the one image type that can execute script. The negative lookahead spans the whole subtype (up to the first ';' or ',') so spellings like 'svg', 'x-svg+xml' or 'svg+xmlx' cannot slip through. If a future change re-admits SVG, the Renderer Safety core specification still requires it be rasterized or sandboxed first.",
+      "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]?://|[Dd][Aa][Tt][Aa]:image/(?![^,;]*[Ss][Vv][Gg])[A-Za-z0-9.+-]+(?:;[A-Za-z0-9.+=-]+)*,|[^:/?#]*(?:[/?#]|$))"
+    },
     "person": {
       "type": "object",
       "description": "Base person/agent identity. Extensions may add additional properties via allOf composition.",
