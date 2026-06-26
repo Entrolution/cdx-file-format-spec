@@ -1088,3 +1088,11 @@ Author identifiers should also be included in Dublin Core metadata (`metadata/du
 ```
 
 For richer author metadata, use the semantic extension's JSON-LD annotations to provide Schema.org `Person` objects with ORCID identifiers.
+
+## 13. Integrity Status
+
+Academic constructs span two integrity tiers (see the extensions overview, Integrity Status of Extension Data).
+
+**Author identity is advisory.** The author name carried in Dublin Core `creator` is part of the document hash, but a signature attests those bytes, not that the named person authored the work. The richer structured author data — an ORCID, an affiliation, the `creators` array of `metadata/dublin-core.json` — is excluded from the document hash altogether (Document Hashing specification, section 4.1). An ORCID, DID, or other identifier (section 12) is an advisory label: it is not authenticated by being named, and an identifier that is DID-shaped is not a signature. To establish authorship cryptographically, sign the document with a security-extension credential bound to the author (security extension, Identity Authority).
+
+**Auto-numbering is advisory.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `theorem-ref`, `equation-ref`, and `algorithm-ref`, derive from `academic/numbering.json`. The manifest references that file by path only, with no hash, so it is in neither the document hash nor the manifest projection: an archive writer can renumber a `frozen` or signed document — silently changing what each cross-reference displays — without changing the document ID or breaking a signature. Where a cross-reference number must be integrity-protected, give the referenced block an explicit `number`, carried in signed content, rather than relying on auto-numbering.

@@ -79,6 +79,24 @@ Extensions share common definitions from the core specification:
 - **ContentAnchor** (`anchor.schema.json`): Position references used by collaboration, phantoms, annotations
 - **Person** (`anchor.schema.json`): Base identity object extended by collaboration (author), security (signer), phantoms (author)
 
+## Integrity Status of Extension Data
+
+A signature does not cover the whole archive. Each extension therefore states, in an **Integrity Status** subsection, which of its constructs a signature authenticates and which it does not, so that out-of-hash data is never presented as authoritative without disclosure.
+
+Extension data falls into one of three integrity tiers:
+
+| Tier | What it holds | Authenticated by |
+|------|---------------|------------------|
+| **Document hash** | Content blocks and the projected Dublin Core terms — the document's semantic identity (Document Hashing specification, section 4.1) | Every signature (it binds the document ID) |
+| **Manifest projection** | Lifecycle state, the content and presentation part hashes, the extension declarations, lineage, and the configuration of an extension declared `required: true` — but **not** the configuration of a `required: false` extension (security extension, Manifest Projection) | A signature carrying `scope.manifest` (mandatory for `frozen`/`published` documents) |
+| **Neither** | A side file the manifest references by path only (no hash), a non-required extension's configuration, and annotation, collaboration, phantom, and form-data bytes | Nothing — see below |
+
+**Tier-three data is advisory.** Data in neither domain is outside every signature and outside the document ID: it can be added, edited, or removed without changing the document ID or invalidating any signature, **even on a `frozen` or `published` document**. A verifier MUST NOT present such data as authenticated, tamper-evident, or non-repudiable.
+
+**Identity and approval claims are advisory even when they are in the hash.** A signature attests the *bytes* of a content block, not the truth of an identity, authorship, signature, or approval claim those bytes carry. An author name, an ORCID, a notary or judge named in content, a "signature" captured as form data, or an `accepted`/`approved` status is **not** authenticated by a signature over the bytes that spell it (security extension, Identity Authority). To authenticate such a claim, place it in **signed content** bound to a credential, declare the carrying extension `required: true` so its configuration enters the manifest projection, or bind the responsible party through a **required-signer policy** (security extension, Signature Set Integrity).
+
+Each extension's **Integrity Status** subsection applies this discipline to its own constructs. Those statements are **categorical**: where a side file or construct is named as advisory, *every* field it carries is advisory — the fields called out are examples, not a closed list.
+
 ## Implementation Guidance
 
 When implementing CDX support, consider the following priority order:

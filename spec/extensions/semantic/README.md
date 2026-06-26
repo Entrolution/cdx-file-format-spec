@@ -564,3 +564,13 @@ With JSON-LD:
   ]
 }
 ```
+
+## 11. Integrity Status
+
+The semantic extension stores some constructs in the document and others in side files; only the former are covered by the document hash (see the extensions overview, Integrity Status of Extension Data).
+
+**In the document hash.** A block-level `semantic` annotation (the JSON-LD object carried on a content block, section 3.2), the citation, footnote, glossary, entity, and reference marks, and the `semantic:*` blocks are part of the content tree, so their bytes are bound by the document ID.
+
+**Outside the document hash — advisory.** The bibliography (`semantic/bibliography.json`), the glossary (`semantic/glossary.json`), and the document-level JSON-LD (`metadata/jsonld.json`) are referenced by path only, with no hash, and the metadata projection keeps only the five Dublin Core terms — so none of these files is in the document hash or the manifest projection. Every entry they carry — a citation's author, year, title, and DOI; a term's definition; a JSON-LD author, ORCID, publisher, or citation edge — is advisory and stays mutable on a `frozen` or `published` document. An archive writer can rewrite a definition or a machine-readable authorship claim, and every signature still verifies with the document ID unchanged.
+
+**Reference resolution is unauthenticated.** A citation `refs`, a glossary `ref`, a `semantic:term` `see`, and an entity `uri` are recorded as authored — they are not relabeled into the canonical id namespace (Document Hashing specification, section 4.3), and the specification defines no dangling-reference disposition for them (unlike a Content Anchor `#id` reference). The in-document reference is therefore stable and signed, but the text it resolves to lives in an out-of-hash side file, so a single unchanged, signed reference can render a forged citation or definition. A consumer MUST NOT treat a rendered citation, definition, or entity claim as authenticated, and SHOULD prefer in-content data where the value is integrity-significant.
