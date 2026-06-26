@@ -478,7 +478,7 @@ For viewers that don't support forms:
       "name": "email",
       "label": "Email",
       "required": true,
-      "validation": { "type": "email" }
+      "validation": { "email": true }
     },
     {
       "type": "forms:textArea",

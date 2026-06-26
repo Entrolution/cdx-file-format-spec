@@ -418,6 +418,7 @@ When `scope` is specified, only the listed block types receive line numbers. If 
 {
   "type": "image",
   "src": "assets/images/figure1.avif",
+  "alt": "Figure 1",
   "float": {
     "position": "top",
     "span": "column",
@@ -439,7 +440,7 @@ The `numberingConfig` field provides extended numbering configuration beyond the
 {
   "type": "figure",
   "children": [
-    { "type": "image", "src": "..." },
+    { "type": "image", "src": "assets/images/architecture.avif", "alt": "System architecture" },
     {
       "type": "figcaption",
       "children": [{ "type": "text", "value": "Figure 1: System architecture" }]
@@ -545,6 +546,7 @@ In content:
 
 In content:
 
+<!-- cdx-validate: skip (illustrative; the presentation footnote mark form documented above is not yet reconciled with the core footnote mark schema) -->
 ```json
 {
   "type": "text",
