@@ -4,6 +4,21 @@
   "title": "CDX Collaboration Extension",
   "description": "Schema for collaboration extension files in a CDX document",
   "$defs": {
+    "manifestConfig": {
+      "type": "object",
+      "description": "Shape of the manifest's `collaboration` configuration slot: paths to the collaboration part files. (Presence and synchronization metadata are transport-layer and not carried here — see the extension README, section 3.7.)",
+      "properties": {
+        "comments": {
+          "type": "string",
+          "description": "Path to the comments file (e.g. 'collaboration/comments.json')"
+        },
+        "changes": {
+          "type": "string",
+          "description": "Path to the change-tracking file (e.g. 'collaboration/changes.json')"
+        }
+      },
+      "additionalProperties": false
+    },
     "crdtFormat": {
       "type": "string",
       "description": "CRDT library format for interoperability",
