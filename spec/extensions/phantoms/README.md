@@ -98,6 +98,8 @@ Location: `phantoms/clusters.json`
 }
 ```
 
+The `version` field follows the extension version contract in the CDX Extensions overview (Versioning): a higher minor is processed with unrecognized fields ignored; a higher major — or a reader with no phantom support at all — follows the manifest `required` flag, so for a `required: false` phantom layer the reader ignores `phantoms/clusters.json` and the manifest's phantom layer reference and renders the rest of the document; and because the phantom data is outside the document hash, a version mismatch degrades rendering (a WARNING), never an integrity error.
+
 ### 4.2 Cluster Fields
 
 | Field | Type | Required | Description |

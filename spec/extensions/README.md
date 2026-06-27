@@ -121,12 +121,22 @@ When implementing CDX support, consider the following priority order:
 
 ## Versioning
 
-- Each extension specifies its version in the manifest declaration
-- Data files include a `version` field matching the extension version
-- Version changes follow semantic versioning principles:
-  - Patch: Bug fixes, clarifications
-  - Minor: New optional features, backward-compatible
-  - Major: Breaking changes
+Each extension carries a `version` in two places: its manifest declaration (`extensions[].version`, see Extension Declaration above) and a `version` field inside each of its data files. Both use `MAJOR.MINOR` and follow semantic versioning:
+
+- Patch: Bug fixes, clarifications
+- Minor: New optional features, backward-compatible
+- Major: Breaking changes
+
+### Reader behavior on version skew
+
+Core version rules govern only the `cdx` document version (Manifest section 4.1). Each extension version follows the same MAJOR/MINOR discipline, applied per extension:
+
+- **Higher minor, same major** (the reader supports the major version): the reader MUST NOT reject the extension. It SHOULD process the fields and constructs it recognizes and ignore unrecognized additions — a warning disposition (State Machine section 5.4), never an error.
+- **Higher major, or an extension the reader does not support at all**: the reader treats the extension as unsupported, and the consequence follows the manifest `required` flag. An unsupported `required: true` extension means the reader MUST refuse to process the document; an unsupported `required: false` extension is ignored — the reader drops that extension's data and renders the rest, degrading gracefully. These are the existing unsupported-required and unsupported-optional rows of State Machine section 5.4; a version the reader cannot process is never, by itself, an integrity failure.
+
+**Out-of-hash version skew is never an integrity error.** An extension's data files, and the `config` object of any extension not declared `required: true`, are outside the document hash and the manifest projection (Integrity Status of Extension Data above). A version carried in that out-of-hash data degrades rendering at most: a missing or unparseable out-of-hash data part is a WARNING in all states (State Machine section 5.4), and a version the reader cannot process MUST NOT be reported as an INTEGRITY-ERROR.
+
+**Manifest declaration vs data-file version.** The `{id, version, required}` an extension declares in the manifest is bound by the manifest projection for every extension, so on a `frozen` or `published` document it is authenticated; a data file's own `version`, by contrast, is out-of-hash tier-three data. The data-file `version` SHOULD equal the manifest declaration. A reader that finds the two inconsistent applies the skew rules above (using the higher of the two to decide minor/major handling) and SHOULD surface the inconsistency, but MUST NOT escalate it to an integrity failure: the discrepancy can only be observed by reading the unauthenticated data file, so it cannot signal tampering and degrades rendering at most.
 
 **Note:** Most extensions are at version 0.1 (initial draft). The Collaboration extension is at version 0.2 because it underwent breaking changes to its comment threading model during development. This version difference is intentional and reflects actual specification maturity.
 

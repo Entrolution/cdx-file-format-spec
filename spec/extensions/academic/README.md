@@ -671,6 +671,8 @@ Location: `academic/numbering.json`
 }
 ```
 
+The `version` field follows the extension version contract in the CDX Extensions overview (Versioning): a higher minor is processed with unrecognized fields ignored; a higher major — or a reader without academic support — follows the manifest `required` flag; and because `academic/numbering.json` is outside the document hash, a version mismatch degrades rendering (a WARNING), never an integrity error.
+
 ### 10.1 Numbering Styles
 
 | Style | Example | Description |
