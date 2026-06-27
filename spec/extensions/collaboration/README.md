@@ -217,6 +217,8 @@ Location: `collaboration/comments.json`
 }
 ```
 
+The `version` field follows the extension version contract in the CDX Extensions overview (Versioning): a higher minor is processed with unrecognized fields ignored; a higher major — or a reader without collaboration support — follows the manifest `required` flag; and because the collaboration data files are outside the document hash, a version mismatch degrades rendering (a WARNING), never an integrity error.
+
 ### 4.3 Comment Fields
 
 | Field | Type | Required | Description |

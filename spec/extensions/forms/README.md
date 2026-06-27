@@ -400,6 +400,8 @@ Form values are stored in `forms/data.json`:
 }
 ```
 
+The `version` field follows the extension version contract in the CDX Extensions overview (Versioning): a higher minor is processed with unrecognized fields ignored; a higher major — or a reader without forms support — follows the manifest `required` flag; and because `forms/data.json` is outside the document hash, a version mismatch degrades rendering (a WARNING), never an integrity error.
+
 ### 5.2 Submission
 
 ```json
