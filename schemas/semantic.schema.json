@@ -88,8 +88,7 @@
         },
         "entityType": {
           "type": "string",
-          "description": "Schema.org type of the entity",
-          "enum": ["Person", "Organization", "Place", "Event", "Product", "CreativeWork"]
+          "description": "Schema.org type of the entity (open vocabulary; the Semantic Extension README lists recommended values). An unrecognized value is preserved, not rejected."
         },
         "source": {
           "type": "string",

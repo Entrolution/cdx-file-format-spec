@@ -114,7 +114,7 @@ Documents using CRDT-based collaboration MUST declare the CRDT format in their c
 | `crdtFormat` | string | Yes | CRDT implementation identifier |
 | `crdtVersion` | string | No | Version of the CRDT library used |
 
-**Recognized `crdtFormat` values:**
+`crdtFormat` accepts any string as an open vocabulary. The following values are RECOMMENDED:
 
 | Value | Description |
 |-------|-------------|
@@ -122,7 +122,7 @@ Documents using CRDT-based collaboration MUST declare the CRDT format in their c
 | `automerge` | [Automerge](https://automerge.org/) JSON CRDT |
 | `diamond-types` | [Diamond Types](https://github.com/josephg/diamond-types) text CRDT |
 
-Implementations MAY define additional `crdtFormat` values for other CRDT libraries. Unrecognized values SHOULD be treated as opaque—implementations that do not support the format can still read static content but cannot participate in CRDT synchronization.
+Implementations MAY use additional `crdtFormat` values for other CRDT libraries. An unrecognized value SHOULD be treated as opaque—an implementation that does not support the format can still read static content but cannot participate in CRDT synchronization.
 
 ### 3.7 Synchronization Metadata
 

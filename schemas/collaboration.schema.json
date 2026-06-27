@@ -21,8 +21,7 @@
     },
     "crdtFormat": {
       "type": "string",
-      "description": "CRDT library format for interoperability",
-      "enum": ["yjs", "automerge", "diamond-types", "custom"]
+      "description": "CRDT library format for interoperability (open vocabulary; the Collaboration Extension README lists recognized formats). An unrecognized value is treated as opaque, not rejected."
     },
     "author": {
       "description": "Comment/change author information extending base person",
