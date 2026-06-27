@@ -28,6 +28,8 @@ The Legal Extension provides specialized blocks and marks for legal documents, i
 
 A document-level default citation style MAY be set in the manifest's `legal` configuration object as `citationStyle` (e.g. `bluebook`); individual citations MAY override it. Where the `legal` configuration carries operative values — a `jurisdiction` or governing-law selection — the document SHOULD declare the extension `required: true`, so that configuration is bound by the manifest projection (see section 9).
 
+The legal structure blocks (`legal:caption`, `legal:signatureBlock`, `legal:tableOfAuthorities`) carry no fallback rendering, so a reader that does not support the extension IGNOREs them as unknown namespaced blocks (Content Blocks specification, section 5; State Machine specification, section 5.4) — silently dropping the court caption, signatories, or table of authorities. A document whose legal meaning depends on these blocks (a filing, a brief, an executed agreement) MUST therefore declare `cdx.legal` `required: true`, so a non-supporting reader fails closed rather than presenting a document with its operative legal structure removed. The `required: false` form above is for documents that merely *cite* legal authorities and degrade acceptably without the extension.
+
 ## 3. Legal Citation Mark
 
 The `legal:cite` mark annotates text with legal citation information for automatic Table of Authorities generation.

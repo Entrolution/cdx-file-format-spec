@@ -126,19 +126,15 @@ Implementations MAY define additional `crdtFormat` values for other CRDT librari
 
 ### 3.7 Synchronization Metadata
 
-Documents can include sync metadata for tracking collaboration state:
+Implementations can track live collaboration state with sync metadata. This is runtime state exchanged between peers, not an archived object (see the note below); `crdtFormat`/`crdtVersion` are declared separately, in the collaboration files (section 3.6):
 
 ```json
 {
-  "collaboration": {
-    "crdtFormat": "yjs",
-    "crdtVersion": "13.6",
-    "syncVersion": 1234,
-    "lastSync": "2025-01-15T10:00:00Z",
-    "peers": [
-      { "id": "peer1", "lastSeen": "2025-01-15T09:55:00Z" }
-    ]
-  }
+  "syncVersion": 1234,
+  "lastSync": "2025-01-15T10:00:00Z",
+  "peers": [
+    { "id": "peer1", "lastSeen": "2025-01-15T09:55:00Z" }
+  ]
 }
 ```
 
@@ -147,6 +143,8 @@ Documents can include sync metadata for tracking collaboration state:
 | `syncVersion` | integer | No | Logical clock or sequence number for sync state |
 | `lastSync` | string | No | ISO 8601 timestamp of last synchronization |
 | `peers` | array | No | Known collaboration peers |
+
+> **Informative — not archived.** The synchronization metadata here (`syncVersion`, `lastSync`, `peers`) is live, transport-layer session state. This specification defines no schema, no part file, and no archive location for it: implementations exchange it out-of-band over their collaboration transport, and a conformant CDX archive is not expected to contain it. The *archived* CRDT state is the per-node `crdt` field on content blocks (Content Blocks specification); the `crdtFormat`/`crdtVersion` declaration (section 3.6) is carried in the collaboration file(s) — `collaboration/comments.json` or `collaboration/changes.json`.
 
 ### 3.8 Document Materialization
 
@@ -431,7 +429,7 @@ For real-time collaboration, track user presence:
 
 ### 6.2 Presence Data
 
-This is typically ephemeral (not stored in document), but can be synchronized:
+This is live, transport-layer session state, exchanged out-of-band over the collaboration transport. This specification defines no schema, part file, or archive location for it, and a conformant CDX archive does not carry presence data; the shape below is informative, describing what implementations typically synchronize at runtime:
 
 ```json
 {
@@ -451,6 +449,8 @@ This is typically ephemeral (not stored in document), but can be synchronized:
 ## 7. Revision History
 
 ### 7.1 Overview
+
+> **Informative — the authoritative version chain is core lineage.** This revision list is a convenience view, not an integrity record: it is unschematized, may be carried out-of-band, and (like all collaboration data) is forgeable. The authenticated source of version history is the document's lineage chain — `manifest.lineage` and the provenance record (Provenance and Lineage specification). A consumer MUST treat a revision `documentId` as authoritative only when it resolves against that chain, and SHOULD reconcile any persisted revision list against it rather than trusting it directly.
 
 Track document evolution over time:
 

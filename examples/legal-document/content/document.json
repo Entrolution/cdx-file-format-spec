@@ -10,7 +10,8 @@
         "plaintiff": "Jane Doe",
         "defendant": "Acme Corporation"
       },
-      "docket": "Hon. Sarah Johnson"
+      "judge": "Hon. Sarah Johnson",
+      "docket": "Civil Action, Complex Litigation Division"
     },
     {
       "type": "heading",
