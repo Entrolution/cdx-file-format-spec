@@ -66,7 +66,7 @@ The `legal:cite` mark annotates text with legal citation information for automat
 
 ### 3.3 Citation Categories
 
-Standard categories for Table of Authorities grouping:
+`citationCategory` accepts any string as an open vocabulary. The following categories are RECOMMENDED for Table of Authorities grouping; implementations MAY use additional categories for jurisdictions or authority types not covered here:
 
 | Category | Description |
 |----------|-------------|
@@ -77,6 +77,8 @@ Standard categories for Table of Authorities grouping:
 | `treatises` | Legal treatises and books |
 | `law-reviews` | Law review articles |
 | `other` | Other secondary sources |
+
+An unrecognized category is preserved and grouped under its own heading, not rejected.
 
 ### 3.4 Pinpoint Citations
 
@@ -152,7 +154,7 @@ The `legal:tableOfAuthorities` block generates an auto-indexed table of all cite
 
 ## 5. Citation Formats
 
-The Legal Extension supports common legal citation styles:
+The Legal Extension supports common legal citation styles. The `format` field (and the manifest-level `citationStyle` default) accept any string as an open vocabulary; the styles below are RECOMMENDED, and an unrecognized style degrades gracefully (see the Reader dispositions note below) rather than being rejected:
 
 > **Reader dispositions.** The cross-element relationships in this extension are resolved at render time, so their failures are rendering-degradation WARNINGs in all states, never integrity failures (State Machine section 5.4): a `legal:cite` whose `category` matches no Table of Authorities category, a Table of Authorities category with no citing `legal:cite`, and a `format` (or a default `citationStyle`) naming an unimplemented style all degrade gracefully — the reader renders the raw `citation` text and SHOULD surface the unresolved relationship, and MUST NOT invent a category or fail the document.
 

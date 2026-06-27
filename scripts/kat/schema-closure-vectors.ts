@@ -850,6 +850,13 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'collaboration.schema.json',
+    ref: '#/$defs/crdtFormat',
+    description: 'crdtFormat is an open vocabulary (a non-enumerated CRDT library accepted); a non-string is rejected',
+    validInstance: 'loro',
+    invalidInstance: 42,
+  },
+  {
+    schema: 'collaboration.schema.json',
     ref: '#/$defs/comment',
     description: 'comment (unevaluatedProperties teeth over open baseComment)',
     validInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi' },
@@ -1246,6 +1253,20 @@ export const closureVectors: ClosureVector[] = [
     invalidInstance: { type: 'legal:cite', citation: 'Roe v. Wade', category: 'cases', bogus: 1 },
   },
   {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/citationCategory',
+    description: 'citationCategory is an open vocabulary (a non-enumerated category accepted); a non-string is rejected',
+    validInstance: 'foreign-statutes',
+    invalidInstance: 42,
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/citationFormat',
+    description: 'citationFormat is an open vocabulary (a non-enumerated style accepted); a non-string is rejected',
+    validInstance: 'aglc',
+    invalidInstance: 42,
+  },
+  {
     schema: 'forms.schema.json',
     ref: '#/$defs/validation',
     description: 'forms validation closed',
@@ -1272,6 +1293,13 @@ export const closureVectors: ClosureVector[] = [
     description: 'semantic entityMark closed',
     validInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q1' },
     invalidInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q1', bogus: 1 },
+  },
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/entityMark',
+    description: 'entityType is an open vocabulary (a non-enumerated Schema.org/custom type accepted); a non-string is rejected',
+    validInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q5', entityType: 'Movie' },
+    invalidInstance: { type: 'entity', uri: 'https://www.wikidata.org/wiki/Q5', entityType: 42 },
   },
   {
     schema: 'semantic.schema.json',

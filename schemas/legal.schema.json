@@ -6,13 +6,11 @@
   "$defs": {
     "citationCategory": {
       "type": "string",
-      "description": "Category for Table of Authorities grouping",
-      "enum": ["cases", "statutes", "regulations", "constitutions", "treatises", "law-reviews", "other"]
+      "description": "Category for Table of Authorities grouping (open vocabulary; the Legal Extension README lists recommended categories). An unrecognized category is preserved, not rejected."
     },
     "citationFormat": {
       "type": "string",
-      "description": "Legal citation style",
-      "enum": ["bluebook", "alwd", "mcgill", "oscola"]
+      "description": "Legal citation style (open vocabulary; the Legal Extension README lists recommended styles). An unrecognized style is treated as advisory and degrades gracefully, not rejected."
     },
     "legalCiteMark": {
       "type": "object",

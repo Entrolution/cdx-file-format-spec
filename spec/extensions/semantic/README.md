@@ -343,13 +343,15 @@ Implementations MUST support either `children` (rich content) or `content` (plai
 
 ### 5.2 Entity Types
 
-Based on Schema.org types:
+`entityType` accepts any [Schema.org](https://schema.org/) type as an open vocabulary. The following values are commonly used and RECOMMENDED:
 - `Person`
 - `Organization`
 - `Place`
 - `Event`
 - `Product`
 - `CreativeWork`
+
+Implementations MAY use any other Schema.org type or custom type string. An unrecognized value is preserved and treated as opaque, not rejected (in keeping with the open-world principle in Content Blocks section 5.1).
 
 ## 6. Structured Data
 

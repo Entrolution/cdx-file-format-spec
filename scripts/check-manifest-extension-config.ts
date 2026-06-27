@@ -6,7 +6,7 @@
  * The manifest leaves each extension's config slot (`legal`, `academic`,
  * `semantic`, …) an open `{type: object}` BY DESIGN, so the core manifest schema
  * carries no dependency on extension schemas. The cost of that decoupling is that
- * a malformed config — an out-of-enum citation style, a misspelled key — passes
+ * a malformed config — a wrong-typed value, a misspelled key — passes
  * the manifest schema unchecked. This gate closes that gap WITHOUT coupling the
  * core schema to the extensions: it validates every example manifest's MAPPED
  * extension config slot against that extension's config schema, and pins a set of
@@ -57,12 +57,12 @@ interface ConfigVector {
   valid: boolean;
 }
 
-// Teeth: a well-formed config MUST validate; a malformed one (out-of-enum value
+// Teeth: a well-formed config MUST validate; a malformed one (a wrong-typed value
 // or an unknown key, against the additionalProperties:false config roots) MUST be
 // rejected. These are the negative half the corpus cannot give.
 const configVectors: ConfigVector[] = [
   { slot: 'legal', description: 'valid citationStyle + jurisdiction', config: { citationStyle: 'bluebook', jurisdiction: 'US' }, valid: true },
-  { slot: 'legal', description: 'out-of-enum citationStyle rejected', config: { citationStyle: 'not-a-style' }, valid: false },
+  { slot: 'legal', description: 'wrong-type citationStyle rejected', config: { citationStyle: 123 }, valid: false },
   { slot: 'legal', description: 'unknown key rejected', config: { citationStyle: 'bluebook', bogus: 1 }, valid: false },
   { slot: 'legal', description: 'wrong-type jurisdiction rejected', config: { jurisdiction: 123 }, valid: false },
   { slot: 'academic', description: 'valid numbering path', config: { numbering: 'academic/numbering.json' }, valid: true },
