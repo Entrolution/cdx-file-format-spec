@@ -836,6 +836,13 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'collaboration.schema.json',
+    ref: '#/$defs/manifestConfig',
+    description: 'manifestConfig (comments/changes paths) closed',
+    validInstance: { comments: 'collaboration/comments.json', changes: 'collaboration/changes.json' },
+    invalidInstance: { comments: 'collaboration/comments.json', bogus: 1 },
+  },
+  {
+    schema: 'collaboration.schema.json',
     ref: '#/$defs/changesFile',
     description: 'changesFile',
     validInstance: { version: '0.2', changes: [] },

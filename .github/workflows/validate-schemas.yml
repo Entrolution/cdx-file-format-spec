@@ -98,3 +98,6 @@ jobs:
 
       - name: Check README examples
         run: npm run check:readme-examples
+
+      - name: Check manifest extension config
+        run: npm run check:manifest-extension-config
