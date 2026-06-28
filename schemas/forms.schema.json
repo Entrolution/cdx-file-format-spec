@@ -4,25 +4,6 @@
   "title": "CDX Forms Extension",
   "description": "Schema for forms extension blocks and data files in a CDX document",
   "$defs": {
-    "validatorType": {
-      "type": "string",
-      "description": "Built-in validator types",
-      "enum": [
-        "required",
-        "minLength",
-        "maxLength",
-        "min",
-        "max",
-        "pattern",
-        "email",
-        "url",
-        "containsUppercase",
-        "containsLowercase",
-        "containsDigit",
-        "containsSpecial",
-        "matchesField"
-      ]
-    },
     "validation": {
       "type": "object",
       "description": "Validation rules for a form field",
@@ -109,12 +90,12 @@
               "description": "Condition is true when field does not equal this value"
             },
             "isEmpty": {
-              "type": "boolean",
-              "description": "Condition is true when field is empty"
+              "const": true,
+              "description": "Condition is true when field is empty (set to true)"
             },
             "isNotEmpty": {
-              "type": "boolean",
-              "description": "Condition is true when field is not empty"
+              "const": true,
+              "description": "Condition is true when field is not empty (set to true)"
             }
           },
           "additionalProperties": false

@@ -39,6 +39,7 @@ export const CLOSED_SCHEMAS: string[] = [
   'academic.schema.json',
   'legal.schema.json',
   'forms.schema.json',
+  'phantoms.schema.json',
 ];
 
 // A syntactically valid algorithm-prefixed digest for hash-typed fields.
@@ -1541,5 +1542,47 @@ export const closureVectors: ClosureVector[] = [
     description: 'semantic:ref external target (external true) is a safe URI (https accepted, javascript rejected)',
     validInstance: { type: 'semantic:ref', target: 'https://example.com/spec', external: true },
     invalidInstance: { type: 'semantic:ref', target: 'javascript:alert(1)', external: true },
+  },
+
+  // --- schema closure hygiene ----------------------------------------------
+  // Conditional-validation sentinels are pinned to true (the false form has no
+  // defined meaning).
+  {
+    schema: 'forms.schema.json',
+    ref: '#/$defs/conditionalValidation/properties/when',
+    description: 'when.isEmpty/isNotEmpty are sentinel true (false rejected)',
+    validInstance: { field: 'pw', isEmpty: true },
+    invalidInstance: { field: 'pw', isEmpty: false },
+  },
+  // The clusters.json file root is closed (unknown top-level keys rejected).
+  {
+    schema: 'phantoms.schema.json',
+    description: 'phantoms file root closed',
+    validInstance: { version: '1.0', clusters: [] },
+    invalidInstance: { version: '1.0', clusters: [], bogus: 1 },
+  },
+  // An equation line carries a number or a tag, not both.
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'equation line number xor tag (both rejected)',
+    validInstance: { type: 'academic:equation-group', lines: [{ value: 'x', number: '1' }] },
+    invalidInstance: { type: 'academic:equation-group', lines: [{ value: 'x', number: '1', tag: '*' }] },
+  },
+  // replies/resolved are comment+suggestion fields only — a highlight/reaction
+  // cannot carry them; a comment can.
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/highlight',
+    description: 'highlight rejects resolved (comment/suggestion-only field)',
+    validInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', color: '#ffeb3b' },
+    invalidInstance: { id: 'h1', type: 'highlight', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', color: '#ffeb3b', resolved: true },
+  },
+  {
+    schema: 'collaboration.schema.json',
+    ref: '#/$defs/comment',
+    description: 'comment accepts resolved + replies; stays closed',
+    validInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi', resolved: true, replies: [] },
+    invalidInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi', bogus: 1 },
   },
 ];

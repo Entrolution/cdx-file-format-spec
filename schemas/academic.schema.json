@@ -317,7 +317,11 @@
           "pattern": "^[A-Za-z0-9._-]+$"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "required": ["number", "tag"],
+        "$comment": "A line carries a number or a tag, not both."
+      }
     },
     "equationGroupBlock": {
       "allOf": [
