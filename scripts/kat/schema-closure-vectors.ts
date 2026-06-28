@@ -1262,9 +1262,30 @@ export const closureVectors: ClosureVector[] = [
   {
     schema: 'legal.schema.json',
     ref: '#/$defs/legalCiteMark',
-    description: 'legal legalCiteMark closed',
-    validInstance: { type: 'legal:cite', citation: 'Roe v. Wade', category: 'cases' },
-    invalidInstance: { type: 'legal:cite', citation: 'Roe v. Wade', category: 'cases', bogus: 1 },
+    description: 'legalCiteMark reporter form (parties/volume/reporter/page) valid + closed',
+    validInstance: { type: 'legal:cite', category: 'cases', form: 'reporter', parties: 'Celotex Corp. v. Catrett', volume: '477', reporter: 'U.S.', page: '317', year: '1986', shortForm: 'Celotex' },
+    invalidInstance: { type: 'legal:cite', category: 'cases', form: 'reporter', volume: '477', reporter: 'U.S.', page: '317', bogus: 1 },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/legalCiteMark',
+    description: 'legalCiteMark reporter form requires volume/reporter/page (oneOf teeth)',
+    validInstance: { type: 'legal:cite', category: 'cases', form: 'reporter', volume: '477', reporter: 'U.S.', page: '317' },
+    invalidInstance: { type: 'legal:cite', category: 'cases', form: 'reporter', volume: '477', reporter: 'U.S.' },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/legalCiteMark',
+    description: 'legalCiteMark code form (title/code/section) valid; missing section rejected',
+    validInstance: { type: 'legal:cite', category: 'statutes', form: 'code', title: '42', code: 'U.S.C.', section: '2000e', suffix: 'et seq.' },
+    invalidInstance: { type: 'legal:cite', category: 'statutes', form: 'code', title: '42', code: 'U.S.C.' },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/legalCiteMark',
+    description: 'legalCiteMark other form (verbatim text) valid; missing text rejected',
+    validInstance: { type: 'legal:cite', category: 'treatises', form: 'other', text: 'Restatement (Second) of Torts § 402A' },
+    invalidInstance: { type: 'legal:cite', category: 'treatises', form: 'other' },
   },
   {
     schema: 'legal.schema.json',

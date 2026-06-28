@@ -14,26 +14,75 @@
     },
     "legalCiteMark": {
       "type": "object",
-      "description": "Legal citation mark for Table of Authorities generation",
-      "required": ["type", "citation", "category"],
+      "description": "Legal citation mark with structured fields for deterministic rendering and Table of Authorities generation",
+      "required": ["type", "category", "form"],
       "properties": {
         "type": { "const": "legal:cite" },
-        "citation": {
-          "type": "string",
-          "description": "Full citation string"
-        },
         "category": { "$ref": "#/$defs/citationCategory" },
-        "shortForm": {
+        "form": {
+          "enum": ["reporter", "code", "other"],
+          "description": "Citation structure: 'reporter' for cases (volume/reporter/page), 'code' for statutes and regulations (title/code/section), 'other' for a verbatim citation that is neither"
+        },
+        "parties": {
           "type": "string",
-          "description": "Short form for subsequent references"
+          "description": "Case name (reporter form), e.g. 'Celotex Corp. v. Catrett'"
+        },
+        "volume": {
+          "type": "string",
+          "description": "Volume number (reporter form)"
+        },
+        "reporter": {
+          "type": "string",
+          "description": "Reporter abbreviation (reporter form), e.g. 'U.S.', 'F.3d'"
+        },
+        "page": {
+          "type": "string",
+          "description": "First page (reporter form)"
+        },
+        "court": {
+          "type": "string",
+          "description": "Court (reporter form), e.g. '9th Cir.'"
+        },
+        "year": {
+          "type": "string",
+          "description": "Year (reporter form)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title number (code form), e.g. '42'"
+        },
+        "code": {
+          "type": "string",
+          "description": "Code abbreviation (code form), e.g. 'U.S.C.', 'C.F.R.'"
+        },
+        "section": {
+          "type": "string",
+          "description": "Section (code form), e.g. '2000e'"
+        },
+        "suffix": {
+          "type": "string",
+          "description": "Trailing text (code form), e.g. 'et seq.'"
+        },
+        "text": {
+          "type": "string",
+          "description": "Verbatim citation text (other form), for an authority that is neither a reporter citation nor a code citation"
         },
         "pinpoint": {
           "type": "string",
-          "description": "Specific page, paragraph, or section reference"
+          "description": "Pinpoint locator within the source (a page or section), e.g. '323'"
+        },
+        "shortForm": {
+          "type": "string",
+          "description": "Short form for subsequent references, e.g. 'Celotex'"
         },
         "format": { "$ref": "#/$defs/citationFormat" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        { "properties": { "form": { "const": "reporter" } }, "required": ["volume", "reporter", "page"] },
+        { "properties": { "form": { "const": "code" } }, "required": ["title", "code", "section"] },
+        { "properties": { "form": { "const": "other" } }, "required": ["text"] }
+      ]
     },
     "toaCategoryConfig": {
       "type": "object",

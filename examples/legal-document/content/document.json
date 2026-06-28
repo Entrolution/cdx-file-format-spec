@@ -52,8 +52,12 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "42 U.S.C. \u00a7 2000e et seq.",
-              "category": "statutes"
+              "category": "statutes",
+              "form": "code",
+              "title": "42",
+              "code": "U.S.C.",
+              "section": "2000e",
+              "suffix": "et seq."
             }
           ]
         },
@@ -102,8 +106,13 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "477 U.S. 317 (1986)",
               "category": "cases",
+              "form": "reporter",
+              "parties": "Celotex Corp. v. Catrett",
+              "volume": "477",
+              "reporter": "U.S.",
+              "page": "317",
+              "year": "1986",
               "shortForm": "Celotex"
             }
           ]
@@ -115,10 +124,15 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "477 U.S. 317 (1986)",
               "category": "cases",
-              "shortForm": "Celotex",
-              "pinpoint": "at 323"
+              "form": "reporter",
+              "parties": "Celotex Corp. v. Catrett",
+              "volume": "477",
+              "reporter": "U.S.",
+              "page": "317",
+              "year": "1986",
+              "pinpoint": "323",
+              "shortForm": "Celotex"
             }
           ]
         },
@@ -144,8 +158,13 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "411 U.S. 792 (1973)",
               "category": "cases",
+              "form": "reporter",
+              "parties": "McDonnell Douglas Corp. v. Green",
+              "volume": "411",
+              "reporter": "U.S.",
+              "page": "792",
+              "year": "1973",
               "shortForm": "McDonnell Douglas"
             }
           ]
@@ -164,8 +183,15 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "225 F.3d 1115, 1123 (9th Cir. 2000)",
               "category": "cases",
+              "form": "reporter",
+              "parties": "Chuang v. Univ. of Cal. Davis",
+              "volume": "225",
+              "reporter": "F.3d",
+              "page": "1115",
+              "court": "9th Cir.",
+              "year": "2000",
+              "pinpoint": "1123",
               "shortForm": "Chuang"
             }
           ]
@@ -177,8 +203,11 @@
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "29 C.F.R. \u00a7 1602.14",
-              "category": "regulations"
+              "category": "regulations",
+              "form": "code",
+              "title": "29",
+              "code": "C.F.R.",
+              "section": "1602.14"
             }
           ]
         },
