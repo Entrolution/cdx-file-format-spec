@@ -30,9 +30,13 @@ The Forms Extension enables interactive form fields within documents:
 
 ## 3. Form Block Types
 
+Every form block also carries the standard block `id` (and `attributes`) defined by the core content model. A block's `id` is its identifier in the document-wide anchor namespace (so a field can be a cross-reference target); it is distinct from a field's `name`, which is the key under which the field's value is stored in the form data (section 5). The field tables below omit `id` because it is shared by all blocks.
+
+The `placeholder` field is meaningful only for the text-bearing inputs `forms:textInput` and `forms:textArea`. On other field types it has no defined rendering and SHOULD be omitted.
+
 ### 3.0a Form Container
 
-The `forms:form` block is a container that groups form fields together. It wraps child form field blocks and provides submission configuration.
+The `forms:form` block is a container that groups form fields together and provides submission configuration. Its `children` are content blocks: typically form field blocks and submit buttons, but any content block is permitted — for example, headings or paragraphs that structure the form.
 
 ```json
 {
@@ -52,7 +56,7 @@ The `forms:form` block is a container that groups form fields together. It wraps
 | `action` | string (URI) | No | Form submission endpoint/handler URL |
 | `method` | string | No | HTTP method for submission. One of: `GET`, `POST`. Defaults to `"POST"`. |
 | `encoding` | string | No | Form encoding type. Defaults to `"application/json"`. |
-| `children` | array | Yes | Array of form field blocks and submit buttons |
+| `children` | array | Yes | Array of content blocks (typically form field blocks and submit buttons; any content block is permitted) |
 
 > **Renderer safety.** The form `action` is constrained to safe schemes (Renderer Safety section 2.1): a `javascript:` or `data:` action carried in signed content would otherwise be a signed code-execution primitive, so it is rejected. A field's `validation.pattern` is a client-side convenience, not a trust boundary — the receiving endpoint MUST re-validate every submitted value, and a renderer MUST bound pattern evaluation against catastrophic backtracking (Renderer Safety section 4).
 
@@ -335,6 +339,8 @@ For cross-field validation (e.g., password confirmation):
   }
 }
 ```
+
+Field references — `matchesField` here and `when.field` in section 4.3 — resolve by `name`, scoped to the enclosing `forms:form`. A field's `name` MUST be unique within its `forms:form`; a producer MUST NOT emit two fields sharing a `name` in one form. A reference to a `name` that is absent, or ambiguous because of a collision, is unresolvable: a renderer MUST NOT treat the field as valid on the strength of that rule (it fails closed), and because client-side validation is not a trust boundary the receiving endpoint re-validates every value regardless (section 3.0a).
 
 ### 4.3 Conditional Validation
 

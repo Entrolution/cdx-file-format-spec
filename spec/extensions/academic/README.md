@@ -522,7 +522,7 @@ Each line in the `lines` array:
 
 ## 9. Cross-References
 
-> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `theorem-ref`, `equation-ref`, and `algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes the authored display text carried by the text node the mark is on, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
+> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `theorem-ref`, `equation-ref`, and `algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. A reader MUST fill each placeholder from the resolved target at render time; the authored display text carried by the mark's text node is a fallback, used only when the target is unresolvable or a placeholder cannot be filled, and a value resolved from the target takes precedence over any disagreeing cached text. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes that authored display text, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
 
 ### 9.1 theorem-ref Mark
 
@@ -577,6 +577,8 @@ Reference a numbered equation:
 | `target` | string | Yes | Content Anchor URI to the equation |
 | `format` | string | No | Display format (default: `"({number})"`) |
 
+`{number}` resolves to the target line's displayed identifier: its `number`, or — when the line is displayed by a `tag` instead (section 7.2) — that `tag`. If the target line is both unnumbered and untagged, `{number}` cannot be filled and the reader uses the fallback in section 9.
+
 ### 9.3 algorithm-ref Mark
 
 Reference an algorithm or algorithm line:
@@ -600,7 +602,7 @@ For line references:
 ```json
 {
   "type": "text",
-  "value": "line 3",
+  "value": "line 1",
   "marks": [
     {
       "type": "algorithm-ref",
@@ -618,6 +620,8 @@ For line references:
 | `target` | string | Yes | Content Anchor URI to the algorithm |
 | `line` | string | No | Line label for line-specific references |
 | `format` | string | No | Display format |
+
+`{number}` resolves to the target algorithm's own number. `{line}` names a target line by its `label` (section 8.2) and resolves to that line's displayed line number: `startLine` (section 8.1, default 1) plus the line's zero-based position in the algorithm's `lines` array. When the target algorithm sets `lineNumbering: false` it displays no line numbers, so `{line}` cannot be filled and the reader uses the fallback in section 9. A `line` label that matches no line in the target algorithm is a dangling reference — a rendering-degradation WARNING (section 9), resolved to the fallback text.
 
 ## 10. Numbering Configuration
 
