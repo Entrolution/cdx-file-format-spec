@@ -24,12 +24,23 @@
               "items": { "type": "string" }
             },
             "sections": {
-              "type": "object",
-              "description": "Structured abstract sections",
-              "additionalProperties": {
-                "type": "array",
-                "description": "Section content (paragraph blocks)",
-                "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+              "type": "array",
+              "description": "Structured abstract sections, in display order",
+              "items": {
+                "type": "object",
+                "required": ["label", "children"],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Section label (e.g., 'Background', 'Methods')"
+                  },
+                  "children": {
+                    "type": "array",
+                    "description": "Section content (paragraph blocks)",
+                    "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+                  }
+                },
+                "additionalProperties": false
               }
             }
           },

@@ -1059,6 +1059,13 @@ export const closureVectors: ClosureVector[] = [
   {
     schema: 'content.schema.json',
     ref: '#/$defs/block',
+    description: 'academic:abstract structured sections are an ordered array of {label, children}; a section item stays closed',
+    validInstance: { type: 'academic:abstract', sections: [{ label: 'Background', children: [] }] },
+    invalidInstance: { type: 'academic:abstract', sections: [{ label: 'Background', children: [], bogus: 1 }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
     description: 'academic:theorem wired + closed',
     validInstance: { type: 'academic:theorem', variant: 'theorem', id: 't1', children: [] },
     invalidInstance: { type: 'academic:theorem', variant: 'theorem', children: [], bogus: 1 },

@@ -58,9 +58,9 @@ The abstract block provides semantic structure for paper/report abstracts with o
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | Yes | Always `"academic:abstract"` |
-| `children` | array | Yes | Abstract content (paragraph blocks) |
+| `children` | array | Yes (unless `sections`) | Abstract content (paragraph blocks) |
 | `keywords` | array | No | List of keywords/key phrases |
-| `sections` | object | No | Structured abstract sections (see below) |
+| `sections` | array | No | Structured abstract sections, in display order (see below) |
 
 #### 3.1.1 Structured Abstracts
 
@@ -69,25 +69,17 @@ For journals requiring structured abstracts (common in medical and scientific pu
 ```json
 {
   "type": "academic:abstract",
-  "sections": {
-    "background": [
-      { "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }
-    ],
-    "methods": [
-      { "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }
-    ],
-    "results": [
-      { "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }
-    ],
-    "conclusions": [
-      { "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }
-    ]
-  },
+  "sections": [
+    { "label": "Background", "children": [{ "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }] },
+    { "label": "Methods", "children": [{ "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }] },
+    { "label": "Results", "children": [{ "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }] },
+    { "label": "Conclusions", "children": [{ "type": "paragraph", "children": [{ "type": "text", "value": "..." }] }] }
+  ],
   "keywords": ["clinical trial", "randomized controlled"]
 }
 ```
 
-Common structured abstract sections:
+The `sections` array is rendered in order, so authors control the sequence (e.g., Background → Methods → Results → Conclusions) independently of how object keys would sort. Each entry's `label` is the displayed section heading. Common structured abstract section labels:
 - `background` / `introduction` / `context`
 - `objective` / `purpose` / `aim`
 - `methods` / `materials`
@@ -95,7 +87,7 @@ Common structured abstract sections:
 - `conclusions` / `discussion`
 - `significance` / `implications`
 
-When `sections` is provided, `children` SHOULD be omitted. Implementations render structured sections with their labels (e.g., "**Background:** ...").
+When `sections` is provided, `children` MUST be omitted (an abstract carries one or the other, not both). Implementations render the sections in array order, each prefixed with its `label` (e.g., "**Background:** ...").
 
 ## 4. Theorem-Like Blocks
 
@@ -124,8 +116,8 @@ Covers built-in variants: theorem, lemma, proposition, corollary, definition, co
 | `type` | string | Yes | Always `"academic:theorem"` |
 | `variant` | string | Yes | Built-in or custom variant name |
 | `id` | string | No | Unique identifier for cross-referencing |
-| `number` | string | No | Explicit number (e.g., "2.3.8") |
-| `numbering` | string | No | `"auto"`, `"none"`, or omit for default |
+| `number` | string | No | Explicit number (e.g., "2.3.8"); authoritative and integrity-protected when present (section 10.5) |
+| `numbering` | string | No | `"auto"`, `"none"`, or omit for default; resolution precedence in section 10.5 |
 | `title` | string | No | Custom title (e.g., "Hille-Yoshida Theorem") |
 | `uses` | array | No | Content Anchor URIs of dependencies (definitions, lemmas used) |
 | `restate` | boolean | No | If `true`, this is a restatement of a previously stated theorem |
@@ -707,6 +699,50 @@ The `resetOn` field accepts heading level identifiers: `heading1` through `headi
 | `heading5` | Reset at each level-5 heading |
 | `heading6` | Reset at each level-6 heading |
 | `none` | Never reset (document-wide numbering) |
+
+### 10.4 Auto-Numbering Algorithm
+
+When a number is auto-computed (section 10.5), every conforming reader MUST derive it by the following deterministic procedure, so that two readers display identical numbers.
+
+**Document order.** The reader walks the content tree in document order: a pre-order traversal that follows every array of content blocks — among them `children`, an abstract's `sections[].children`, an equation group's `lines`, an exercise set's `preamble` and `exercises`, an exercise's `parts` and `hints`, a solution's `children`, and an algorithm's `lines` — in array order, descending into a block before continuing to its next sibling. Array order is preserved by the canonical form; only object keys are reordered by hashing (Document Hashing specification, sections 4.3.1–4.3.2).
+
+**Heading counters.** The reader maintains a counter for each heading level 1–6, all initialized to 0. On a core `heading` block of level *L* (its `level` attribute), it increments the level-*L* counter by 1 and resets every counter for a level greater than *L* to 0. The **chapter** component is the level-1 counter; the **section** component is the level-2 counter.
+
+**Environments and numbered units.** Each numbered environment has one sequence counter, initialized to 0. The environments and the units that advance their counters are:
+
+- **theorem-like blocks** — one unit per `academic:theorem` (or custom-variant) block whose `numbering` is `"auto"` (section 10.5);
+- **equations** — one unit per auto-numbered display line of an `academic:equation-group` (a `lines[]` entry with neither a `tag` nor an explicit `number`; a `number: null` line is unnumbered);
+- **algorithms** — one unit per `academic:algorithm` block;
+- **exercises** — one unit per `academic:exercise` block (an `academic:exercise-set` contributes each exercise in its `exercises` array; an exercise's `parts` are lettered sub-items the renderer labels, not separate units).
+
+Equations, algorithms, and exercises are auto-numbered whenever `academic/numbering.json` configures that environment; theorem-like blocks are auto-numbered only when the block sets `numbering: "auto"`.
+
+**Counter sharing.** Variants listed together under `theorems.counters` (section 10.2) share one sequence counter. A custom variant (section 4.3) shares the counter of its `sharesWith` target, or has its own independent counter when `sharesWith` is `null`.
+
+**Reset.** An environment's **reset level** is the heading level named by its `resetOn` when it declares one (equations, algorithms, exercises); a theorem-like environment has no `resetOn`, so its reset level is the deepest heading level named by its `style` prefix — `chapter` is level 1, `section` is level 2 — and a bare `number` style (no prefix) never resets. `resetOn: "none"` never resets. The reader resets a sequence counter to 0 at every heading whose level is at most the environment's reset level, so a new chapter restarts section-scoped counters.
+
+**Advancing and composing.** On reaching a numbered unit whose number is auto-computed, the reader increments its environment's sequence counter by 1 (after any reset triggered by an intervening heading), then forms the number from the environment's `style` (section 10.1): each component is replaced by a counter value — `chapter` → the chapter counter, `section` → the section counter, `number` → the sequence counter — joined with `.`. With `style: "chapter.section.number"`, chapter 2, section 3, and sequence 8 produce `2.3.8`.
+
+**Explicit numbers and restatements.** A unit carrying an explicit number — a theorem-like block with a `number`, or an equation line with a `number` or `tag` — is displayed as authored and does NOT advance its environment's sequence counter (section 10.5). A `restate: true` theorem repeats a theorem stated earlier, so it SHOULD carry that theorem's explicit `number`; it is not auto-numbered and advances no counter (section 10.5).
+
+**Skipped levels.** A component whose heading level has not yet been incremented is the value 0 (for example, a numbered block before any heading, or a `chapter.section` style with no level-2 heading yet in the current chapter). Authors SHOULD ensure the heading levels named by a style occur before the units that use them.
+
+**Integrity.** `academic/numbering.json` is out-of-hash (section 13); a missing or unparseable numbering configuration is a rendering-degradation WARNING in all states (State Machine section 5.4), never an integrity error.
+
+### 10.5 Explicit Numbers and Precedence
+
+A theorem-like block MAY carry an explicit `number` and a `numbering` mode (`"auto"`, `"none"`, or omitted). The reader resolves the displayed number deterministically:
+
+1. If `numbering` is `"none"`, the block is unnumbered: no number is displayed and it advances no counter. A `*-ref` whose target is this block cannot fill `{number}`, so the reader substitutes the authored display text carried by the mark's text node, otherwise the bare target id (section 9). Any `number` present is ignored for display.
+2. Otherwise, if an explicit `number` is present, it is displayed verbatim. An explicit `number` is authored content carried in the document hash, so it is integrity-protected (section 13), takes precedence over any auto value, and does not advance the auto sequence counter (section 10.4).
+3. Otherwise, if `numbering` is `"auto"`, the number is computed by the auto-numbering algorithm (section 10.4); a number derived this way is advisory and out-of-hash (section 13).
+4. Otherwise (no `number`, `numbering` omitted), the block is unnumbered.
+
+Equation lines, algorithm blocks, and exercises have no `numbering` field: they are auto-numbered when `academic/numbering.json` configures their environment (section 10.4), and an explicit per-unit `number` — or, for an equation line, a `tag` — overrides the auto value the same way and likewise advances no counter.
+
+A `restate: true` theorem repeats a previously stated theorem rather than introducing a new one: it is never auto-numbered (rule 3 does not apply), SHOULD carry that theorem's explicit `number` (resolved by rule 2), and advances no counter.
+
+Displayed numbers are therefore author-stored, in signed content, exactly when an explicit `number` is present, and reader-computed otherwise.
 
 ## 11. Examples
 
