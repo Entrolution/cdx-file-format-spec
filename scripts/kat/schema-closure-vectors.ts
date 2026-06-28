@@ -1585,4 +1585,20 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi', resolved: true, replies: [] },
     invalidInstance: { id: 'c1', type: 'comment', anchor: { blockId: 'b1' }, author: { name: 'Ada' }, created: '2025-01-01T00:00:00Z', content: 'hi', bogus: 1 },
   },
+
+  // --- open-vocabulary enums (locator type, glossary sort) ------------------
+  {
+    schema: 'semantic.schema.json',
+    ref: '#/$defs/citationMark',
+    description: 'locatorType is an open vocabulary (a non-enumerated CSL locator accepted); a non-string is rejected',
+    validInstance: { type: 'citation', refs: ['e1'], locatorType: 'column' },
+    invalidInstance: { type: 'citation', refs: ['e1'], locatorType: 42 },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'glossary sort is an open vocabulary (a non-enumerated order accepted); a non-string is rejected',
+    validInstance: { type: 'semantic:glossary', sort: 'reverse-alphabetical' },
+    invalidInstance: { type: 'semantic:glossary', sort: 42 },
+  },
 ];
