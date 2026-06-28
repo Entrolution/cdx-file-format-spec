@@ -413,10 +413,13 @@ Location: `collaboration/changes.json`
 
 ### 5.5 Accepting/Rejecting Changes
 
-Changes can be:
-- `pending` - Not yet reviewed
-- `accepted` - Incorporated into content
-- `rejected` - Reverted
+A change's `status` — like a suggestion's `status` (section 4.5) — is an advisory editorial disposition recorded in the out-of-hash `collaboration/changes.json` (or `collaboration/comments.json`); like all collaboration data it is unauthenticated and forgeable (section 10):
+
+- `pending` — not yet reviewed.
+- `accepted` — a reviewer has approved the change for incorporation.
+- `rejected` — a reviewer has declined the change.
+
+A status does not by itself alter the document. The authoritative, rendered document is always the in-hash `content/document.json`, so marking a change `accepted` records a decision, not a content edit — it does not change those bytes. A change is incorporated only when its `before`→`after` edit is applied to the content. Because content is bound by the document ID, applying one or more accepted changes produces a new version of the document: the canonical content hash — and therefore the document ID — changes, so any prior signature no longer covers the result, and the new version SHOULD be recorded in the document's lineage and provenance. Who applies an accepted change, and when, is an editorial-workflow matter this specification does not constrain; consequently `changes.json` MAY carry an `accepted` change whose edit is not yet reflected in the current content, and a reader MUST NOT assume that `accepted` implies the content already contains the change.
 
 ## 6. Presence Awareness
 
