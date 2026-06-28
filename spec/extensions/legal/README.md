@@ -45,8 +45,13 @@ The `legal:cite` mark annotates text with legal citation information for automat
   "marks": [
     {
       "type": "legal:cite",
-      "citation": "347 U.S. 483 (1954)",
       "category": "cases",
+      "form": "reporter",
+      "parties": "Brown v. Board of Education",
+      "volume": "347",
+      "reporter": "U.S.",
+      "page": "483",
+      "year": "1954",
       "shortForm": "Brown"
     }
   ]
@@ -55,14 +60,29 @@ The `legal:cite` mark annotates text with legal citation information for automat
 
 ### 3.2 Citation Mark Properties
 
+A `legal:cite` carries structured citation fields rather than a free-text string, so a reader can render the citation, sort and consolidate a Table of Authorities, and detect the same authority deterministically. The structure is selected by `form`.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | Yes | Always `"legal:cite"` |
-| `citation` | string | Yes | Full citation string |
 | `category` | string | Yes | Citation category for TOA grouping |
+| `form` | string | Yes | Citation structure: `reporter` (cases), `code` (statutes, regulations), or `other` |
+| `parties` | string | No | Case name (reporter form), e.g. "Celotex Corp. v. Catrett" |
+| `volume` | string | reporter | Volume number (reporter form) |
+| `reporter` | string | reporter | Reporter abbreviation (reporter form), e.g. "U.S.", "F.3d" |
+| `page` | string | reporter | First page (reporter form) |
+| `court` | string | No | Court (reporter form), e.g. "9th Cir." |
+| `year` | string | No | Year (reporter form) |
+| `title` | string | code | Title number (code form), e.g. "42" |
+| `code` | string | code | Code abbreviation (code form), e.g. "U.S.C.", "C.F.R." |
+| `section` | string | code | Section (code form), e.g. "2000e" |
+| `suffix` | string | No | Trailing text (code form), e.g. "et seq." |
+| `text` | string | other | Verbatim citation text (other form) |
+| `pinpoint` | string | No | Pinpoint locator within the source (a page or section), e.g. "323" |
 | `shortForm` | string | No | Short form for subsequent references |
-| `pinpoint` | string | No | Specific page, paragraph, or section reference |
-| `format` | string | No | Citation style override |
+| `format` | string | No | Advisory citation-style hint (see section 5) |
+
+The required fields depend on `form`: a `reporter` citation requires `volume`, `reporter`, and `page`; a `code` citation requires `title`, `code`, and `section`; an `other` citation requires `text` (a verbatim string the reader renders as-is, for an authority that is neither a reporter citation nor a code citation). The reader renders the displayed citation from these fields by the canonical algorithm in section 5.
 
 ### 3.3 Citation Categories
 
@@ -82,7 +102,7 @@ An unrecognized category is preserved and grouped under its own heading, not rej
 
 ### 3.4 Pinpoint Citations
 
-For citations to specific locations within a source:
+A `pinpoint` is the locator (a page or section) of the specific passage cited, stored as the bare locator value (e.g. `"495"`, not `"at 495"`); the canonical rendering supplies the surrounding punctuation (section 5):
 
 ```json
 {
@@ -91,10 +111,15 @@ For citations to specific locations within a source:
   "marks": [
     {
       "type": "legal:cite",
-      "citation": "347 U.S. 483 (1954)",
       "category": "cases",
-      "shortForm": "Brown",
-      "pinpoint": "at 495"
+      "form": "reporter",
+      "parties": "Brown v. Board of Education",
+      "volume": "347",
+      "reporter": "U.S.",
+      "page": "483",
+      "year": "1954",
+      "pinpoint": "495",
+      "shortForm": "Brown"
     }
   ]
 }
@@ -152,59 +177,34 @@ The `legal:tableOfAuthorities` block generates an auto-indexed table of all cite
 | `key` | string | Yes | Category key (matches citation mark category) |
 | `format` | string | No | Citation style for this category |
 
-## 5. Citation Formats
+## 5. Citation Rendering
 
-The Legal Extension supports common legal citation styles. The `format` field (and the manifest-level `citationStyle` default) accept any string as an open vocabulary; the styles below are RECOMMENDED, and an unrecognized style degrades gracefully (see the Reader dispositions note below) rather than being rejected:
+Every conforming reader MUST derive a `legal:cite`'s displayed citation deterministically from its structured fields (section 3.2) by the canonical rendering below, so that inline citations and the Table of Authorities are byte-identical across readers. The `format` field and the manifest-level `citationStyle` default are advisory hints a richer renderer MAY use to produce a different house style (section 5.2); the canonical rendering is the reproducible baseline.
 
-> **Reader dispositions.** The cross-element relationships in this extension are resolved at render time, so their failures are rendering-degradation WARNINGs in all states, never integrity failures (State Machine section 5.4): a `legal:cite` whose `category` matches no Table of Authorities category, a Table of Authorities category with no citing `legal:cite`, and a `format` (or a default `citationStyle`) naming an unimplemented style all degrade gracefully — the reader renders the raw `citation` text and SHOULD surface the unresolved relationship, and MUST NOT invent a category or fail the document.
+> **Reader dispositions.** The cross-element relationships in this extension are resolved at render time, so their failures are rendering-degradation WARNINGs in all states, never integrity failures (State Machine section 5.4): a `legal:cite` whose `category` matches no Table of Authorities category, a Table of Authorities category with no citing `legal:cite`, and a `format` (or a default `citationStyle`) naming an unimplemented style all degrade gracefully — the reader renders the canonical form and SHOULD surface the unresolved relationship, and MUST NOT invent a category or fail the document.
 
-### 5.1 Bluebook
+### 5.1 Canonical Rendering
 
-The Bluebook: A Uniform System of Citation (US legal standard)
+The canonical citation string is assembled from the structured fields by `form`. Each component is separated by a single ASCII space; an absent optional component and its separator are omitted, leaving no doubled or trailing space.
 
-```json
-{
-  "type": "legal:cite",
-  "citation": "347 U.S. 483 (1954)",
-  "format": "bluebook"
-}
-```
+**`reporter`.** In order: the case name `{parties}` followed by `", "` (if present); `{volume}` space `{reporter}` space `{page}`; `", "` `{pinpoint}` (if present); then a parenthetical ` (` … `)` whose interior is `{court}` and `{year}` joined by a single space (each omitted if absent). The parenthetical is emitted **only** when at least one of `court`/`year` is present — never an empty `()` and never a trailing space before `)`.
 
-### 5.2 ALWD
+- `{volume:"477", reporter:"U.S.", page:"317", year:"1986"}` → `477 U.S. 317 (1986)`
+- `{parties:"Celotex Corp. v. Catrett", volume:"477", reporter:"U.S.", page:"317", pinpoint:"323", year:"1986"}` → `Celotex Corp. v. Catrett, 477 U.S. 317, 323 (1986)`
+- `{volume:"225", reporter:"F.3d", page:"1115", pinpoint:"1123", court:"9th Cir.", year:"2000"}` → `225 F.3d 1115, 1123 (9th Cir. 2000)`
 
-ALWD Guide to Legal Citation
+**`code`.** `{title}` space `{code}` space `§` space `{section}`, then a space and `{suffix}` (if present). `§` is U+00A7 (SECTION SIGN).
 
-```json
-{
-  "type": "legal:cite",
-  "citation": "Brown v. Bd. of Educ., 347 U.S. 483 (1954)",
-  "format": "alwd"
-}
-```
+- `{title:"42", code:"U.S.C.", section:"2000e", suffix:"et seq."}` → `42 U.S.C. § 2000e et seq.`
+- `{title:"29", code:"C.F.R.", section:"1602.14"}` → `29 C.F.R. § 1602.14`
 
-### 5.3 McGill
+**`other`.** The `text` field, rendered verbatim.
 
-Canadian Guide to Uniform Legal Citation (McGill Guide)
+A `pinpoint` is rendered after `{page}` in the reporter form (`317, 323`) and after the canonical form for code/other authorities (`§ 2000e, 323`); the short form (section 8.2) renders it as `at {pinpoint}`.
 
-```json
-{
-  "type": "legal:cite",
-  "citation": "Brown v Board of Education, 347 US 483 (1954)",
-  "format": "mcgill"
-}
-```
+### 5.2 Citation Styles (advisory)
 
-### 5.4 OSCOLA
-
-Oxford University Standard for Citation of Legal Authorities (UK)
-
-```json
-{
-  "type": "legal:cite",
-  "citation": "Brown v Board of Education (1954) 347 US 483",
-  "format": "oscola"
-}
-```
+The per-citation `format` field and the manifest-level `citationStyle` default (`manifest.legal.citationStyle`, section 2) name a house style a richer renderer MAY apply instead of the canonical rendering. They are advisory: the canonical rendering of section 5.1 is the reproducible baseline, and a reader that does not implement a named style renders the canonical form. Commonly named styles include `bluebook` (The Bluebook: A Uniform System of Citation), `alwd` (ALWD Guide to Legal Citation), `mcgill` (the Canadian McGill Guide), and `oscola` (the Oxford OSCOLA standard); `format`/`citationStyle` are an open vocabulary, so any style name is accepted.
 
 ## 6. Legal Document Structure Blocks
 
@@ -280,8 +280,13 @@ The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, 
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "347 U.S. 483 (1954)",
               "category": "cases",
+              "form": "reporter",
+              "parties": "Brown v. Board of Education",
+              "volume": "347",
+              "reporter": "U.S.",
+              "page": "483",
+              "year": "1954",
               "shortForm": "Brown"
             }
           ]
@@ -299,10 +304,15 @@ The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, 
           "marks": [
             {
               "type": "legal:cite",
-              "citation": "347 U.S. 483 (1954)",
               "category": "cases",
-              "shortForm": "Brown",
-              "pinpoint": "at 495"
+              "form": "reporter",
+              "parties": "Brown v. Board of Education",
+              "volume": "347",
+              "reporter": "U.S.",
+              "page": "483",
+              "year": "1954",
+              "pinpoint": "495",
+              "shortForm": "Brown"
             }
           ]
         },
@@ -322,8 +332,11 @@ The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, 
   "marks": [
     {
       "type": "legal:cite",
-      "citation": "42 U.S.C. § 1983",
-      "category": "statutes"
+      "category": "statutes",
+      "form": "code",
+      "title": "42",
+      "code": "U.S.C.",
+      "section": "1983"
     }
   ]
 }
@@ -333,25 +346,22 @@ The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, 
 
 ### 8.1 Table of Authorities
 
-Renderers generating a Table of Authorities SHOULD:
+A reader generates a Table of Authorities deterministically from the structured `legal:cite` fields:
 
-1. Collect all `legal:cite` marks in document order
-2. Group citations by category
-3. Sort entries alphabetically within each category
-4. Consolidate multiple references to the same authority
-5. List page numbers where each authority is cited
-6. Use "passim" when references exceed the threshold
+1. Collect all `legal:cite` marks in document order.
+2. Group them by `category`, matched to the Table of Authorities `categories[].key`; a citation whose `category` matches no configured category forms its own group (see the Reader dispositions note in section 5).
+3. Compute each citation's **authority identity** as its canonical rendering (section 5.1) without the `pinpoint`, so two references to one authority that differ only in pinpoint share an identity (e.g. `Celotex Corp. v. Catrett, 477 U.S. 317 (1986)`).
+4. Consolidate citations sharing an authority identity into a single entry.
+5. Sort entries within each category by the case name `parties` when present, otherwise by the authority identity, comparing by Unicode code unit. This yields a stable, reader-independent order.
+6. When `pageReferences` is true, list the page(s) where each authority is cited; when an authority's reference count reaches `passimThreshold`, render "passim" in place of the page list.
 
 ### 8.2 Short Form References
 
-After the first full citation, subsequent references MAY use the short form:
-
-- First reference: "Brown v. Board of Education, 347 U.S. 483 (1954)"
-- Subsequent: "Brown, 347 U.S. at 495"
+The first reference to an authority renders its full canonical citation (section 5.1). A subsequent reference MAY render the short form: `{shortForm}`, followed for a reporter-form authority by `, {volume} {reporter} at {pinpoint}` when a pinpoint is given (e.g. "Celotex, 477 U.S. at 323"). When `shortForm` is absent, the full canonical citation is used.
 
 ### 8.3 Id. Citations
 
-For consecutive citations to the same source, renderers MAY substitute "Id." according to citation style rules.
+A reference immediately consecutive to another reference to the same authority (same authority identity, section 8.1) MAY be rendered as "Id.", followed by "at {pinpoint}" when its pinpoint differs from the prior reference. Because authority identity is computed from the structured fields, "same authority" is deterministic.
 
 ## 9. Integrity Status
 
