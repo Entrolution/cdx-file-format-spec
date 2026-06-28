@@ -102,7 +102,7 @@ A consumer that does expand JSON-LD MUST NOT dereference a remote `@context` fro
 | `type` | string | Yes | Always `"citation"` |
 | `refs` | array | Yes | Bibliography entry IDs to cite |
 | `locator` | string | No | Page, chapter, section, or other location reference (CSL-compatible) |
-| `locatorType` | string | No | Type of locator (CSL-compatible). One of: `page`, `chapter`, `section`, `paragraph`, `line`, `verse`, `volume`, `issue`, `part`, `book`, `figure`, `table`, `note`, `opus`, `sub-verbo`. Defaults to `"page"` if omitted. |
+| `locatorType` | string | No | Type of locator (CSL-compatible, open vocabulary). Defaults to `"page"` if omitted. Recommended values: `page`, `chapter`, `section`, `paragraph`, `line`, `verse`, `volume`, `issue`, `part`, `book`, `figure`, `table`, `note`, `opus`, `sub-verbo`. Any other CSL or custom value is preserved and treated as opaque, not rejected (open-world principle, Content Blocks section 5.1). |
 | `prefix` | string | No | Text to display before the citation (e.g., "see", "cf.") |
 | `suffix` | string | No | Text to display after the citation |
 | `suppressAuthor` | boolean | No | If true, omit the author name from the rendered citation |
@@ -453,6 +453,8 @@ Internal references use Content Anchor URI syntax (see core Anchors and Referenc
 }
 ```
 
+An external reference MUST set `external: true`. An internal reference (the default — `external` false or absent) MUST give `target` as a Content Anchor URI (a `#`-prefixed reference, section 7.1); an absolute or external URL written without `external: true` is rejected as a malformed internal reference, so set the flag whenever `target` leaves the document.
+
 > **Renderer safety.** An entity `uri` and a cross-reference `target` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
 
 ## 8. Glossary
@@ -512,7 +514,7 @@ In-document `semantic:term` blocks remain valid content when an external glossar
 |-------|------|----------|-------------|
 | `type` | string | Yes | Always `"semantic:glossary"` |
 | `title` | string | No | Section heading for the glossary |
-| `sort` | string | No | Sort order for terms. One of: `alphabetical` (sort by term name, A-Z), `appearance` (document order), `none` (no sorting applied). Defaults to implementation-defined behavior. |
+| `sort` | string | No | Sort order for terms (open vocabulary). Defaults to implementation-defined behavior. Recommended values: `alphabetical` (sort by term name, A-Z), `appearance` (document order), `none` (no sorting applied). An unrecognized value is preserved; a consumer that does not recognize it applies its default ordering, not a rejection (open-world principle, Content Blocks section 5.1). |
 
 ## 9. Provenance
 
@@ -596,7 +598,7 @@ With JSON-LD:
 
 The semantic extension stores some constructs in the document and others in side files; only the former are covered by the document hash (see the extensions overview, Integrity Status of Extension Data).
 
-**In the document hash.** A block-level `semantic` annotation (the JSON-LD object carried on a content block, section 3.2), the citation, footnote, glossary, entity, and reference marks, and the `semantic:*` blocks are part of the content tree, so their bytes are bound by the document ID.
+**In the document hash.** A block-level `semantic` annotation (the JSON-LD object carried on a content block, section 3.2), the citation, footnote, glossary, entity, and reference marks, and the `semantic:*` blocks are part of the content tree, so their bytes are bound by the document ID. A block-level `semantic` annotation is hashed as opaque JSON through the core canonicalization (Document Hashing specification, section 4.3): object key order does not matter (JCS sorts keys), but JSON-LD's own equivalences beyond key order are NOT honored. Two semantically equivalent graphs that serialize differently — a compacted form versus an expanded one, a different `@context` phrasing, or a different array ordering of the members of an unordered `@set` — produce different document IDs. Authors who need a stable ID across equivalent graphs MUST serialize the annotation consistently.
 
 **Outside the document hash — advisory.** The bibliography (`semantic/bibliography.json`), the glossary (`semantic/glossary.json`), and the document-level JSON-LD (`metadata/jsonld.json`) are referenced by path only, with no hash, and the metadata projection keeps only the five Dublin Core terms — so none of these files is in the document hash or the manifest projection. Every entry they carry — a citation's author, year, title, and DOI; a term's definition; a JSON-LD author, ORCID, publisher, or citation edge — is advisory and stays mutable on a `frozen` or `published` document. An archive writer can rewrite a definition or a machine-readable authorship claim, and every signature still verifies with the document ID unchanged.
 

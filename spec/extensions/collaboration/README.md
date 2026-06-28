@@ -233,9 +233,11 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `resolved` | boolean | No | Whether comment is resolved |
 | `replies` | array | No | Reply comments |
 
+The `resolved` and `replies` fields apply to `comment` and `suggestion` records only; a `highlight` or `reaction` MUST NOT carry them. A renderer SHOULD visually distinguish a resolved comment (for example, by collapsing or de-emphasizing it) and MUST NOT silently drop it, since the comment remains part of the archive. Because `resolved` is advisory and unauthenticated (section 4.5), a verifier MUST NOT treat it as an authenticated decision.
+
 ### 4.3a Reply Object
 
-The `replies` array contains reply objects. Replies are flat — they do not nest (a reply cannot contain further replies). Replies do not have their own anchors; they inherit the anchor context of the parent comment.
+The `replies` array contains reply objects. Replies are flat — they do not nest (a reply cannot contain further replies). Replies do not have their own anchors; they inherit the anchor context of the parent comment. There is no explicit ordering field: a renderer MUST present replies in `created` timestamp order, breaking ties by array order, so every reader shows the same thread sequence.
 
 ```json
 {
@@ -326,6 +328,8 @@ Suggestion statuses: `pending`, `accepted`, `rejected`
 ```
 
 Standard emoji identifiers using Unicode CLDR short names (without colons). Examples: `thumbsup`, `heart`, `thinking`, `rocket`. See the [Unicode CLDR annotations](https://cldr.unicode.org/translation/characters-emoji-symbols/short-names-and-keywords) for the canonical list.
+
+A reaction is identified by the pair (`author`, `emoji`) on a given anchor. A renderer that tallies reactions MUST collapse duplicates of the same pair to a single reaction (counting the author once), so a repeated record does not inflate the count.
 
 ### 4.7 Highlights
 

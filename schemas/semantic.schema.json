@@ -22,12 +22,7 @@
         },
         "locatorType": {
           "type": "string",
-          "description": "Type of locator (CSL-compatible). Defaults to \"page\" if omitted.",
-          "enum": [
-            "page", "chapter", "section", "paragraph", "line",
-            "verse", "volume", "issue", "part", "book",
-            "figure", "table", "note", "opus", "sub-verbo"
-          ]
+          "description": "Type of locator (CSL-compatible; open vocabulary, the Semantic Extension README lists recommended values). Defaults to \"page\" if omitted. An unrecognized value is preserved, not rejected."
         },
         "pages": {
           "type": "string",
@@ -360,8 +355,7 @@
             },
             "sort": {
               "type": "string",
-              "description": "Sort order for terms",
-              "enum": ["alphabetical", "appearance", "none"]
+              "description": "Sort order for terms (open vocabulary; the Semantic Extension README lists recommended values). An unrecognized value is preserved; a consumer that does not recognize it applies its default ordering."
             }
           }
         }
