@@ -71,6 +71,12 @@ Location: `metadata/jsonld.json`
 }
 ```
 
+### 3.3 Conformance
+
+JSON-LD is an OPTIONAL processing layer. A conformant consumer MAY extract and process the embedded JSON-LD — the document-level metadata (`metadata/jsonld.json`, section 3.1) and block-level `attributes.semantic` annotations (section 3.2) — or MAY ignore it entirely; processing JSON-LD is not required for a conformant rendering of the document (Introduction section 1.3). Because two consumers that make opposite choices both conform, authors MUST NOT place meaning essential to the document only in the JSON-LD layer.
+
+A consumer that does expand JSON-LD MUST NOT dereference a remote `@context` from an untrusted document by default; it MUST resolve the context offline or from an operator allowlist (Renderer Safety section 5). Remote `@context` resolution is therefore never required for a conformant rendering.
+
 ## 4. Citations
 
 ### 4.1 Citation Mark
@@ -196,6 +202,8 @@ The bibliography block renders citations. It can reference an external bibliogra
 When `entries` is provided, each entry MAY include a `renderedText` field containing pre-rendered citation text from citeproc. This enables accurate display without requiring a CSL processor in the reader.
 
 **Note:** Both CSL date formats are supported for the `issued` field: the short form (`{ "year": 2023 }`) and the standard form (`{ "date-parts": [[2023, 3, 15]] }`). Implementations MUST accept both formats.
+
+**Resolution.** A `citation` mark's `refs` (section 4.1) resolve against the document's authoritative bibliography source: the external `semantic/bibliography.json` when the manifest declares `semantic.bibliography` (section 10.1); otherwise the inline `entries` of the document's `semantic:bibliography` block. When an external bibliography is declared it is the single authoritative source and inline `entries` are not consulted, so the two cannot diverge. A `ref` that resolves against neither is a rendering-degradation WARNING in all states (State Machine section 5.4), never an integrity failure (section 11).
 
 ### 4.5 Footnotes
 
@@ -485,7 +493,12 @@ The `definition` field is intentionally a plain string for simplicity, portabili
 
 ### 8.3 Glossary Block
 
-The `semantic:glossary` block renders a collected glossary by aggregating all `semantic:term` blocks found in the document. Implementations MUST scan the document content for `semantic:term` blocks and include their definitions in the rendered glossary.
+The `semantic:glossary` block renders a collected glossary. Its entries, and the targets of `glossary` marks (section 8.2) and `semantic:term` `see` references, are drawn from a single authoritative source, resolved as follows:
+
+1. When the manifest declares an external glossary (`semantic.glossary` → `semantic/glossary.json`, section 10.1), that file is authoritative: the block aggregates the file's terms, and a `glossary` `ref` (or a `see`) resolves against the file's term `id`s.
+2. Otherwise, the in-document `semantic:term` blocks are the source: the block aggregates every `semantic:term` block in the content, and a `glossary` `ref` (or a `see`) resolves against their `id`s.
+
+In-document `semantic:term` blocks remain valid content when an external glossary is declared, but they do not contribute to the aggregated glossary in that case — the file is the single source, so the two cannot diverge or duplicate. A `glossary` `ref` or `see` that resolves against neither the authoritative source is a rendering-degradation WARNING in all states (State Machine section 5.4), never an integrity failure (section 11).
 
 ```json
 {
