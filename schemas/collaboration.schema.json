@@ -44,8 +44,7 @@
             }
           }
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "commentType": {
       "type": "string",
@@ -109,18 +108,6 @@
           "type": "string",
           "format": "date-time",
           "description": "ISO 8601 last modification timestamp"
-        },
-        "resolved": {
-          "type": "boolean",
-          "description": "Whether the comment is resolved",
-          "default": false
-        },
-        "replies": {
-          "type": "array",
-          "description": "Reply comments",
-          "items": {
-            "$ref": "#/$defs/reply"
-          }
         }
       }
     },
@@ -135,6 +122,18 @@
             "content": {
               "type": "string",
               "description": "Comment text content"
+            },
+            "resolved": {
+              "type": "boolean",
+              "description": "Whether the comment is resolved",
+              "default": false
+            },
+            "replies": {
+              "type": "array",
+              "description": "Reply comments",
+              "items": {
+                "$ref": "#/$defs/reply"
+              }
             }
           }
         }
@@ -180,6 +179,18 @@
             "status": {
               "$ref": "#/$defs/suggestionStatus",
               "default": "pending"
+            },
+            "resolved": {
+              "type": "boolean",
+              "description": "Whether the suggestion thread is resolved",
+              "default": false
+            },
+            "replies": {
+              "type": "array",
+              "description": "Reply comments",
+              "items": {
+                "$ref": "#/$defs/reply"
+              }
             }
           }
         }

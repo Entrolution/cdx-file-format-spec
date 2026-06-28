@@ -369,7 +369,7 @@ Each line in the `lines` array:
 | `tag` | string | No | Custom tag (e.g., `"*"`, `"\dagger"`) instead of number |
 | `id` | string | No | Line identifier for references |
 
-**Note:** Use either `number` or `tag`, not both. If `tag` is present, it takes precedence.
+**Note:** A line carries either `number` or `tag`, not both — including both fields is invalid (a `number` of `null` still occupies the number slot). A line with neither is unnumbered.
 
 > **Renderer safety.** Equation `value` and algorithm-line `content` are LaTeX rendered by a math engine, and untrusted LaTeX is a code-execution and denial-of-service surface. A renderer MUST disable file-access and shell-escape constructs and link/HTML-emitting macros, and MUST bound macro expansion, on untrusted source — preferring a restricted (KaTeX-class) renderer over a full TeX system (Renderer Safety section 3.2).
 

@@ -85,8 +85,7 @@
             }
           }
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "trustedTimestamp": {
       "type": "object",

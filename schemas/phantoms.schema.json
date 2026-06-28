@@ -19,6 +19,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "cluster": {
       "type": "object",
@@ -178,11 +179,10 @@
       "additionalProperties": false
     },
     "author": {
-      "description": "Author identity extending base person",
+      "description": "Author identity extending base person (the base person object is intentionally open to extension fields).",
       "allOf": [
         { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/person" }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "assetIndex": {
       "type": "object",
