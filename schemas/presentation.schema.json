@@ -838,7 +838,7 @@
       "required": ["type", "content"],
       "properties": {
         "type": { "const": "presentation:footnote" },
-        "id": { "type": "string", "description": "Footnote identifier" },
+        "id": { "type": "string", "description": "Footnote identifier", "pattern": "^[A-Za-z0-9._-]+$" },
         "content": {
           "type": "array",
           "description": "Footnote content blocks",

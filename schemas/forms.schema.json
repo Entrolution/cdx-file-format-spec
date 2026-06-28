@@ -166,10 +166,6 @@
       "type": "object",
       "description": "Base properties shared by all form fields",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique block identifier"
-        },
         "name": {
           "type": "string",
           "description": "Field name for form data"
@@ -212,10 +208,6 @@
           "required": ["type", "children"],
           "properties": {
             "type": { "const": "forms:form" },
-            "id": {
-              "type": "string",
-              "description": "Unique form identifier"
-            },
             "action": {
               "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
               "description": "Form submission URL. Constrained to safe schemes (see the Renderer Safety core specification): a javascript:/data: action would otherwise be a signed code-execution primitive when carried in signed content."
@@ -437,10 +429,6 @@
           "required": ["type"],
           "properties": {
             "type": { "const": "forms:submit" },
-            "id": {
-              "type": "string",
-              "description": "Unique block identifier"
-            },
             "label": {
               "type": "string",
               "description": "Button label",

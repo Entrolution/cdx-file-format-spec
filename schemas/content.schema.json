@@ -285,7 +285,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Unique block identifier (shares the document-wide ID namespace with anchor IDs)"
+          "description": "Unique block identifier (shares the document-wide ID namespace with anchor IDs)",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "attributes": {
           "$ref": "#/$defs/blockAttributes"
@@ -1117,7 +1118,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique subfigure identifier for cross-referencing"
+          "description": "Unique subfigure identifier for cross-referencing",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "label": {
           "type": "string",
