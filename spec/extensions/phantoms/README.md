@@ -29,6 +29,8 @@ Phantom clusters are groups of annotation objects that the rendering application
 }
 ```
 
+A reader that does not support the phantoms extension MUST ignore the entire `phantoms/` directory and the manifest `phantoms` reference, rendering the document without the phantom layer. This is the unsupported-extension behavior in the CDX Extensions overview (Versioning) and State Machine section 5.4; because the layer is outside the document hash (section 5), ignoring it is never an integrity error, and a higher `clusters.json` version is likewise a rendering-degradation WARNING, never an integrity error. When `manifest.phantoms` is present, the document SHOULD declare `cdx.phantoms` in `extensions[]` as shown above so the extension's `version` and `required` flag travel with the layer; the manifest `phantoms` reference is the operative pointer to the data, and the `extensions[]` entry describes the same layer.
+
 ## 3. Archive Location
 
 Phantom data is stored in the `phantoms/` directory within the archive:
@@ -127,6 +129,8 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `created` | string | Yes | ISO 8601 creation timestamp |
 | `author` | object | No | Phantom author |
 
+Cluster `id`s MUST be unique within `phantoms/clusters.json`, and a phantom `id` MUST be unique within its cluster. These identifiers carry no document-hash weight (section 5), but connection resolution (section 4.7) depends on phantom-id uniqueness within a cluster. A loader MUST treat a duplicate id as a Warning in DRAFT/REVIEW and an Error in FROZEN/PUBLISHED (the same severity as a broken connection target, section 4.7), and a `connection` whose `target` matches more than one phantom MUST be handled as a broken target rather than resolved to an arbitrary one.
+
 ### 4.4 Position and Size
 
 Coordinates are abstract relative units within the cluster — the rendering application decides physical placement relative to the page.
@@ -209,6 +213,10 @@ Implementations MUST validate connection targets when loading phantom data. Brok
 ### 4.8 Known Limitations
 
 Phantom content blocks exist in a separate namespace from the main document content. Anchors within phantom blocks reference other phantom blocks within the same cluster; they cannot directly reference blocks in the main document content tree. To associate phantom content with specific document locations, use the cluster's `anchor` field to attach the phantom cluster to a document position. Cross-referencing between phantom content and document blocks requires an intermediary cluster-level anchor.
+
+### 4.9 Non-Spatial and Accessible Rendering
+
+Phantoms are a spatial, off-page layer (section 4.4), but a conformant consumer need not render that layer spatially. A consumer that cannot — a linear or reflow reader, a print or PDF export, a text extractor, or a screen reader — SHOULD still surface phantom content rather than silently dropping it. Such a consumer SHOULD present each phantom's content associated with its cluster's `anchor` target (section 4.2) — for example, as a marginal note, an endnote, or an annotation region adjacent to the anchored block — and SHOULD expose the cluster `label` so the commentary stays discoverable; within a cluster, phantoms SHOULD be surfaced in a stable order (their array order in `phantoms/clusters.json`). A print or extraction profile MAY define whether phantom layers are included, but a consumer that omits them entirely SHOULD disclose that phantom commentary was dropped rather than present the document as complete. A consumer that does not support the phantoms extension at all MUST ignore the phantom layer (section 5).
 
 ## 5. Hashing Boundary
 
