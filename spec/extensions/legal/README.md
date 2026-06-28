@@ -206,6 +206,8 @@ A `pinpoint` is rendered after `{page}` in the reporter form (`317, 323`) and af
 
 The per-citation `format` field and the manifest-level `citationStyle` default (`manifest.legal.citationStyle`, section 2) name a house style a richer renderer MAY apply instead of the canonical rendering. They are advisory: the canonical rendering of section 5.1 is the reproducible baseline, and a reader that does not implement a named style renders the canonical form. Commonly named styles include `bluebook` (The Bluebook: A Uniform System of Citation), `alwd` (ALWD Guide to Legal Citation), `mcgill` (the Canadian McGill Guide), and `oscola` (the Oxford OSCOLA standard); `format`/`citationStyle` are an open vocabulary, so any style name is accepted.
 
+The manifest `legal` configuration MAY also carry a `jurisdiction` string (for example, a court system or governing-law selector such as `us-federal` or `uk`). It is advisory metadata that a renderer MAY use to pick jurisdiction-appropriate citation defaults; like `citationStyle` it does not change the canonical rendering of section 5.1, and it is unauthenticated unless the extension is declared `required: true` (section 9).
+
 ## 6. Legal Document Structure Blocks
 
 ### 6.1 Court Caption
@@ -223,7 +225,7 @@ The per-citation `format` field and the manifest-level `citationStyle` default (
 }
 ```
 
-The `parties` object supports the role keys `plaintiff`, `defendant`, `appellant`, `appellee`, `petitioner`, and `respondent`; the caption MAY also name the assigned `judge`. These caption fields are author-asserted content, not authenticated case identity (see section 9).
+The `parties` object supports the role keys `plaintiff`, `defendant`, `appellant`, `appellee`, `petitioner`, and `respondent`; the caption MAY also name the assigned `judge`. Each value is either a plain string (the party name) or a `party` object. A `party` object MAY carry a free-string `role` for a role the keys above do not cover (for example, `intervenor` or `amicus`); those keys are RECOMMENDED, and where a party is reached through a role key, that key is authoritative for the party's role and a `party.role` is supplementary. These caption fields are author-asserted content, not authenticated case identity (see section 9).
 
 ### 6.2 Signature Block
 
@@ -246,7 +248,7 @@ Legal documents often require specific signature block formats:
 
 The signature block `role` is one of `counsel`, `attorney`, `party`, `witness`, or `notary`; the signer object MAY also include a `fax` number. A `legal:signatureBlock` records a signatory for display; it is content, not a cryptographic signature, and attests nothing about execution or notarization (see section 9).
 
-> **Renderer safety.** Signer contact strings (name, address, telephone, fax) and party, judge, and notary names are author-asserted text. A renderer MUST render them as inert, escaped text and MUST NOT auto-linkify or otherwise promote them to a navigation target except through the safe-URI allowlist (Renderer Safety section 3.4).
+> **Renderer safety.** Signer fields (name, title, bar number, firm, address, telephone, fax, and email — the `email` is an unverified display string, not an asserting `mailto:` target) and party, judge, and notary names are author-asserted text. A renderer MUST render them as inert, escaped text and MUST NOT auto-linkify or otherwise promote them to a navigation target except through the safe-URI allowlist (Renderer Safety section 3.4).
 
 ## 7. Examples
 

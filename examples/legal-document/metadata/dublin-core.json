@@ -2,13 +2,13 @@
   "version": "1.1",
   "terms": {
     "title": "Brief in Support of Motion for Summary Judgment",
-    "creator": ["Jane Smith, Esq."],
+    "creator": ["Jane Doe, Esq."],
     "subject": ["civil rights", "employment discrimination"],
     "description": "A demonstration of the legal extension features including caption, Table of Authorities, legal citations, and signature block.",
     "date": "2025-01-30",
     "type": "Text",
     "format": "application/vnd.cdx+zip",
     "language": "en",
-    "rights": "Confidential - Attorney Work Product"
+    "rights": "Example document for demonstration purposes"
   }
 }
