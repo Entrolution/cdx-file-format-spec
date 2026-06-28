@@ -234,13 +234,13 @@
       "id": "sig-block",
       "role": "counsel",
       "signer": {
-        "name": "Jane Smith",
+        "name": "Jane Doe",
         "title": "Counsel for Plaintiff",
-        "barNumber": "CA 123456",
-        "firm": "Smith & Associates LLP",
-        "address": "100 Market Street, Suite 500, San Francisco, CA 94105",
-        "telephone": "(415) 555-1234",
-        "email": "jsmith@smithlaw.com"
+        "barNumber": "CA 000000",
+        "firm": "Example Law LLP",
+        "address": "123 Example Street, Anytown, CA 90000",
+        "telephone": "(555) 555-0100",
+        "email": "counsel@example.com"
       },
       "date": "2025-01-30"
     }

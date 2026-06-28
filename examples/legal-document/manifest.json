@@ -1,6 +1,6 @@
 {
   "cdx": "0.1",
-  "id": "sha256:a6f99cac908e8c25dff9e5631aad43670ccd5aec664deee943f41c2cd587b3cc",
+  "id": "sha256:04be2dd10992a7616dd6f148a08e47b3781d3d727d301d5cf7b5c7622103f5e9",
   "state": "draft",
   "created": "2025-01-30T10:00:00Z",
   "modified": "2025-01-30T10:00:00Z",
@@ -13,7 +13,7 @@
   ],
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:d974cf53c3d9444034b534316a2fb762903532d18be881611fb333d415a193af"
+    "hash": "sha256:30c3dd419f7ff19c68997e4fbf72cabe4c7422da760d39f1f5da06146808642d"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

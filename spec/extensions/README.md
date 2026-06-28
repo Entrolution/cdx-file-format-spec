@@ -13,7 +13,7 @@ This directory contains specifications for CDX extensions. Each extension adds s
 | [Security](security/README.md) | `cdx.security` | 0.1 | Draft | Digital signatures, encryption, access control |
 | [Phantoms](phantoms/README.md) | `cdx.phantoms` | 0.1 | Draft | Off-page annotation clusters |
 | [Presentation](presentation/README.md) | `cdx.presentation` | 0.1 | Draft | Layout templates and rendering hints |
-| [Legal](legal/README.md) | `cdx.legal` | 0.1 | Draft | Legal citations, clause references, jurisdiction metadata |
+| [Legal](legal/README.md) | `cdx.legal` | 0.1 | Draft | Legal citations, captions, tables of authorities, jurisdiction metadata |
 
 ## Extension Compatibility
 
