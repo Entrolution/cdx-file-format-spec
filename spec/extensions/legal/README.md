@@ -367,7 +367,7 @@ A legal document whose `legal` configuration carries operative values SHOULD dec
 
 The Legal Extension is compatible with:
 
-- **Semantic Extension**: Legal citations can include semantic entity markup
+- **Semantic Extension**: Legal citations can include semantic entity markup. The `legal:cite` mark and the semantic `citation` mark are distinct and feed disjoint outputs — a Table of Authorities collects only `legal:cite` marks (section 8), and a bibliography collects only semantic `citation` marks. An authority cited through both systems appears in both outputs, so a document SHOULD cite a given authority through a single system to avoid duplication.
 - **Presentation Extension**: Table of Authorities uses presentation layer styling
 - **Academic Extension**: Legal documents may use academic numbering for sections
 
