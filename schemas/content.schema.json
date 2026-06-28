@@ -358,6 +358,7 @@
                   { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/equationRefMark" },
                   { "$ref": "https://cdx.dev/schemas/academic.schema.json#/$defs/algorithmRefMark" },
                   { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/indexMark" },
+                  { "$ref": "https://cdx.dev/schemas/presentation.schema.json#/$defs/footnoteMark" },
                   { "$ref": "https://cdx.dev/schemas/legal.schema.json#/$defs/legalCiteMark" },
                   {
                     "$comment": "Open escape (mirrors the dispatch in #/$defs/block): known marks are validated strictly by the branches above; an unrecognized mark MUST be namespaced (Content Blocks section 5.1). An unknown namespaced mark passes unchecked — as either a bare string or a typed object — while a bare, non-namespaced unknown mark is rejected as malformed, so a misspelled core mark is still caught.",
@@ -392,11 +393,11 @@
       "unevaluatedProperties": false
     },
     "knownMarkTypes": {
-      "$comment": "Every mark identifier validated by a branch of textNode.marks.items.oneOf — the seven core string marks and the twelve structured marks. The open escape excludes these so an unknown namespaced mark cannot collide with (or masquerade as) a known one in either string or object form.",
+      "$comment": "Every mark identifier validated by a branch of textNode.marks.items.oneOf — the seven core string marks and the thirteen structured marks. The open escape excludes these so an unknown namespaced mark cannot collide with (or masquerade as) a known one in either string or object form.",
       "enum": [
         "bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript",
         "link", "anchor", "math", "citation", "footnote", "entity", "glossary",
-        "theorem-ref", "equation-ref", "algorithm-ref", "index", "legal:cite"
+        "theorem-ref", "equation-ref", "algorithm-ref", "index", "presentation:footnote", "legal:cite"
       ]
     },
     "linkMark": {

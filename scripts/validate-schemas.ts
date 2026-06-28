@@ -31,7 +31,9 @@ const dependentSchemas: DependentSchema[] = [
   // their author-controlled URI fields (form action, entity uri, cross-reference target).
   { schema: 'forms.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'manifest.schema.json', refs: ['anchor.schema.json'] },
-  { schema: 'presentation.schema.json', refs: ['anchor.schema.json'] },
+  // presentation also embeds the content block model via footnoteMark.content
+  // (the presentation:footnote mark), so it needs content plus content's cluster.
+  { schema: 'presentation.schema.json', refs: ['anchor.schema.json', 'content.schema.json', 'semantic.schema.json', 'academic.schema.json', 'legal.schema.json', 'forms.schema.json'] },
   { schema: 'semantic.schema.json', refs: ['anchor.schema.json'] },
   // phantoms embeds the content block model, which dispatches across the whole
   // content + extension-schema cluster.

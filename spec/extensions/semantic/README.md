@@ -209,7 +209,7 @@ When `entries` is provided, each entry MAY include a `renderedText` field contai
 
 Footnotes provide numbered references to supplementary content. The semantic extension defines the footnote content; the presentation extension (section 10) controls footnote styling and positioning.
 
-> **Cross-Extension Note:** The semantic extension provides the canonical footnote model. When both the semantic and presentation extensions are active, the presentation extension's footnote styling applies to semantic footnote blocks. The presentation extension's inline `content` array on footnote marks is a simplified alternative for documents that do not use the semantic extension. See the Presentation extension for details.
+> **Cross-Extension Note:** The semantic extension provides the canonical footnote model — the bare `footnote` mark with `semantic:footnote` blocks. When both the semantic and presentation extensions are active, the presentation extension's footnote styling applies to these semantic footnote blocks. The presentation extension's distinct `presentation:footnote` mark carries inline footnote content and is a simplified alternative for documents that do not use the semantic extension. See the Presentation extension for details.
 
 #### 4.5.1 Footnote Mark
 

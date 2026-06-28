@@ -544,18 +544,19 @@ In content:
 
 ### 10.1 Footnote Definition
 
-**Cross-Extension Note:** When both the presentation and semantic extensions are active, the semantic extension provides the canonical footnote model with separate `semantic:footnote` blocks for footnote content. In this configuration, the presentation extension's footnote marks control styling and positioning only — the inline `content` array on presentation footnote marks is not used. The inline `content` array is a simplified alternative for documents that use the presentation extension without the semantic extension.
+The presentation extension defines a self-contained `presentation:footnote` mark that carries its footnote content directly in a `content` array, for documents that use the presentation extension without the semantic extension.
+
+**Cross-Extension Note:** When both the presentation and semantic extensions are active, the semantic extension provides the canonical footnote model — the bare `footnote` mark with separate `semantic:footnote` blocks for footnote content. The bare `footnote` mark and the `presentation:footnote` mark are distinct marks; a document SHOULD use a single footnote model. Presentation footnote styling (section 10.2) applies to whichever model is in use.
 
 In content:
 
-<!-- cdx-validate: skip (illustrative; the presentation footnote mark form documented above is not yet reconciled with the core footnote mark schema) -->
 ```json
 {
   "type": "text",
   "value": "important claim",
   "marks": [
     {
-      "type": "footnote",
+      "type": "presentation:footnote",
       "id": "fn1",
       "content": [
         { "type": "text", "value": "Source: Annual Report 2024" }

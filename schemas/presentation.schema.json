@@ -832,6 +832,21 @@
       },
       "additionalProperties": false
     },
+    "footnoteMark": {
+      "type": "object",
+      "description": "Self-contained footnote mark carrying its footnote content blocks directly, for documents that use the presentation extension without the semantic extension. When the semantic extension is active, its bare `footnote` mark is the canonical footnote model.",
+      "required": ["type", "content"],
+      "properties": {
+        "type": { "const": "presentation:footnote" },
+        "id": { "type": "string", "description": "Footnote identifier" },
+        "content": {
+          "type": "array",
+          "description": "Footnote content blocks",
+          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+        }
+      },
+      "additionalProperties": false
+    },
     "presentationReference": {
       "allOf": [
         { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/blockBase" },
