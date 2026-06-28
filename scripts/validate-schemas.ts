@@ -13,7 +13,6 @@ interface DependentSchema {
 
 // Standalone schemas (no cross-references)
 const standaloneSchemas: string[] = [
-  'academic.schema.json',
   'anchor.schema.json',
   'legal.schema.json',
 ];
@@ -22,6 +21,7 @@ const standaloneSchemas: string[] = [
 // precise-layout reference anchor.schema.json#/$defs/contentHash (the shared
 // content-hash definition).
 const dependentSchemas: DependentSchema[] = [
+  { schema: 'academic.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'annotations.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'asset-index.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'collaboration.schema.json', refs: ['anchor.schema.json'] },

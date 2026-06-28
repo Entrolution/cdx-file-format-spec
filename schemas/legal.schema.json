@@ -107,10 +107,6 @@
           "required": ["type"],
           "properties": {
             "type": { "const": "legal:tableOfAuthorities" },
-            "id": {
-              "type": "string",
-              "description": "Block identifier"
-            },
             "title": {
               "type": "string",
               "description": "Section title",
@@ -160,10 +156,6 @@
           "required": ["type", "court"],
           "properties": {
             "type": { "const": "legal:caption" },
-            "id": {
-              "type": "string",
-              "description": "Block identifier"
-            },
             "court": {
               "type": "string",
               "description": "Court name"
@@ -275,10 +267,6 @@
           "required": ["type", "role", "signer"],
           "properties": {
             "type": { "const": "legal:signatureBlock" },
-            "id": {
-              "type": "string",
-              "description": "Block identifier"
-            },
             "role": {
               "type": "string",
               "description": "Role of the signatory",

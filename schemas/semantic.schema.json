@@ -67,7 +67,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Unique footnote identifier for cross-referencing"
+          "description": "Unique footnote identifier for cross-referencing",
+          "pattern": "^[A-Za-z0-9._-]+$"
         }
       },
       "additionalProperties": false,
@@ -128,10 +129,6 @@
               "type": "string",
               "description": "Symbol-based footnote marker (must match corresponding mark)",
               "enum": ["asterisk", "dagger", "ddagger", "section", "parallel", "paragraph"]
-            },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier (must match mark if present)"
             },
             "children": {
               "type": "array",
@@ -292,10 +289,6 @@
           "required": ["type", "term", "definition"],
           "properties": {
             "type": { "const": "semantic:term" },
-            "id": {
-              "type": "string",
-              "description": "Unique term identifier"
-            },
             "term": {
               "type": "string",
               "description": "The term being defined"
@@ -342,6 +335,12 @@
               "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/textNode" }
             }
           }
+        },
+        {
+          "description": "Internal references (external false or absent) MUST target a Content Anchor URI; external references (external true) MAY target any safe URI.",
+          "if": { "properties": { "external": { "const": true } }, "required": ["external"] },
+          "then": { "properties": { "target": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri" } } },
+          "else": { "properties": { "target": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri" } } }
         }
       ],
       "unevaluatedProperties": false

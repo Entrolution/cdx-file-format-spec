@@ -127,10 +127,6 @@
               "type": "string",
               "description": "Variant name (built-in or custom)"
             },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier for cross-referencing"
-            },
             "number": {
               "type": "string",
               "description": "Explicit number (e.g., '2.3.8')"
@@ -147,7 +143,7 @@
             "uses": {
               "type": "array",
               "description": "Content Anchor URIs of dependencies",
-              "items": { "type": "string" }
+              "items": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri" }
             },
             "restate": {
               "type": "boolean",
@@ -174,7 +170,7 @@
           "properties": {
             "type": { "const": "academic:proof" },
             "of": {
-              "type": "string",
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
               "description": "Content Anchor URI to the theorem being proved"
             },
             "title": {
@@ -244,10 +240,6 @@
           "required": ["type", "children"],
           "properties": {
             "type": { "const": "academic:exercise" },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier"
-            },
             "number": {
               "type": "string",
               "description": "Exercise number"
@@ -283,10 +275,6 @@
           "required": ["type", "exercises"],
           "properties": {
             "type": { "const": "academic:exercise-set" },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier"
-            },
             "title": {
               "type": "string",
               "description": "Set title"
@@ -325,7 +313,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Line identifier for references"
+          "description": "Line identifier for references",
+          "pattern": "^[A-Za-z0-9._-]+$"
         }
       },
       "additionalProperties": false
@@ -340,10 +329,6 @@
           "properties": {
             "type": { "const": "academic:equation-group" },
             "environment": { "$ref": "#/$defs/equationEnvironment" },
-            "id": {
-              "type": "string",
-              "description": "Group identifier"
-            },
             "lines": {
               "type": "array",
               "description": "Array of equation lines",
@@ -405,10 +390,6 @@
           "required": ["type", "lines"],
           "properties": {
             "type": { "const": "academic:algorithm" },
-            "id": {
-              "type": "string",
-              "description": "Unique identifier"
-            },
             "number": {
               "type": "string",
               "description": "Algorithm number"
@@ -459,7 +440,7 @@
       "properties": {
         "type": { "const": "theorem-ref" },
         "target": {
-          "type": "string",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the theorem"
         },
         "format": {
@@ -476,7 +457,7 @@
       "properties": {
         "type": { "const": "equation-ref" },
         "target": {
-          "type": "string",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the equation"
         },
         "format": {
@@ -493,7 +474,7 @@
       "properties": {
         "type": { "const": "algorithm-ref" },
         "target": {
-          "type": "string",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the algorithm"
         },
         "line": {

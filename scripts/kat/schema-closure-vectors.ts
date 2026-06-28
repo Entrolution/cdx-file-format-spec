@@ -1438,4 +1438,108 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1 },
     invalidInstance: { id: 'a', path: 'phantoms/assets/x.png', type: 'image/png', size: 1, bogus: 1 },
   },
+
+  // --- referenceable-id namespace + reference-target shape ------------------
+  // Every block id shares the document-wide anchor namespace, so blockBase.id is
+  // charset-constrained; a stray-character id is rejected. Reference targets are
+  // constrained to the Content Anchor URI shape so a malformed internal target
+  // fails at authoring time.
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'core blockBase.id charset (bad-character id rejected)',
+    validInstance: { type: 'paragraph', id: 'sec.1-intro', children: [] },
+    invalidInstance: { type: 'paragraph', id: 'bad id', children: [] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/subfigure',
+    description: 'subfigure.id charset (bad-character id rejected)',
+    validInstance: { id: 'fig-a', children: [{ type: 'paragraph', children: [] }] },
+    invalidInstance: { id: 'fig a', children: [{ type: 'paragraph', children: [] }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'academic block id inherits patterned blockBase (no local redeclaration); bad-character id rejected',
+    validInstance: { type: 'academic:theorem', variant: 'theorem', id: 'thm-ivt', children: [] },
+    invalidInstance: { type: 'academic:theorem', variant: 'theorem', id: 'thm ivt', children: [] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'legal block id inherits patterned blockBase (no local redeclaration); bad-character id rejected',
+    validInstance: { type: 'legal:tableOfAuthorities', id: 'toa-1' },
+    invalidInstance: { type: 'legal:tableOfAuthorities', id: 'toa 1' },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'equationLine.id charset (sub-block id, not blockBase); bad-character id rejected',
+    validInstance: { type: 'academic:equation-group', lines: [{ value: 'x', id: 'eq-exp' }] },
+    invalidInstance: { type: 'academic:equation-group', lines: [{ value: 'x', id: 'eq exp' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic footnote mark id charset (bad-character id rejected)',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'footnote', number: 1, id: 'fn-1' }] },
+    invalidInstance: { type: 'text', value: 'x', marks: [{ type: 'footnote', number: 1, id: 'fn 1' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'presentation:footnote mark id charset (bad-character id rejected)',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'presentation:footnote', id: 'pf-1', content: [{ type: 'text', value: 'n' }] }] },
+    invalidInstance: { type: 'text', value: 'x', marks: [{ type: 'presentation:footnote', id: 'pf 1', content: [{ type: 'text', value: 'n' }] }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'theorem-ref target = Content Anchor URI (bare non-anchor target rejected)',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'theorem-ref', target: '#thm-ivt' }] },
+    invalidInstance: { type: 'text', value: 'x', marks: [{ type: 'theorem-ref', target: 'thm-ivt' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'equation-ref target = Content Anchor URI (bare non-anchor target rejected)',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'equation-ref', target: '#eq-exp' }] },
+    invalidInstance: { type: 'text', value: 'x', marks: [{ type: 'equation-ref', target: 'eq-exp' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'algorithm-ref target = Content Anchor URI (bare non-anchor target rejected)',
+    validInstance: { type: 'text', value: 'x', marks: [{ type: 'algorithm-ref', target: '#alg-bisection' }] },
+    invalidInstance: { type: 'text', value: 'x', marks: [{ type: 'algorithm-ref', target: 'alg-bisection' }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'proof.of = Content Anchor URI (bare non-anchor target rejected)',
+    validInstance: { type: 'academic:proof', of: '#thm-ivt', children: [] },
+    invalidInstance: { type: 'academic:proof', of: 'thm-ivt', children: [] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'theorem.uses items = Content Anchor URIs (bare non-anchor target rejected)',
+    validInstance: { type: 'academic:theorem', variant: 'theorem', id: 'thm-1', uses: ['#def-continuous'], children: [] },
+    invalidInstance: { type: 'academic:theorem', variant: 'theorem', id: 'thm-1', uses: ['def-continuous'], children: [] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:ref internal target (external false/absent) MUST be a Content Anchor URI (non-anchor rejected)',
+    validInstance: { type: 'semantic:ref', target: '#sec-3' },
+    invalidInstance: { type: 'semantic:ref', target: 'section-3' },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'semantic:ref external target (external true) is a safe URI (https accepted, javascript rejected)',
+    validInstance: { type: 'semantic:ref', target: 'https://example.com/spec', external: true },
+    invalidInstance: { type: 'semantic:ref', target: 'javascript:alert(1)', external: true },
+  },
 ];
