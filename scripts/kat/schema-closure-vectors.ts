@@ -1066,6 +1066,13 @@ export const closureVectors: ClosureVector[] = [
   {
     schema: 'content.schema.json',
     ref: '#/$defs/block',
+    description: 'presentation:footnote mark is dispatched strictly (content-bearing, closed), not via the open escape',
+    validInstance: { type: 'text', value: 'claim', marks: [{ type: 'presentation:footnote', id: 'fn1', content: [{ type: 'text', value: 'note' }] }] },
+    invalidInstance: { type: 'text', value: 'claim', marks: [{ type: 'presentation:footnote', id: 'fn1', content: [{ type: 'text', value: 'note' }], bogus: 1 }] },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
     description: 'academic:theorem wired + closed',
     validInstance: { type: 'academic:theorem', variant: 'theorem', id: 't1', children: [] },
     invalidInstance: { type: 'academic:theorem', variant: 'theorem', children: [], bogus: 1 },
