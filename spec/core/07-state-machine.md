@@ -294,7 +294,8 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 | Unknown **bare**, non-namespaced block or mark type | REJECT | REJECT |
 | Missing the required `content` part | REJECT | REJECT |
 | Missing required metadata — the Dublin Core part or a required term | WARNING | INTEGRITY-ERROR |
-| Missing another referenced part (presentation, provenance, …) | WARNING | INTEGRITY-ERROR |
+| Missing a referenced part bound by the document hash or manifest projection — e.g. a declared `presentation` layer | WARNING | INTEGRITY-ERROR |
+| Missing a referenced part outside the document hash and manifest projection — e.g. the `provenance` record (Security Extension section 9.8) | WARNING | WARNING |
 | Structurally malformed block or mark of a **known** type | WARNING | INTEGRITY-ERROR |
 | Dangling **core anchor** reference in hashed content — a `link`/`anchor` Content Anchor (Anchors and References section 7.2) | WARNING | INTEGRITY-ERROR |
 | Dangling asset reference — a canonicalization error once the ID is computed (Document Hashing section 4.3.1) | WARNING | INTEGRITY-ERROR |
@@ -319,6 +320,7 @@ Two rules do **not** vary by state and override the table above:
 
 - **Duplicate keys always REJECT.** Any part containing an object with duplicate keys MUST be rejected before hashing or verification, in *every* state (Document Hashing section 4.3.2); an unrejected duplicate permits a split-view substitution.
 - **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document.
+- **An out-of-hash layer's internal validity is a load disposition, not an integrity failure.** A defect confined to the internal graph of an out-of-hash layer — for example a broken phantom-to-phantom `connection` target, or a duplicate phantom id (Phantoms section 4.7) — MAY stop that layer from loading or rendering coherently, but because the layer is bound by neither the document hash nor the manifest projection it MUST NOT escalate to an INTEGRITY-ERROR or downgrade the document, in *any* state. Such load "errors" are layer-validity dispositions distinct from this table's integrity axis.
 
 ## 6. Signatures and State
 

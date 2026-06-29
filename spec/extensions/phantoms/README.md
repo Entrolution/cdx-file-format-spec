@@ -129,7 +129,7 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `created` | string | Yes | ISO 8601 creation timestamp |
 | `author` | object | No | Phantom author |
 
-Cluster `id`s MUST be unique within `phantoms/clusters.json`, and a phantom `id` MUST be unique within its cluster. These identifiers carry no document-hash weight (section 5), but connection resolution (section 4.7) depends on phantom-id uniqueness within a cluster. A loader MUST treat a duplicate id as a Warning in DRAFT/REVIEW and an Error in FROZEN/PUBLISHED (the same severity as a broken connection target, section 4.7), and a `connection` whose `target` matches more than one phantom MUST be handled as a broken target rather than resolved to an arbitrary one.
+Cluster `id`s MUST be unique within `phantoms/clusters.json`, and a phantom `id` MUST be unique within its cluster. These identifiers carry no document-hash weight (section 5), but connection resolution (section 4.7) depends on phantom-id uniqueness within a cluster. A loader MUST treat a duplicate id as a Warning in DRAFT/REVIEW and an Error in FROZEN/PUBLISHED (the same severity as a broken connection target, section 4.7 — a layer-load disposition, not a document INTEGRITY-ERROR; State Machine section 5.4.3), and a `connection` whose `target` matches more than one phantom MUST be handled as a broken target rather than resolved to an arbitrary one.
 
 ### 4.4 Position and Size
 
@@ -209,6 +209,8 @@ Connections between phantoms MUST satisfy the following rules:
 | Same cluster | Connections MUST NOT reference phantoms in other clusters | Error in all states |
 
 Implementations MUST validate connection targets when loading phantom data. Broken connection targets (referencing non-existent phantom IDs) indicate data corruption in frozen documents and partial construction in mutable documents.
+
+This `Error` is a layer-load disposition — the phantom graph will not render coherently — not the INTEGRITY-ERROR of the State Machine's integrity axis. Because the phantom layer is outside the document hash (section 5) and bound by no signature, a broken connection never changes the document ID, invalidates a signature, or downgrades the document itself; it is a validity disposition local to the out-of-hash layer (State Machine section 5.4.3).
 
 ### 4.8 Known Limitations
 
