@@ -329,6 +329,6 @@ Multiple mechanisms exist for cross-referencing within CDX documents. Use the fo
 | `link` mark (with `#anchor` href) | Core | General-purpose internal links; hyperlink-style references |
 | `semantic:ref` | Semantic | Scholarly cross-references (e.g., 'see Section 3', 'as shown in Figure 2') with automatic label generation |
 | `presentation:reference` | Presentation | Layout-aware references that need presentation-specific formatting or page numbers |
-| `theorem-ref` / `equation-ref` / `algorithm-ref` | Academic | References to theorems, equations, algorithms, or other numbered academic elements |
+| `academic:theorem-ref` / `academic:equation-ref` / `academic:algorithm-ref` | Academic | References to theorems, equations, algorithms, or other numbered academic elements |
 
 For simple internal links, use the core `link` mark. For documents requiring automatic numbering and label generation (e.g., 'Figure 3', 'Theorem 2.1'), use extension-specific reference marks. When multiple reference types apply, prefer the most semantically specific mechanism: an academic numbered element — a theorem, equation, or algorithm — is referenced with its academic `*-ref` mark, which renders the element's number, while `semantic:ref` is for general scholarly cross-references. When both could resolve the same target, the academic `*-ref` mark is authoritative for academic numbered targets and `semantic:ref` for all others, and a document SHOULD reference a given target through a single mechanism.

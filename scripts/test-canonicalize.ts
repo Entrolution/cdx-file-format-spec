@@ -889,9 +889,9 @@ test('relabel: academic uses/of/target rewrite to block ids; an equation-line ta
         {
           type: 'paragraph',
           children: [
-            { type: 'text', value: 'a', marks: [{ type: 'theorem-ref', target: '#thm1' }] },
-            { type: 'text', value: 'b', marks: [{ type: 'equation-ref', target: '#eq-1' }] },
-            { type: 'text', value: 'c', marks: [{ type: 'algorithm-ref', target: '#def1', line: 'loop' }] },
+            { type: 'text', value: 'a', marks: [{ type: 'academic:theorem-ref', target: '#thm1' }] },
+            { type: 'text', value: 'b', marks: [{ type: 'academic:equation-ref', target: '#eq-1' }] },
+            { type: 'text', value: 'c', marks: [{ type: 'academic:algorithm-ref', target: '#def1', line: 'loop' }] },
           ],
         },
       ],
@@ -900,10 +900,10 @@ test('relabel: academic uses/of/target rewrite to block ids; an equation-line ta
   assert.equal(blocks[1].uses[0], '#b0'); // theorem.uses → def1
   assert.equal(blocks[2].of, '#b1'); // proof.of → thm1
   const refs = blocks[4].children;
-  assert.equal(refs[0].marks[0].target, '#b1'); // theorem-ref → thm1
-  assert.equal(refs[1].marks[0].target, '#eq-1'); // equation-ref → equation-LINE id: deferred, verbatim
-  assert.equal(refs[2].marks[0].target, '#b0'); // algorithm-ref target → def1
-  assert.equal(refs[2].marks[0].line, 'loop'); // algorithm-ref.line: separate namespace, verbatim
+  assert.equal(refs[0].marks[0].target, '#b1'); // academic:theorem-ref → thm1
+  assert.equal(refs[1].marks[0].target, '#eq-1'); // academic:equation-ref → equation-LINE id: deferred, verbatim
+  assert.equal(refs[2].marks[0].target, '#b0'); // academic:algorithm-ref target → def1
+  assert.equal(refs[2].marks[0].line, 'loop'); // academic:algorithm-ref.line: separate namespace, verbatim
   assert.equal(blocks[3].lines[0].id, 'eq-1'); // equation-line id (no type field) → deferred, verbatim
 });
 

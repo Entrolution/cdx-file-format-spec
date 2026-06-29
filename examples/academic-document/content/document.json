@@ -116,7 +116,7 @@
           "value": "Theorem 1.2",
           "marks": [
             {
-              "type": "theorem-ref",
+              "type": "academic:theorem-ref",
               "target": "#thm-ivt",
               "format": "Theorem {number}"
             }
@@ -169,7 +169,7 @@
           "value": "(1)",
           "marks": [
             {
-              "type": "equation-ref",
+              "type": "academic:equation-ref",
               "target": "#eq-exp",
               "format": "({number})"
             }
@@ -181,7 +181,7 @@
           "value": "(2)",
           "marks": [
             {
-              "type": "equation-ref",
+              "type": "academic:equation-ref",
               "target": "#eq-sin",
               "format": "({number})"
             }
@@ -237,7 +237,7 @@
           "value": "line 1",
           "marks": [
             {
-              "type": "algorithm-ref",
+              "type": "academic:algorithm-ref",
               "target": "#alg-bisection",
               "line": "loop",
               "format": "line {line}"
@@ -250,7 +250,7 @@
           "value": "Algorithm 1",
           "marks": [
             {
-              "type": "algorithm-ref",
+              "type": "academic:algorithm-ref",
               "target": "#alg-bisection",
               "format": "Algorithm {number}"
             }

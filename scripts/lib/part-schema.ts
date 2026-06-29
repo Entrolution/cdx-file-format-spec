@@ -15,7 +15,7 @@ import { createAjv, loadSchema } from './ajv-utils.js';
 const schemaDependencies: Record<string, string[]> = {
   'content.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'],
   // academic references anchor.schema.json#/$defs/contentAnchorUri for its
-  // cross-reference target fields (theorem/equation/algorithm-ref target, uses, of).
+  // cross-reference target fields (the academic:*-ref mark targets, uses, of).
   'academic.schema.json': ['anchor.schema.json'],
   'collaboration.schema.json': ['anchor.schema.json'],
   // forms/semantic/presentation reference anchor.schema.json#/$defs/safeUri (the

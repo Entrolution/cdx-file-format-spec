@@ -566,15 +566,15 @@ function definedId(obj: Record<string, unknown>, inMarks: boolean): string | und
 
 /** Academic inline reference marks whose `target` is a Content Anchor URI. */
 function isAnchorRefMark(type: unknown): boolean {
-  return type === 'theorem-ref' || type === 'equation-ref' || type === 'algorithm-ref';
+  return type === 'academic:theorem-ref' || type === 'academic:equation-ref' || type === 'academic:algorithm-ref';
 }
 
 /**
  * Rewrite id-defining fields and the enumerated Content Anchor URI references
  * using the relabel map. References handled: `link` mark `href`; academic
- * `theorem-ref`/`equation-ref`/`algorithm-ref` mark `target`; `academic:theorem`
- * `uses[]`; `academic:proof` `of`; `semantic:ref` and `presentation:reference`
- * block `target`.
+ * `academic:theorem-ref`/`academic:equation-ref`/`academic:algorithm-ref` mark
+ * `target`; `academic:theorem` `uses[]`; `academic:proof` `of`; `semantic:ref`
+ * and `presentation:reference` block `target`.
  */
 function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean): unknown {
   if (Array.isArray(value)) {
