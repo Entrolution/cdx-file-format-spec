@@ -29,10 +29,12 @@ The Academic Extension provides structured support for academic and scientific d
     }
   ],
   "academic": {
-    "numbering": "academic/numbering.json"
+    "numbering": { "path": "academic/numbering.json", "hash": "sha256:<numbering-hash>" }
   }
 }
 ```
+
+The `numbering` file is declared as a `{path, hash}` reference; the hash binds its content through the manifest projection (section 13).
 
 ## 3. Abstract Block
 
@@ -1141,4 +1143,4 @@ Academic constructs span two integrity tiers (see the extensions overview, Integ
 
 **Author identity is advisory.** The author name carried in Dublin Core `creator` is part of the document hash, but a signature attests those bytes, not that the named person authored the work. The richer structured author data — an ORCID, an affiliation, the `creators` array of `metadata/dublin-core.json` — is excluded from the document hash altogether (Document Hashing specification, section 4.1). An ORCID, DID, or other identifier (section 12) is an advisory label: it is not authenticated by being named, and an identifier that is DID-shaped is not a signature. To establish authorship cryptographically, sign the document with a security-extension credential bound to the author (security extension, Identity Authority).
 
-**Auto-numbering is advisory.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref`, derive from `academic/numbering.json`. The manifest references that file by path only, with no hash, so it is in neither the document hash nor the manifest projection: an archive writer can renumber a `frozen` or signed document — silently changing what each cross-reference displays — without changing the document ID or breaking a signature. Where a cross-reference number must be integrity-protected, give the referenced block an explicit `number`, carried in signed content, rather than relying on auto-numbering.
+**Auto-numbering is bound through the manifest, not the document hash.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref`, derive from `academic/numbering.json`. The manifest declares that file as a `{path, hash}` reference, so its content is bound by the manifest projection (security extension, section 9.7) even though it is not in the document hash: a manifest-covering signature attests `numbering.json`, and an archive writer who renumbers a `frozen` or signed document changes the file's hash and breaks that signature. The binding requires a manifest-covering signature; a document with no such signature — or a reader that verifies only the document ID — still sees the file unauthenticated. Where a cross-reference number must be integrity-protected regardless, give the referenced block an explicit `number`, carried in signed content.

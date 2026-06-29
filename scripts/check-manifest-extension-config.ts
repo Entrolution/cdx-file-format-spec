@@ -57,6 +57,9 @@ interface ConfigVector {
   valid: boolean;
 }
 
+// A well-formed content hash for the file-reference config vectors.
+const CFG_HASH = 'sha256:' + 'a'.repeat(64);
+
 // Teeth: a well-formed config MUST validate; a malformed one (a wrong-typed value
 // or an unknown key, against the additionalProperties:false config roots) MUST be
 // rejected. These are the negative half the corpus cannot give.
@@ -65,9 +68,12 @@ const configVectors: ConfigVector[] = [
   { slot: 'legal', description: 'wrong-type citationStyle rejected', config: { citationStyle: 123 }, valid: false },
   { slot: 'legal', description: 'unknown key rejected', config: { citationStyle: 'bluebook', bogus: 1 }, valid: false },
   { slot: 'legal', description: 'wrong-type jurisdiction rejected', config: { jurisdiction: 123 }, valid: false },
-  { slot: 'academic', description: 'valid numbering path', config: { numbering: 'academic/numbering.json' }, valid: true },
-  { slot: 'academic', description: 'unknown key rejected', config: { numbering: 'academic/numbering.json', bogus: 1 }, valid: false },
-  { slot: 'semantic', description: 'valid bibliography + glossary', config: { bibliography: 'semantic/bibliography.json', glossary: 'semantic/glossary.json' }, valid: true },
+  { slot: 'academic', description: 'valid numbering {path,hash}', config: { numbering: { path: 'academic/numbering.json', hash: CFG_HASH } }, valid: true },
+  { slot: 'academic', description: 'bare-string numbering rejected (hash required)', config: { numbering: 'academic/numbering.json' }, valid: false },
+  { slot: 'academic', description: 'numbering missing hash rejected', config: { numbering: { path: 'academic/numbering.json' } }, valid: false },
+  { slot: 'academic', description: 'unknown key rejected', config: { numbering: { path: 'academic/numbering.json', hash: CFG_HASH }, bogus: 1 }, valid: false },
+  { slot: 'semantic', description: 'valid bibliography + glossary {path,hash}', config: { bibliography: { path: 'semantic/bibliography.json', hash: CFG_HASH }, glossary: { path: 'semantic/glossary.json', hash: CFG_HASH } }, valid: true },
+  { slot: 'semantic', description: 'bare-string bibliography rejected (hash required)', config: { bibliography: 'semantic/bibliography.json' }, valid: false },
   { slot: 'semantic', description: 'unknown key rejected', config: { bogus: 1 }, valid: false },
   { slot: 'collaboration', description: 'valid comments + changes paths', config: { comments: 'collaboration/comments.json', changes: 'collaboration/changes.json' }, valid: true },
   { slot: 'collaboration', description: 'unknown key rejected', config: { comments: 'collaboration/comments.json', sync: {} }, valid: false },

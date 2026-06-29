@@ -130,6 +130,21 @@ for (const exampleName of exampleDirs) {
     (manifest.presentation ?? []).forEach((pr: { path?: string; hash?: string }, i: number) => {
       if (pr.path && pr.hash) hashRefs.push([`presentation[${i}].hash`, pr.path, pr.hash]);
     });
+    // Extension config file references ({path, hash}) — bound by the manifest
+    // projection, so a declared hash must match the referenced file, the same
+    // invariant content/presentation hold.
+    for (const slot of ['academic', 'semantic', 'legal', 'collaboration']) {
+      const collectRefs = (v: unknown, label: string): void => {
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+        const o = v as Record<string, unknown>;
+        if (typeof o.path === 'string' && typeof o.hash === 'string') {
+          hashRefs.push([`${label}.hash`, o.path, o.hash]);
+          return;
+        }
+        for (const k of Object.keys(o)) collectRefs(o[k], `${label}.${k}`);
+      };
+      collectRefs(manifest[slot], slot);
+    }
     for (const [label, rel, declared] of hashRefs) {
       if (!fs.existsSync(path.join(examplePath, rel))) {
         console.log(`  ✗ manifest ${label} -> ${rel} (file missing)`);
