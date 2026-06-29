@@ -217,4 +217,17 @@ export const vectors: KatVector[] = [
       `{"content":{"blocks":[{"children":[],"id":"b0","type":"academic:theorem","variant":"definition"},{"children":[],"id":"b1","type":"academic:theorem","uses":["#b0"],"variant":"theorem"},{"children":[],"of":"#b1","type":"academic:proof"}],"version":"0.1"},${META}}`,
     expectedId: 'sha256:67c275865c3fdab3e46f85600ae82a6efad7171ce05d2953e3b59a4d53ffb349',
   },
+  {
+    name: 'alpha-rename-equation-line-ref',
+    description: 'An equation-line id is relabeled (eq-emc→b1) and an academic:equation-ref target is rewritten to it (#eq-emc→#b1) — the sub-block id shares the relabeled namespace.',
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"academic:equation-group","id":"eqg","lines":[{"value":"e=mc^2","number":"1","id":"eq-emc"}]},{"type":"paragraph","children":[{"type":"text","value":"see ","marks":[{"type":"academic:equation-ref","target":"#eq-emc"}]}]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"id":"b0","lines":[{"id":"b1","number":"1","value":"e=mc^2"}],"type":"academic:equation-group"},{"children":[{"marks":[{"target":"#b1","type":"academic:equation-ref"}],"type":"text","value":"see "}],"type":"paragraph"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:175342eab21c533929b2163b5d728290f4f4e2354d9cf4c530bf797f02100fd7',
+  },
 ];

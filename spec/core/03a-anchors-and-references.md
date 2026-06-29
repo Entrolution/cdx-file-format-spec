@@ -160,8 +160,8 @@ Authors can place explicit, stable anchor points within text using the `anchor` 
 
 **Rules:**
 
-- Anchor IDs share the document-wide ID namespace with block IDs
-- Anchor IDs MUST be unique across both block IDs and other anchor IDs
+- Anchor IDs share one document-wide identifier namespace with block IDs and with in-content sub-block IDs (academic equation-line ids and subfigure ids)
+- Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line ids, and subfigure ids
 - Anchor IDs MUST use URL-safe characters
 - Named anchors can be referenced by Content Anchor URIs (e.g., `#def-key-concept`) and ContentAnchor objects (e.g., `{ "blockId": "def-key-concept" }`)
 
@@ -232,11 +232,11 @@ Implementations SHOULD validate that anchor targets (block IDs, named anchor IDs
 |-----------|--------------|------------------|
 | Target block/anchor ID does not exist | Warning | Error |
 | Offset/range exceeds target block text length | Warning | Error |
-| Named anchor ID collides with block ID | Error | Error |
+| ID collides with another ID in the shared namespace | Error | Error |
 
 - **DRAFT/REVIEW**: Broken anchors produce a **warning** because content is fluid — targets may not yet exist or may have been recently removed.
 - **FROZEN/PUBLISHED**: Broken anchors produce an **error** because content is immutable, so a broken anchor indicates corruption or invalid construction.
-- Named anchor IDs that collide with block IDs MUST produce an error in all states, since the shared namespace requires uniqueness.
+- An ID that collides with another ID in the shared namespace — block, anchor, equation-line, or subfigure — MUST produce an error in all states, since that namespace requires uniqueness.
 
 These severities are the WARNING and INTEGRITY-ERROR dispositions of State Machine section 5.4.
 

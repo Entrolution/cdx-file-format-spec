@@ -510,18 +510,20 @@ function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
  * (block-id purity). Runs as the final transform, on the already strip/resolve/
  * marks/merge-canonicalized content; a pure function of that structure.
  *
- * Namespace (relabeled): the `id` of every block — a typed object (`type` is a
- * string) outside a `marks` array — and of every `anchor` mark. This is the
- * shared block/anchor-id namespace of Anchors & References §4. Requiring a `type`
- * naturally excludes the deferred non-block ids (`subfigure`, `equationLine`,
- * `signer` carry no `type`).
+ * Namespace (relabeled): the `id` of every block (a typed object outside a `marks`
+ * array), the `id` of every `anchor` mark, and the `id` of every in-content
+ * sub-block element reached as an array item — an academic equation line (in
+ * `lines`) and a `subfigure` (in `subfigures`), which carry no block `type`. These
+ * share one uniqueness-checked identifier namespace (Anchors & References §4). A
+ * singular named sub-object such as a signature block's `signer` (a Person
+ * identifier, not a content-anchor target) is not an array item and is excluded.
  *
  * References rewritten: Content Anchor URIs (`#id[/offset]`) in an enumerated set
- * of reference fields. Identifiers in other namespaces — footnote / glossary /
- * citation / entity / index / legal marks, equation- and algorithm-line ids,
- * subfigure ids — are NOT relabeled, and a `#`-reference resolving to none of the
- * relabeled ids (e.g. a reference to an equation line, or a cross-document anchor)
- * is left verbatim. A duplicate id within the namespace is rejected.
+ * of reference fields. Identifiers that address OTHER namespaces — footnote /
+ * glossary / citation / entity / index / legal marks, and the
+ * `academic:algorithm-ref` `line` label — are NOT relabeled, and a `#`-reference
+ * resolving to none of the relabeled ids (e.g. a cross-document anchor) is left
+ * verbatim. A duplicate id within the namespace is rejected.
  */
 function alphaRenameIds(content: unknown): unknown {
   const map = new Map<string, string>();
@@ -532,36 +534,45 @@ function alphaRenameIds(content: unknown): unknown {
   // descendants), so alpha-equivalent inputs build identical maps regardless of
   // the original labels. Reject a duplicate id (Anchors & References §4 requires
   // uniqueness across the shared namespace).
-  const collect = (value: unknown, inMarks: boolean): void => {
+  const collect = (value: unknown, inMarks: boolean, inArray: boolean): void => {
     if (Array.isArray(value)) {
-      for (const el of value) collect(el, inMarks);
+      for (const el of value) collect(el, inMarks, true);
       return;
     }
     if (!isPlainObject(value)) return;
-    const id = definedId(value, inMarks);
+    const id = definedId(value, inMarks, inArray);
     if (id !== undefined) {
       if (map.has(id)) {
-        throw new CanonicalizationError(`duplicate id "${id}" in the block/anchor-id namespace`);
+        throw new CanonicalizationError(`duplicate id "${id}" in the shared identifier namespace`);
       }
       map.set(id, `b${counter++}`);
     }
     for (const key of Object.keys(value).sort()) {
-      collect(value[key], key === 'marks');
+      collect(value[key], key === 'marks', false);
     }
   };
-  collect(content, false);
+  collect(content, false, false);
 
   if (map.size === 0) return content; // no ids to canonicalize
 
-  return rewriteIds(content, map, false);
+  return rewriteIds(content, map, false, false);
 }
 
-/** The in-namespace id this node defines (block id or anchor-mark id), if any. */
-function definedId(obj: Record<string, unknown>, inMarks: boolean): string | undefined {
+/**
+ * The in-namespace id this node defines, if any. Inside a `marks` array only an
+ * `anchor` mark contributes an id (other marks address separate namespaces).
+ * Outside `marks`: a typed object (every block) contributes its `id`, and so does
+ * an untyped in-content sub-block reached as an array item — an academic equation
+ * line (in `lines`) or a `subfigure` (in `subfigures`). A singular named sub-object
+ * such as a signature block's `signer` (a Person identifier, not a content-anchor
+ * target) carries no `type` and is not an array item, so it is excluded.
+ */
+function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: boolean): string | undefined {
   if (inMarks) {
     return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
   }
-  return typeof obj.type === 'string' && typeof obj.id === 'string' ? obj.id : undefined;
+  if (typeof obj.id !== 'string') return undefined;
+  return typeof obj.type === 'string' || inArray ? obj.id : undefined;
 }
 
 /** Academic inline reference marks whose `target` is a Content Anchor URI. */
@@ -576,9 +587,9 @@ function isAnchorRefMark(type: unknown): boolean {
  * `target`; `academic:theorem` `uses[]`; `academic:proof` `of`; `semantic:ref`
  * and `presentation:reference` block `target`.
  */
-function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean): unknown {
+function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean): unknown {
   if (Array.isArray(value)) {
-    return value.map((v) => rewriteIds(v, map, inMarks));
+    return value.map((v) => rewriteIds(v, map, inMarks, true));
   }
   if (!isPlainObject(value)) return value;
 
@@ -591,9 +602,9 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean):
   // re-sort is always safe.
   for (const key of Object.keys(obj)) {
     if (key === 'marks' && Array.isArray(obj[key])) {
-      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true)));
+      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true)));
     } else {
-      obj[key] = rewriteIds(obj[key], map, false);
+      obj[key] = rewriteIds(obj[key], map, false, false);
     }
   }
 
@@ -607,7 +618,7 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean):
       obj.target = rewriteContentAnchor(obj.target, map);
     }
   } else {
-    if (typeof type === 'string' && typeof obj.id === 'string') {
+    if ((typeof obj.type === 'string' || inArray) && typeof obj.id === 'string') {
       obj.id = renameId(obj.id, map);
     }
     if (type === 'academic:proof' && typeof obj.of === 'string') {
