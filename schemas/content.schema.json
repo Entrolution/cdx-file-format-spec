@@ -616,8 +616,8 @@
           "properties": {
             "type": { "const": "image" },
             "src": {
-              "type": "string",
-              "description": "Image source path or URL"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+              "description": "Image source path or URL. Constrained to safe schemes (see the Renderer Safety core specification); javascript:/data:text and other dangerous schemes are rejected, and data: admits raster image types but not SVG."
             },
             "alt": {
               "type": "string",
@@ -967,8 +967,8 @@
           "properties": {
             "type": { "const": "svg" },
             "src": {
-              "type": "string",
-              "description": "Path to SVG file"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+              "description": "Path to SVG file. Constrained to safe schemes (see the Renderer Safety core specification); the file's rendered SVG content is additionally subject to the sanitize-all-SVG rule (Renderer Safety section 3.1)."
             },
             "content": {
               "type": "string",

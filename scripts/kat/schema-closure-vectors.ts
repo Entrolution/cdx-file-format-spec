@@ -1412,6 +1412,20 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { name: 'Ada', avatar: 'https://example.com/avatars/jane.png' },
     invalidInstance: { name: 'Ada', avatar: 'javascript:alert(1)' },
   },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'image.src safe-image teeth (javascript: rejected)',
+    validInstance: { type: 'image', src: 'assets/images/figure1.avif', alt: 'x' },
+    invalidInstance: { type: 'image', src: 'javascript:alert(1)', alt: 'x' },
+  },
+  {
+    schema: 'content.schema.json',
+    ref: '#/$defs/block',
+    description: 'svg.src safe-image teeth (javascript: rejected)',
+    validInstance: { type: 'svg', src: 'assets/diagrams/d.svg', alt: 'x' },
+    invalidInstance: { type: 'svg', src: 'javascript:alert(1)', alt: 'x' },
+  },
 
   // --- documented-field representability (S8) -------------------------------
   // The optional crdt sync field is accepted on a block (and stripped before
