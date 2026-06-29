@@ -26,9 +26,12 @@
  * What the projection BINDS: `cdx` (spec version), `state`, the content part
  * `{path, hash}`, the `presentation[]` declaration (`{type, path, hash}` plus the
  * default-selection flag), the `extensions[]` set (`{id, version, required}`,
- * plus `config` for a required extension), `lineage` verbatim, and the
+ * plus `config` for a required extension), `lineage` verbatim, the
  * `signaturePolicy` required-signer set (§3.12) — the credentials that bind the
- * signature SET against stripping/downgrade.
+ * signature SET against stripping/downgrade — and `configFiles`: the `{path, hash}`
+ * references an extension config slot declares (academic numbering, semantic
+ * bibliography/glossary), so their content is attested even though it is outside
+ * the document hash.
  *
  * What it does NOT bind (negative coverage, by design — see the spec §9.8):
  *  - The document ID / content semantics — carried separately by
@@ -36,8 +39,9 @@
  *  - Embedded fonts and other non-content assets (excluded from the document ID
  *    by design; a later increment may bind them).
  *  - The *bytes* of path-only parts (metadata, provenance, phantoms,
- *    annotations) and of the `security` block — only `content` and
- *    `presentation[]` carry hashes in the manifest.
+ *    annotations) and of the `security` block. An extension config file is bound
+ *    only when declared as a `{path, hash}` reference; a path-only declaration
+ *    (e.g. collaboration comments/changes) is not.
  *  - Signatures OUTSIDE the declared required set: the `signaturePolicy` binds
  *    only the *declared required* signers, so stripping an optional signature,
  *    signing order, and late-joiners are not detected (§3.12, §9.8). A document
@@ -104,6 +108,59 @@ function projectRequiredSigner(entry: unknown): Record<string, unknown> {
     throw new CanonicalizationError(`requiredSigners ${kind} must be a non-empty string`);
   }
   return { [kind]: value };
+}
+
+/**
+ * The manifest's extension config slots (mirrors manifest.schema.json). Each is an
+ * open object owned by its extension; the projector reaches into them only to bind
+ * the hashes of declared `{path, hash}` file references — never advisory config
+ * such as a citation style.
+ */
+const EXTENSION_CONFIG_SLOTS = ['academic', 'semantic', 'legal', 'collaboration'] as const;
+
+/**
+ * True iff `v` is EXACTLY a `{path, hash}` file reference with a well-formed
+ * content hash — no extra members. The strict key set matches the config-schema
+ * `fileReference` def (additionalProperties:false), so the projector binds the
+ * same shape the schema admits and an advisory object that merely happens to carry
+ * a `path`+`hash` pair (plus other fields) is not silently pulled in.
+ */
+function isFileReference(v: unknown): v is { path: string; hash: string } {
+  return (
+    isPlainObject(v) &&
+    Object.keys(v).length === 2 &&
+    typeof v.path === 'string' &&
+    isValidContentHash(v.hash)
+  );
+}
+
+/**
+ * Collect every `{path, hash}` file reference declared anywhere in the extension
+ * config slots, projected as `{path, hash}` and sorted by JCS. A path declared
+ * twice with conflicting hashes is rejected — the binding would be ambiguous.
+ */
+function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{ path: string; hash: string }> {
+  const byPath = new Map<string, string>();
+  const visit = (v: unknown): void => {
+    if (isFileReference(v)) {
+      const existing = byPath.get(v.path);
+      if (existing !== undefined && existing !== v.hash) {
+        throw new CanonicalizationError(`config file "${v.path}" is declared with conflicting hashes`);
+      }
+      byPath.set(v.path, v.hash);
+      return; // a file reference's members are scalars; nothing to recurse into
+    }
+    if (Array.isArray(v)) {
+      for (const el of v) visit(el);
+    } else if (isPlainObject(v)) {
+      for (const key of Object.keys(v)) visit(v[key]);
+    }
+  };
+  for (const slot of EXTENSION_CONFIG_SLOTS) visit(manifest[slot]);
+
+  const items = [...byPath.entries()].map(([path, hash]) => ({ path, hash }));
+  items.sort(byJcs);
+  return items;
 }
 
 /**
@@ -247,6 +304,19 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     }
     projection.signaturePolicy = { requiredSigners: items };
   }
+
+  // --- extension config file references (optional) — bind their hashes ---------
+  // An extension config slot (manifest.academic, manifest.semantic, …) MAY declare
+  // auxiliary files — academic numbering, semantic bibliography/glossary — that are
+  // NOT in the document hash yet drive rendered numbers, citations, and definitions.
+  // Bind every `{path, hash}` reference found in those slots so a manifest-covering
+  // signature attests each file's content; a repackager can no longer silently
+  // renumber or re-cite a frozen document while a signature still verifies. The bind
+  // is generic — keyed on the `{path, hash}` SHAPE, not on the field name — so a new
+  // hashed config file is covered without changing this projector. The references are
+  // sorted by JCS to a canonical order; absent → the field is omitted.
+  const configFiles = collectConfigFileReferences(manifest);
+  if (configFiles.length > 0) projection.configFiles = configFiles;
 
   // The projected bytes obey the same stored-byte invariants as the document ID
   // (NFC, well-formed Unicode, safe integers) — validate, never normalize.

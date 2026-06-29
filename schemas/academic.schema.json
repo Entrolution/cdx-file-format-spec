@@ -575,14 +575,24 @@
         }
       },
       "additionalProperties": false
+    },
+    "fileReference": {
+      "type": "object",
+      "description": "A hashed reference to an archive file: its path and the content hash that binds its bytes.",
+      "required": ["path", "hash"],
+      "properties": {
+        "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+        "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+      },
+      "additionalProperties": false
     }
   },
   "type": "object",
   "description": "Academic extension configuration",
   "properties": {
     "numbering": {
-      "type": "string",
-      "description": "Path to numbering configuration file (e.g., 'academic/numbering.json')"
+      "$ref": "#/$defs/fileReference",
+      "description": "Hashed reference to the numbering configuration file (e.g., 'academic/numbering.json')"
     }
   },
   "additionalProperties": false

@@ -19,6 +19,9 @@
     "dublinCore": "metadata/dublin-core.json"
   },
   "academic": {
-    "numbering": "academic/numbering.json"
+    "numbering": {
+      "path": "academic/numbering.json",
+      "hash": "sha256:02215470a0f90aa45aaa364e8784c7fb629da68de7f33f02eeb165d73c2c5607"
+    }
   }
 }

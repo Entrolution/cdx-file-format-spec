@@ -485,18 +485,28 @@
         }
       },
       "additionalProperties": false
+    },
+    "fileReference": {
+      "type": "object",
+      "description": "A hashed reference to an archive file: its path and the content hash that binds its bytes.",
+      "required": ["path", "hash"],
+      "properties": {
+        "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+        "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+      },
+      "additionalProperties": false
     }
   },
   "type": "object",
   "description": "Semantic extension configuration",
   "properties": {
     "bibliography": {
-      "type": "string",
-      "description": "Path to bibliography file (e.g., 'semantic/bibliography.json')"
+      "$ref": "#/$defs/fileReference",
+      "description": "Hashed reference to the bibliography file (e.g., 'semantic/bibliography.json')"
     },
     "glossary": {
-      "type": "string",
-      "description": "Path to glossary file (e.g., 'semantic/glossary.json')"
+      "$ref": "#/$defs/fileReference",
+      "description": "Hashed reference to the glossary file (e.g., 'semantic/glossary.json')"
     }
   },
   "additionalProperties": false

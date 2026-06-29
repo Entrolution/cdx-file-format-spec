@@ -100,6 +100,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('f')}","path":"content/document.json"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC123"},{"jkt":"jktThumbprintBBBB"},{"x5tS256":"x5tThumbprintAAAA"}]},"state":"frozen"}`,
     expectedSha256: 'sha256:906acae5439950e154ae402e847359b019058dddef91f216973e81a2c5b58783',
   },
+  {
+    name: 'config-file-references',
+    description:
+      'Extension config slots (academic.numbering, semantic.bibliography/glossary) declaring {path,hash} references bind their hashes into configFiles, sorted by JCS; the document id and advisory (non-{path,hash}) config are not bound.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"academic":{"numbering":{"path":"academic/numbering.json","hash":"${sha('a')}"}},"semantic":{"bibliography":{"path":"semantic/bibliography.json","hash":"${sha('b')}"},"glossary":{"path":"semantic/glossary.json","hash":"${sha('c')}"}}}`,
+    expectedJcs: `{"cdx":"0.1","configFiles":[{"hash":"${sha('a')}","path":"academic/numbering.json"},{"hash":"${sha('b')}","path":"semantic/bibliography.json"},{"hash":"${sha('c')}","path":"semantic/glossary.json"}],"content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:e4d8c6fb8d85054294bea0ad852c3b514ee31b074f07f1c048eb06b08526097c',
+  },
 ];
 
 export const scopeVectors: ScopeVector[] = [
@@ -178,5 +186,11 @@ export const errorVectors: ErrorVector[] = [
     description: 'A required-signer entry carrying two identity kinds is malformed and fails closed.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC","jkt":"thumbprint"}]}}`,
     expectedError: 'exactly one of',
+  },
+  {
+    name: 'config-file-conflicting-hash',
+    description: 'The same config-file path declared with two different hashes (across config slots) makes the binding ambiguous and is rejected.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"academic":{"numbering":{"path":"shared.json","hash":"${sha('a')}"}},"semantic":{"bibliography":{"path":"shared.json","hash":"${sha('b')}"}}}`,
+    expectedError: 'conflicting hashes',
   },
 ];

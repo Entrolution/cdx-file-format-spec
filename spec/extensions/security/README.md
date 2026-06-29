@@ -672,6 +672,7 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 | `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
 | `lineage` | `manifest.lineage` | Bound verbatim |
 | `signaturePolicy` | `manifest.signaturePolicy` | The required-signer set (Section 3.12). Each `requiredSigners` entry carries its single identity kind (`did`, `x5tS256` or `jkt`) verbatim; entries are sorted by JCS |
+| `configFiles` | `{path, hash}` references in the `manifest.academic` / `semantic` / `legal` / `collaboration` config slots | Each declared file reference projected to `{path, hash}`; entries are sorted by JCS and deduplicated, and a path declared twice with conflicting hashes is rejected. Binds auxiliary files outside the document hash (academic numbering, semantic bibliography/glossary) so their content is attested |
 
 **Construction rules** (mirroring the document-ID canonical form, 06 §4.3):
 
@@ -679,6 +680,7 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 - An explicit `null` (e.g. `lineage.parent: null`) is preserved.
 - A non-default presentation carries no `default` member; the flag marks only the default entry (`default: false` is never materialized).
 - A non-required extension's `config` is omitted; a required extension's `config` is bound, because a required extension's configuration can change how the document is interpreted.
+- `configFiles` binds every `{path, hash}` reference declared in a top-level extension config slot (`academic`, `semantic`, `legal`, `collaboration`), keyed on the `{path, hash}` *shape* rather than on a field name, so a newly defined hashed config file is covered without a projection change. It binds such a reference regardless of the extension's `required` flag. Advisory configuration that is not a `{path, hash}` reference (for example a citation style, or a path-only declaration) is not bound, and a reference placed inside a non-required `extensions[].config` rather than a top-level slot is not bound. The array is omitted when empty.
 - Arrays of declarations (`presentation`, `extensions`, `signaturePolicy.requiredSigners`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
 - `signaturePolicy.requiredSigners` entries MUST be unique by identity, and the set MUST be non-empty — an empty set is forbidden so an *absent* policy and an *empty* policy are not both expressible. An absent `signaturePolicy` is omitted (a document with no policy has no set integrity; section 3.12).
 - Keys and values obey the stored-byte invariants of 06 §4.3.2 (NFC, well-formed Unicode, safe integers).
@@ -696,13 +698,13 @@ A signature's coverage is exactly:
 A signature does **not** cover, in this version of the extension:
 
 - Embedded **fonts** and other non-content assets (excluded from the document ID by design).
-- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. Only `content` and `presentation[]` carry hashes in the manifest and are bound by the projection.
+- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. The manifest hashes the projection binds are `content`, `presentation[]`, and the `{path, hash}` file references in the extension config slots (`configFiles`, Section 9.7); a part the manifest references by path only carries no hash and is not bound.
 - **Presentation files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares*; a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation file present in the archive but undeclared. Only declared presentations are tamper-evident against a presentation-swap.
 - **Layout files outside `scope.layouts`.** A `scope.layouts` attestation (Section 9.3) binds only the layouts it lists; an unlisted layout file is unbound even on a frozen document.
 - The **complete set of signatures**, beyond the declared required set: a `signaturePolicy` (Section 3.12) binds the *declared required* signers against stripping and downgrade, but a signature still cannot attest that an *optional* signature was not removed, that signers signed in a particular order, or — where no policy is declared — anything about set completeness.
 - Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
 - Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.
-- A **non-required** extension's `config` (only a required extension's `config` is bound, Section 9.7), and **any manifest member not enumerated in Section 9.7**: the manifest's top-level object is not closed, so an unrecognized member is dropped from the projection rather than signed.
+- A **non-required** extension's `config` object (only a required extension's `config` is bound as configuration, Section 9.7) — although a `{path, hash}` file reference in a top-level config slot is still bound via `configFiles` regardless of the `required` flag — and **any other manifest member not enumerated in Section 9.7**: the manifest's top-level object is not closed, so an unrecognized member is dropped from the projection rather than signed.
 
 Implementations MUST NOT represent a signature as covering anything beyond the above.
 

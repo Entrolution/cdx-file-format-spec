@@ -793,9 +793,9 @@ export const closureVectors: ClosureVector[] = [
   // --- semantic (file-shape parts; marks/blocks are content-reached → 4.1e) ---
   {
     schema: 'semantic.schema.json',
-    description: 'root (manifest config {bibliography, glossary})',
-    validInstance: { bibliography: 'semantic/bibliography.json' },
-    invalidInstance: { bibliography: 'semantic/bibliography.json', bogus: 1 },
+    description: 'root (manifest config {bibliography, glossary} as {path,hash})',
+    validInstance: { bibliography: { path: 'semantic/bibliography.json', hash: HASH } },
+    invalidInstance: { bibliography: { path: 'semantic/bibliography.json', hash: HASH }, bogus: 1 },
   },
   {
     schema: 'semantic.schema.json',

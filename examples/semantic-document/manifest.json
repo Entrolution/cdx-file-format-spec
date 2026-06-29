@@ -20,7 +20,13 @@
     "jsonld": "metadata/jsonld.json"
   },
   "semantic": {
-    "bibliography": "semantic/bibliography.json",
-    "glossary": "semantic/glossary.json"
+    "bibliography": {
+      "path": "semantic/bibliography.json",
+      "hash": "sha256:c0084002ee9e0bffb0f18a390f2835d276babb38f5dd54d8015b581015a167c7"
+    },
+    "glossary": {
+      "path": "semantic/glossary.json",
+      "hash": "sha256:7c4062638487ec008f3c0ab686fc1cf91481f0fdb0f173c52d82c29b0640f9e6"
+    }
   }
 }
