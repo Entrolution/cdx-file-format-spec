@@ -782,7 +782,7 @@ test('asset: an aliasOf entry carrying its own path+hash still resolves', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Alpha-renaming of block/anchor ids (§4.3.1 item 5)
+// Alpha-renaming of block/anchor/sub-block ids (§4.3.1 item 5)
 // ---------------------------------------------------------------------------
 
 test('relabel: block ids are assigned b0,b1,… in document order', () => {
@@ -877,7 +877,7 @@ test('relabel: a marks array is re-sorted after rewriting (so output stays JCS-o
   assert.deepEqual(marks, [{ type: 'link', href: '#b0' }, { type: 'link', href: '#b1' }]);
 });
 
-test('relabel: academic uses/of/target rewrite to block ids; an equation-line target stays verbatim', () => {
+test('relabel: academic uses/of/target rewrite to block and equation-line ids', () => {
   const blocks = canonContent({
     content: {
       version: '0.1',
@@ -901,10 +901,10 @@ test('relabel: academic uses/of/target rewrite to block ids; an equation-line ta
   assert.equal(blocks[2].of, '#b1'); // proof.of → thm1
   const refs = blocks[4].children;
   assert.equal(refs[0].marks[0].target, '#b1'); // academic:theorem-ref → thm1
-  assert.equal(refs[1].marks[0].target, '#eq-1'); // academic:equation-ref → equation-LINE id: deferred, verbatim
+  assert.equal(refs[1].marks[0].target, '#b3'); // academic:equation-ref → equation-LINE id eq-1 (now relabeled)
   assert.equal(refs[2].marks[0].target, '#b0'); // academic:algorithm-ref target → def1
   assert.equal(refs[2].marks[0].line, 'loop'); // academic:algorithm-ref.line: separate namespace, verbatim
-  assert.equal(blocks[3].lines[0].id, 'eq-1'); // equation-line id (no type field) → deferred, verbatim
+  assert.equal(blocks[3].lines[0].id, 'b3'); // equation-line id now shares the relabeled namespace
 });
 
 test('relabel: semantic:ref and presentation:reference block targets are rewritten', () => {
@@ -958,7 +958,7 @@ test('relabel: separate-namespace mark fields are verbatim even when equal to a 
   assert.equal(children[1].marks[0].refs[0], 'p');
 });
 
-test('relabel: deferred ids lacking a type field (subfigure, equation-line) are left verbatim', () => {
+test('relabel: sub-block ids (subfigure, equation-line) join the relabeled namespace', () => {
   const blocks = canonContent({
     content: {
       version: '0.1',
@@ -969,12 +969,29 @@ test('relabel: deferred ids lacking a type field (subfigure, equation-line) are 
     },
   }).blocks;
   assert.equal(blocks[0].id, 'b0'); // figure block id → relabeled
-  assert.equal(blocks[0].subfigures[0].id, 'sub-a'); // subfigure (no type) → verbatim
-  assert.equal(blocks[1].id, 'b1'); // equation-group block id → relabeled
-  assert.equal(blocks[1].lines[0].id, 'line-1'); // equation-line (no type) → verbatim
+  assert.equal(blocks[0].subfigures[0].id, 'b1'); // subfigure (no type) now relabeled, after its parent
+  assert.equal(blocks[1].id, 'b2'); // equation-group block id → relabeled (b2: subfigure took b1)
+  assert.equal(blocks[1].lines[0].id, 'b3'); // equation-line (no type) now relabeled
 });
 
-test('relabel: a duplicate id in the block/anchor namespace is rejected', () => {
+test('relabel: a signature signer.id is a Person id (named sub-object), not relabeled', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'paragraph', id: 'intro', children: [] },
+        { type: 'signature', signatureType: 'handwritten', signer: { name: 'A', id: 'intro' } },
+      ],
+    },
+  }).blocks;
+  // The signer is a singular named sub-object (not an array item), so its id is a
+  // Person identifier outside the anchor namespace: it collides with the block id
+  // 'intro' by label but is neither relabeled nor treated as a duplicate.
+  assert.equal(blocks[0].id, 'b0'); // paragraph block id → relabeled
+  assert.equal(blocks[1].signer.id, 'intro'); // signer id → verbatim, no collision error
+});
+
+test('relabel: a duplicate id in the shared identifier namespace is rejected', () => {
   assert.throws(
     () =>
       canonContent({
@@ -985,6 +1002,41 @@ test('relabel: a duplicate id in the block/anchor namespace is rejected', () => 
       }),
     CanonicalizationError,
   );
+});
+
+test('relabel: a sub-block id colliding with a block id is a duplicate error', () => {
+  // An equation-line id equal to a paragraph block id used to canonicalize
+  // silently, redirecting the #eq-x reference to the block and baking that into
+  // the document id. The two ids now share one namespace, so the collision is a
+  // canonicalization error rather than a silent redirect.
+  assert.throws(
+    () =>
+      canonContent({
+        content: { version: '0.1', blocks: [
+          { type: 'paragraph', id: 'eq-x', children: [] },
+          { type: 'academic:equation-group', id: 'eqg', lines: [{ value: 'a=b', id: 'eq-x' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 's', marks: [{ type: 'academic:equation-ref', target: '#eq-x' }] }] },
+        ] },
+      }),
+    CanonicalizationError,
+  );
+});
+
+test('purity: two documents differing only in sub-block id labels get the same id', () => {
+  // Block-id purity extends to the sub-block namespace: relabeling an equation
+  // line or subfigure id (and the references to it) must not change identity.
+  const mk = (line: string, sub: string) =>
+    makeParts({
+      content: {
+        version: '0.1',
+        blocks: [
+          { type: 'figure', id: 'fig', subfigures: [{ id: sub, label: 'a', children: [] }] },
+          { type: 'academic:equation-group', id: 'eqg', lines: [{ value: 'a=b', id: line }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 's', marks: [{ type: 'academic:equation-ref', target: `#${line}` }] }] },
+        ],
+      },
+    });
+  assert.equal(computeDocumentId(mk('eq-exp', 'sub-a'), 'sha256'), computeDocumentId(mk('eq-99', 'sub-z'), 'sha256'));
 });
 
 test('purity: two documents differing only in id labels get the same document id', () => {
