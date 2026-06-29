@@ -442,7 +442,7 @@
       "description": "Reference to a theorem-like block",
       "required": ["type", "target"],
       "properties": {
-        "type": { "const": "theorem-ref" },
+        "type": { "const": "academic:theorem-ref" },
         "target": {
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the theorem"
@@ -459,7 +459,7 @@
       "description": "Reference to a numbered equation",
       "required": ["type", "target"],
       "properties": {
-        "type": { "const": "equation-ref" },
+        "type": { "const": "academic:equation-ref" },
         "target": {
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the equation"
@@ -476,7 +476,7 @@
       "description": "Reference to an algorithm or algorithm line",
       "required": ["type", "target"],
       "properties": {
-        "type": { "const": "algorithm-ref" },
+        "type": { "const": "academic:algorithm-ref" },
         "target": {
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentAnchorUri",
           "description": "Content Anchor URI to the algorithm"

@@ -522,9 +522,9 @@ Each line in the `lines` array:
 
 ## 9. Cross-References
 
-> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `theorem-ref`, `equation-ref`, and `algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. A reader MUST fill each placeholder from the resolved target at render time; the authored display text carried by the mark's text node is a fallback, used only when the target is unresolvable or a placeholder cannot be filled, and a value resolved from the target takes precedence over any disagreeing cached text. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes that authored display text, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
+> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. A reader MUST fill each placeholder from the resolved target at render time; the authored display text carried by the mark's text node is a fallback, used only when the target is unresolvable or a placeholder cannot be filled, and a value resolved from the target takes precedence over any disagreeing cached text. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes that authored display text, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
 
-### 9.1 theorem-ref Mark
+### 9.1 academic:theorem-ref Mark
 
 Reference a theorem-like block:
 
@@ -534,7 +534,7 @@ Reference a theorem-like block:
   "value": "Theorem 2.3.8",
   "marks": [
     {
-      "type": "theorem-ref",
+      "type": "academic:theorem-ref",
       "target": "#thm-max-principle",
       "format": "Theorem {number}"
     }
@@ -544,7 +544,7 @@ Reference a theorem-like block:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | Always `"theorem-ref"` |
+| `type` | string | Yes | Always `"academic:theorem-ref"` |
 | `target` | string | Yes | Content Anchor URI to the theorem |
 | `format` | string | No | Display format (default: `"{variant} {number}"`) |
 
@@ -553,7 +553,7 @@ Format placeholders:
 - `{number}` - Theorem number
 - `{title}` - Theorem title (if present)
 
-### 9.2 equation-ref Mark
+### 9.2 academic:equation-ref Mark
 
 Reference a numbered equation:
 
@@ -563,7 +563,7 @@ Reference a numbered equation:
   "value": "(2.5)",
   "marks": [
     {
-      "type": "equation-ref",
+      "type": "academic:equation-ref",
       "target": "#eq-fx",
       "format": "({number})"
     }
@@ -573,13 +573,13 @@ Reference a numbered equation:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | Always `"equation-ref"` |
+| `type` | string | Yes | Always `"academic:equation-ref"` |
 | `target` | string | Yes | Content Anchor URI to the equation |
 | `format` | string | No | Display format (default: `"({number})"`) |
 
 `{number}` resolves to the target line's displayed identifier: its `number`, or — when the line is displayed by a `tag` instead (section 7.2) — that `tag`. If the target line is both unnumbered and untagged, `{number}` cannot be filled and the reader uses the fallback in section 9.
 
-### 9.3 algorithm-ref Mark
+### 9.3 academic:algorithm-ref Mark
 
 Reference an algorithm or algorithm line:
 
@@ -589,7 +589,7 @@ Reference an algorithm or algorithm line:
   "value": "Algorithm 1",
   "marks": [
     {
-      "type": "algorithm-ref",
+      "type": "academic:algorithm-ref",
       "target": "#alg-quicksort",
       "format": "Algorithm {number}"
     }
@@ -605,7 +605,7 @@ For line references:
   "value": "line 1",
   "marks": [
     {
-      "type": "algorithm-ref",
+      "type": "academic:algorithm-ref",
       "target": "#alg-quicksort",
       "line": "fn-start",
       "format": "line {line}"
@@ -616,7 +616,7 @@ For line references:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | Always `"algorithm-ref"` |
+| `type` | string | Yes | Always `"academic:algorithm-ref"` |
 | `target` | string | Yes | Content Anchor URI to the algorithm |
 | `line` | string | No | Line label for line-specific references |
 | `format` | string | No | Display format |
@@ -941,7 +941,7 @@ Displayed numbers are therefore author-stored, in signed content, exactly when a
         "value": "line 3",
         "marks": [
           {
-            "type": "algorithm-ref",
+            "type": "academic:algorithm-ref",
             "target": "#alg-binary-search",
             "line": "loop-start",
             "format": "line {line}"
@@ -1141,4 +1141,4 @@ Academic constructs span two integrity tiers (see the extensions overview, Integ
 
 **Author identity is advisory.** The author name carried in Dublin Core `creator` is part of the document hash, but a signature attests those bytes, not that the named person authored the work. The richer structured author data — an ORCID, an affiliation, the `creators` array of `metadata/dublin-core.json` — is excluded from the document hash altogether (Document Hashing specification, section 4.1). An ORCID, DID, or other identifier (section 12) is an advisory label: it is not authenticated by being named, and an identifier that is DID-shaped is not a signature. To establish authorship cryptographically, sign the document with a security-extension credential bound to the author (security extension, Identity Authority).
 
-**Auto-numbering is advisory.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `theorem-ref`, `equation-ref`, and `algorithm-ref`, derive from `academic/numbering.json`. The manifest references that file by path only, with no hash, so it is in neither the document hash nor the manifest projection: an archive writer can renumber a `frozen` or signed document — silently changing what each cross-reference displays — without changing the document ID or breaking a signature. Where a cross-reference number must be integrity-protected, give the referenced block an explicit `number`, carried in signed content, rather than relying on auto-numbering.
+**Auto-numbering is advisory.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref`, derive from `academic/numbering.json`. The manifest references that file by path only, with no hash, so it is in neither the document hash nor the manifest projection: an archive writer can renumber a `frozen` or signed document — silently changing what each cross-reference displays — without changing the document ID or breaking a signature. Where a cross-reference number must be integrity-protected, give the referenced block an explicit `number`, carried in signed content, rather than relying on auto-numbering.

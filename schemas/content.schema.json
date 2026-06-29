@@ -398,7 +398,7 @@
       "enum": [
         "bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript",
         "link", "anchor", "math", "citation", "footnote", "entity", "glossary",
-        "theorem-ref", "equation-ref", "algorithm-ref", "index", "presentation:footnote", "legal:cite"
+        "academic:theorem-ref", "academic:equation-ref", "academic:algorithm-ref", "index", "presentation:footnote", "legal:cite"
       ]
     },
     "linkMark": {
