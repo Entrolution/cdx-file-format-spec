@@ -550,6 +550,18 @@ Location: `provenance/record.json`
 
 The `relationship` field describes how the derived document relates to its source: one of `excerpt`, `quotation`, `translation`, `revision`, or `derivation`.
 
+**Security — the provenance record is unauthenticated.** `provenance/record.json` is
+referenced by path only; the manifest carries no hash for it, and it sits outside every
+signature scope and the manifest projection (section 6.2; Security Extension, section 9.8).
+Its bytes are unsigned even on a `frozen` or `published` document, so every field here is
+forgeable without changing the document ID or breaking a signature. In particular
+`creator.name` and `creator.identifier` are an author's **claim**, not an authenticated
+identity — a `did:web:` value does not become authoritative by being named (Security
+Extension, section 3.10). A consumer MUST NOT surface the provenance `creator` as the
+authenticated author, and MUST NOT trust an in-record `timestamps`, `lineage`, or
+`derivedFrom` entry without the out-of-band verification section 6 requires. To
+authenticate authorship, bind it in signed content or the manifest projection.
+
 ### 8.2 Provenance Queries
 
 The provenance record enables queries like:

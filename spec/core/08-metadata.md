@@ -384,20 +384,31 @@ A term that is absent or wholly empty (`""`/`[]`) is omitted from the projection
 
 ### 6.2 Excluded from Hash
 
-These terms are NOT included (they're administrative):
+These terms are NOT part of the hashed metadata projection (they are administrative):
 
 - `date` (changes frequently)
 - `publisher`
-- `identifier` (circular dependency)
+- `identifier` (avoids the circular dependency of naming a hash-derived id inside the hashed input)
 - `rights` (may be updated)
+
+**Security — these fields are unauthenticated.** They sit outside the document-hash
+projection, and the Dublin Core file itself is referenced by path only (the manifest
+carries no hash for it — Security Extension, section 9.8). So on a `frozen` or
+`published` document an excluded field can be rewritten without changing the document
+ID or breaking any signature: `rights` flipped to defeat a licensing gate, `publisher`
+set to impersonate a source, `identifier` swapped to redirect a DOI or citation, `date`
+backdated. A verifier or consumer MUST NOT treat `date`, `publisher`, `identifier`, or
+`rights` as authenticated on the strength of a valid signature — this is the metadata
+case of a signature's negative coverage (Security Extension, section 9.8).
 
 ### 6.3 Rationale
 
-Including semantic metadata in the hash ensures that:
+Including the projected semantic terms (section 6.1) in the hash ensures that:
 
 - Document identity reflects what it's about
 - Title changes create new document versions
-- Author attribution is cryptographically bound
+- The projected `creator` attribution is cryptographically bound — but only that
+  projection; the administrative fields in section 6.2 are not (see the caveat there)
 
 ## 7. Metadata Validation
 
