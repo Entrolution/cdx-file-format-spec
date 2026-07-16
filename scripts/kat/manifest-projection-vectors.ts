@@ -108,6 +108,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedJcs: `{"cdx":"0.1","configFiles":[{"hash":"${sha('a')}","path":"academic/numbering.json"},{"hash":"${sha('b')}","path":"semantic/bibliography.json"},{"hash":"${sha('c')}","path":"semantic/glossary.json"}],"content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
     expectedSha256: 'sha256:e4d8c6fb8d85054294bea0ad852c3b514ee31b074f07f1c048eb06b08526097c',
   },
+  {
+    name: 'asset-index-references',
+    description:
+      'Each declared asset category (images, fonts) binds its index file {path, hash} into `assets`, sorted by JCS; the advisory count/totalSize and the document id are not bound. Hash-pinning the index transitively attests out-of-content assets — fonts and image variants.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json","hash":"${sha('a')}"},"fonts":{"count":1,"totalSize":35000,"index":"assets/fonts/index.json","hash":"${sha('b')}"}}}`,
+    expectedJcs: `{"assets":[{"hash":"${sha('a')}","path":"assets/images/index.json"},{"hash":"${sha('b')}","path":"assets/fonts/index.json"}],"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:781a77097306db621695b02d20a76c2939052381b3bebb4bcb04939fc6437046',
+  },
 ];
 
 export const scopeVectors: ScopeVector[] = [
@@ -192,5 +200,11 @@ export const errorVectors: ErrorVector[] = [
     description: 'The same config-file path declared with two different hashes (across config slots) makes the binding ambiguous and is rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"academic":{"numbering":{"path":"shared.json","hash":"${sha('a')}"}},"semantic":{"bibliography":{"path":"shared.json","hash":"${sha('b')}"}}}`,
     expectedError: 'conflicting hashes',
+  },
+  {
+    name: 'asset-index-missing-hash',
+    description: 'An asset category declared without a well-formed index hash would escape the transitive asset binding, so the projection fails closed rather than dropping it.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json"}}}`,
+    expectedError: 'index hash',
   },
 ];

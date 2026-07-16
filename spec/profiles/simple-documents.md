@@ -126,7 +126,8 @@ Simple Documents do not need:
     "images": {
       "count": 1,
       "totalSize": 102400,
-      "index": "assets/images/index.json"
+      "index": "assets/images/index.json",
+      "hash": "sha256:1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d"
     }
   }
 }

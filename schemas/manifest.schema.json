@@ -262,7 +262,7 @@
     },
     "assetCategory": {
       "type": "object",
-      "required": ["count", "totalSize", "index"],
+      "required": ["count", "totalSize", "index", "hash"],
       "properties": {
         "count": {
           "type": "integer",
@@ -277,6 +277,10 @@
         "index": {
           "description": "Path to index file",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+        },
+        "hash": {
+          "description": "Content hash of the index file. Hash-pins the category's asset index — which carries every asset's (and variant's) hash — so that binding this one hash into the signed manifest projection (Security Extension §9.7) transitively attests the whole category, including out-of-content assets such as fonts and image variants.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         }
       },
       "additionalProperties": false

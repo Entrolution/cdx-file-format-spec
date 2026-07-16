@@ -57,6 +57,8 @@ Each asset category declared in the manifest MUST have its own index file locate
 }
 ```
 
+**Index integrity.** The manifest's `assets.<category>` reference carries a `hash` of the index file (`{count, totalSize, index, hash}`). Because the index enumerates every asset's — and every image variant's — own `hash`, hash-pinning the one index file transitively fixes the integrity of the whole category. This is what lets a signature attest assets that are otherwise outside the document hash: a scoped signature that covers the manifest projection binds each declared index hash (Security Extension section 9.7), so on a `frozen` or `published` document a repackager cannot swap an image variant or a glyph-remapping font without either failing the variant/font's own hash check or invalidating every manifest-covering signature. The index hash MUST equal the raw hash of the index file (section 8.1).
+
 ### 3.2 Asset Entry Fields
 
 | Field | Type | Required | Description |
@@ -138,18 +140,20 @@ For responsive images, multiple resolutions can be provided:
     {
       "path": "hero-image-640.avif",
       "width": 640,
-      "size": 25000
+      "size": 25000,
+      "hash": "sha256:..."
     },
     {
       "path": "hero-image-1280.avif",
       "width": 1280,
-      "size": 65000
+      "size": 65000,
+      "hash": "sha256:..."
     }
   ]
 }
 ```
 
-**Variant integrity**: Variants inherit the parent asset's hash algorithm. Implementations SHOULD compute and verify variant hashes using the same algorithm as the parent asset.
+**Variant integrity**: Each variant carries its own `hash`, computed with the parent asset's hash algorithm. A renderer selects a variant by display size (below), so the variant — not the parent — is what a viewer sees; without its own binding a swapped variant would substitute displayed content while the parent hash, the document ID, and any signature all still verify. Implementations MUST verify a variant's bytes against its `hash` before displaying it, applying the same state-keyed disposition as any asset hash (section 8.1): a mismatch is a WARNING in `draft`/`review` and an INTEGRITY-ERROR in `frozen`/`published`. Variant hashes ride in the asset index, which is itself hash-pinned by the manifest and bound into a manifest-covering signature (section 3.1), so a variant is tamper-evident on a signed document.
 
 **Variant selection**: Renderers SHOULD select the variant closest to the display size. If displaying at 800px width, the 640px variant would be used (or the 1280px variant if the renderer prefers to scale down rather than up). If no variant is a good match, fall back to the full-resolution image.
 
@@ -237,6 +241,8 @@ Presentation layers reference fonts by family name:
   }
 }
 ```
+
+**Font integrity**: Because a font is referenced by family name rather than by a content path, it is not resolved into the document ID (Document Hashing section 4.1) — a substituted font could otherwise remap glyphs (rendering `1` as `9`, or `APPROVED` as `REJECTED`) while the document ID and any signature still verify. Each font's bytes MUST be verified against its `hash` in the fonts index on load (section 8.1), and the index is hash-pinned by the manifest and bound into a manifest-covering signature (section 3.1), so an embedded font is tamper-evident on a `frozen` or `published` document even though it is outside the document hash.
 
 ### 5.5 Font Subsetting
 
@@ -337,12 +343,14 @@ Uncompressed or less-compressed formats benefit from ZIP compression:
 
 ### 8.1 Hash Verification
 
-Each asset's hash MUST be verified when loading:
+Each asset's hash MUST be verified when loading. This applies to a top-level asset, to each image variant (section 4.3), and to the category index file itself:
 
-1. Read asset file from archive
-2. Compute hash of file contents
-3. Compare with hash in index
+1. Read the file from the archive (the asset, the variant, or the index)
+2. Compute the hash of its contents
+3. Compare with the declared hash — for an asset or variant this is its `hash` in the index; for the index file it is `manifest.assets.<category>.hash` (section 3.1)
 4. On mismatch, apply the state-keyed disposition of State Machine section 5.4 — a WARNING in draft/review, an INTEGRITY-ERROR in frozen/published
+
+Verifying the index hash first anchors the per-asset and per-variant hashes it carries: a signed manifest projection binds the index hash (Security Extension section 9.7), so the index — and transitively every asset and variant it lists — is tamper-evident on a `frozen` or `published` document.
 
 ### 8.2 Hash Algorithm
 

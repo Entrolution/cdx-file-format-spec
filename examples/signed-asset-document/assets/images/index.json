@@ -1,0 +1,24 @@
+{
+  "version": "0.1",
+  "assets": [
+    {
+      "id": "logo",
+      "path": "logo.png",
+      "type": "image/png",
+      "size": 29,
+      "hash": "sha256:136075ef2059d432bb397c8f00a8b6c637ada6b29970b6ee667df451ec8aaa3f",
+      "metadata": {
+        "width": 1200,
+        "height": 400
+      },
+      "variants": [
+        {
+          "path": "logo-320.png",
+          "width": 320,
+          "size": 34,
+          "hash": "sha256:42f3473e1dbbb00e17a625a28f1b90ab48e4250993393e8da11536d01755852c"
+        }
+      ]
+    }
+  ]
+}

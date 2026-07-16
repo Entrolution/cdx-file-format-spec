@@ -1,0 +1,47 @@
+{
+  "version": "0.1",
+  "documentId": "sha256:506d34ce79ff9a0ef3d0b93cca34a5df94fd2fe22fd7852ee2ae22ca27aad565",
+  "signatures": [
+    {
+      "id": "sig-brand",
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDEwOjAwOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19hdXRob3Jfc2lnbmF0dXJl",
+      "scope": {
+        "documentId": "sha256:506d34ce79ff9a0ef3d0b93cca34a5df94fd2fe22fd7852ee2ae22ca27aad565",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:8860be4b537cdb66431b49c9798aeb8ec9e8dcf666925cbda63df7059f4eda20"
+          },
+          "extensions": [
+            {
+              "id": "cdx.security",
+              "version": "0.1",
+              "required": true
+            }
+          ],
+          "lineage": {
+            "parent": null,
+            "version": 1
+          },
+          "assets": [
+            {
+              "path": "assets/fonts/index.json",
+              "hash": "sha256:61c251b23f5f7942a0b4d55f352666fbbbdac2857f38189c37cf6a63ba3411b4"
+            },
+            {
+              "path": "assets/images/index.json",
+              "hash": "sha256:96786208334fb0b41c533af7604659e0badfe287c023de330431a2f7b5e3fd3d"
+            }
+          ]
+        }
+      },
+      "signer": {
+        "name": "Example Brand Co.",
+        "email": "brand@example.com"
+      }
+    }
+  ]
+}

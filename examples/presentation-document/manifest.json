@@ -20,7 +20,8 @@
     "images": {
       "count": 1,
       "totalSize": 69,
-      "index": "assets/images/index.json"
+      "index": "assets/images/index.json",
+      "hash": "sha256:2e2e7c08861f5546a724a4c461c088728c109c52680b9c83e3fd5dc3dd4aa91a"
     }
   },
   "metadata": {

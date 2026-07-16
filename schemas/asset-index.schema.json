@@ -78,7 +78,7 @@
     },
     "imageVariant": {
       "type": "object",
-      "required": ["path", "width", "size"],
+      "required": ["path", "width", "size", "hash"],
       "properties": {
         "path": {
           "description": "Variant file path",
@@ -93,6 +93,10 @@
           "type": "integer",
           "minimum": 0,
           "description": "Variant file size in bytes"
+        },
+        "hash": {
+          "description": "Content hash of the variant file, using the parent asset's hash algorithm. A renderer that selects a variant displays the variant, not the parent, so the variant carries its own integrity binding; it is verified on load (Asset Embedding §4.3) and attested transitively via the hash-pinned asset index (Security Extension §9.7).",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         }
       },
       "additionalProperties": false

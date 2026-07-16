@@ -105,6 +105,8 @@ The canonical content EXCLUDES:
 
 > **Note**: The document ID represents the document's semantic identity — what it says, not how it looks. Multiple visual presentations (letter, A4, responsive) of the same content produce the same document ID. For appearance attestation, see Scoped Signatures in the Security Extension.
 
+> **Out-of-hash assets are still attested.** Excluding fonts and non-content-referenced assets from the document ID keeps identity semantic, but it does not leave them unauthenticated. Each declared asset category's index file is hash-pinned by the manifest (`assets.<category>.hash`, Asset Embedding section 3.1), and a scoped signature that covers the manifest projection binds those index hashes (Security Extension section 9.7). Because the index enumerates every asset's and image variant's own hash, a swapped font or variant is tamper-evident on a `frozen` or `published` document — where a manifest-covering signature is mandatory — even though it never changes the document ID.
+
 ### 4.1a Hash Boundary Summary
 
 The following table summarizes what is included in and excluded from the document content hash:
@@ -116,7 +118,7 @@ The following table summarizes what is included in and excluded from the documen
 | Content-referenced asset content | Yes (by hash) | Each content asset reference (e.g. an image `src`) is resolved to the asset's content hash, binding the asset's bytes — not its filename — to identity |
 | Asset filenames / paths | No | Resolved away to content hashes; renaming a referenced asset's file does not change the ID |
 | Block & anchor id labels | Canonicalized | Relabeled to position-based names (`b0`, `b1`, …); the author's chosen label does not change the ID, and references to it are rewritten to match (section 4.3.1) |
-| Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity |
+| Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity; they are still tamper-evident via the hash-pinned asset index bound in the manifest projection (Security Extension section 9.7) |
 | Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing |
 | Presentation | No | Visual rendering instructions — not part of semantic identity |
 | Precise layouts | No | Coordinate-level positioning — rendering fidelity |

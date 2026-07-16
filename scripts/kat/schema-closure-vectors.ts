@@ -97,8 +97,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'asset-index.schema.json',
     ref: '#/$defs/imageVariant',
     description: 'imageVariant',
-    validInstance: { path: 'img-2x.png', width: 2, size: 10 },
-    invalidInstance: { path: 'img-2x.png', width: 2, size: 10, bogus: 1 },
+    validInstance: { path: 'img-2x.png', width: 2, size: 10, hash: HASH },
+    invalidInstance: { path: 'img-2x.png', width: 2, size: 10, hash: HASH, bogus: 1 },
   },
   {
     schema: 'asset-index.schema.json',
@@ -623,8 +623,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'manifest.schema.json',
     ref: '#/$defs/assetCategory',
     description: 'assetCategory',
-    validInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json' },
-    invalidInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', bogus: 1 },
+    validInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', hash: HASH },
+    invalidInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', hash: HASH, bogus: 1 },
   },
   {
     schema: 'manifest.schema.json',
@@ -673,7 +673,7 @@ export const closureVectors: ClosureVector[] = [
     schema: 'manifest.schema.json',
     ref: '#/properties/assets',
     description: 'manifest.assets map (open category key, value constrained)',
-    validInstance: { images: { count: 1, totalSize: 1, index: 'assets/images/index.json' }, customcat: { count: 0, totalSize: 0, index: 'assets/customcat/index.json' } },
+    validInstance: { images: { count: 1, totalSize: 1, index: 'assets/images/index.json', hash: HASH }, customcat: { count: 0, totalSize: 0, index: 'assets/customcat/index.json', hash: HASH } },
     invalidInstance: { images: { count: 1 } },
   },
 

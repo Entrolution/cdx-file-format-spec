@@ -31,13 +31,20 @@
  * signature SET against stripping/downgrade — and `configFiles`: the `{path, hash}`
  * references an extension config slot declares (academic numbering, semantic
  * bibliography/glossary), so their content is attested even though it is outside
- * the document hash.
+ * the document hash — and `assets`: the `{path, hash}` of each declared asset
+ * category's index file. An index enumerates every asset's (and image variant's)
+ * hash, so hash-pinning the index transitively attests assets that sit outside the
+ * document ID — notably fonts (referenced by presentation family name) and image
+ * variants (selected by display size) — closing the swap-a-variant / remap-a-font
+ * substitution that a valid signature would otherwise miss.
  *
  * What it does NOT bind (negative coverage, by design — see the spec §9.8):
  *  - The document ID / content semantics — carried separately by
  *    `scope.documentId` (the projection never repeats it).
- *  - Embedded fonts and other non-content assets (excluded from the document ID
- *    by design; a later increment may bind them).
+ *  - The raw asset *files* directly, or an asset category the manifest does not
+ *    declare in `assets`: assets are attested only transitively, through the
+ *    hash-pinned index of a declared category (`assets`, above), and only while a
+ *    manifest-covering signature is present.
  *  - The *bytes* of path-only parts (metadata, provenance, phantoms,
  *    annotations) and of the `security` block. An extension config file is bound
  *    only when declared as a `{path, hash}` reference; a path-only declaration
@@ -158,6 +165,49 @@ function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{
   };
   for (const slot of EXTENSION_CONFIG_SLOTS) visit(manifest[slot]);
 
+  const items = [...byPath.entries()].map(([path, hash]) => ({ path, hash }));
+  items.sort(byJcs);
+  return items;
+}
+
+/**
+ * Collect the `{path, hash}` index reference of every asset category declared in
+ * `manifest.assets`, projected as `{path: <index>, hash}` and sorted by JCS. Each
+ * `assetCategory` (mirrors manifest.schema.json) declares `{count, totalSize,
+ * index, hash}`; only the index reference is bound, because the index enumerates
+ * every asset's and image variant's own hash — so hash-pinning the one index hash
+ * transitively attests the whole category (fonts, image variants included). The
+ * advisory `count`/`totalSize` are subordinate to the index and are not bound.
+ *
+ * Fails closed: a present-but-malformed `assets` block, or a category missing a
+ * well-formed index path and hash, throws rather than letting that category escape
+ * the binding. Two categories declaring the same index path with conflicting
+ * hashes is ambiguous and rejected.
+ */
+function collectAssetIndexReferences(manifest: Record<string, unknown>): Array<{ path: string; hash: string }> {
+  const assets = manifest.assets;
+  if (assets === undefined || assets === null) return [];
+  if (!isPlainObject(assets)) {
+    throw new CanonicalizationError('manifest.assets must be an object');
+  }
+  const byPath = new Map<string, string>();
+  for (const category of Object.keys(assets)) {
+    const cat = assets[category];
+    if (!isPlainObject(cat)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" must be an object`);
+    }
+    if (typeof cat.index !== 'string') {
+      throw new CanonicalizationError(`manifest.assets category "${category}" must declare a string index path`);
+    }
+    if (!isValidContentHash(cat.hash)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" index hash "${String(cat.hash)}" is malformed`);
+    }
+    const existing = byPath.get(cat.index);
+    if (existing !== undefined && existing !== cat.hash) {
+      throw new CanonicalizationError(`asset index "${cat.index}" is declared with conflicting hashes`);
+    }
+    byPath.set(cat.index, cat.hash);
+  }
   const items = [...byPath.entries()].map(([path, hash]) => ({ path, hash }));
   items.sort(byJcs);
   return items;
@@ -317,6 +367,18 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   // sorted by JCS to a canonical order; absent → the field is omitted.
   const configFiles = collectConfigFileReferences(manifest);
   if (configFiles.length > 0) projection.configFiles = configFiles;
+
+  // --- asset-index references (optional) — hash-pin each category's index -------
+  // A category's assets — fonts (referenced by presentation family name) and image
+  // variants (selected by display size) — are NOT resolved into the document ID, so
+  // a repackager can swap a variant file or a glyph-remapping font while a content
+  // signature still verifies. Bind each declared category's index file `{path, hash}`:
+  // the index lists every asset's and variant's own hash, so pinning the index hash
+  // transitively attests the whole category. A tampered asset then either fails its
+  // load-time hash check (05 §4.3, §8.1) or forces an index edit that breaks this
+  // binding. Sorted by JCS; absent → the field is omitted.
+  const assetIndexes = collectAssetIndexReferences(manifest);
+  if (assetIndexes.length > 0) projection.assets = assetIndexes;
 
   // The projected bytes obey the same stored-byte invariants as the document ID
   // (NFC, well-formed Unicode, safe integers) — validate, never normalize.

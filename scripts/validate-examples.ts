@@ -170,11 +170,15 @@ for (const exampleName of exampleDirs) {
       }
     }
 
-    // Asset-index hashes: each registered asset's declared hash must equal the
-    // raw hash of its on-disk bytes (archive path = assets/<category>/<entry path>,
-    // matching the canonicalizer). The document id binds these hashes (Document
-    // Hashing §4.3.1), so a wrong asset hash would silently change the id.
-    for (const [category, cat] of Object.entries<{ index?: string }>(manifest.assets ?? {})) {
+    // Asset-index hashes. Two bindings are checked. (1) The manifest's
+    // assets.<category>.hash MUST equal the raw hash of the index file: hash-pinning
+    // the index is what lets the signed manifest projection transitively attest the
+    // whole category, fonts and image variants included (Security Extension §9.7).
+    // (2) Each registered asset's — and each image variant's — declared hash MUST
+    // equal the raw hash of its on-disk bytes (archive path = assets/<category>/<entry
+    // path>, matching the canonicalizer). A displayed image variant carries its own
+    // binding because a renderer shows the variant, not the parent (§4.3).
+    for (const [category, cat] of Object.entries<{ index?: string; hash?: string }>(manifest.assets ?? {})) {
       const indexRel = cat?.index;
       if (typeof indexRel !== 'string') continue;
       if (!fs.existsSync(path.join(examplePath, indexRel))) {
@@ -182,38 +186,66 @@ for (const exampleName of exampleDirs) {
         hasErrors = true;
         continue;
       }
-      let index: { assets?: Array<{ path?: string; hash?: string }> };
+      const indexBytes = fs.readFileSync(path.join(examplePath, indexRel));
+
+      // (1) Index hash-pin.
+      if (typeof cat.hash === 'string') {
+        const indexAlgo = cat.hash.split(':')[0];
+        try {
+          const actual = `${indexAlgo}:${crypto.createHash(indexAlgo).update(indexBytes).digest('hex')}`;
+          if (actual === cat.hash) {
+            console.log(`  ✓ manifest assets.${category}.hash (${indexRel})`);
+          } else {
+            console.log(`  ✗ manifest assets.${category}.hash (${indexRel}) — hash mismatch`);
+            console.log(`      declared ${cat.hash}`);
+            console.log(`      actual   ${actual}`);
+            hasErrors = true;
+          }
+        } catch (err) {
+          console.log(`  ✗ manifest assets.${category}.hash (${indexRel}) — cannot hash with '${indexAlgo}': ${err instanceof Error ? err.message : String(err)}`);
+          hasErrors = true;
+        }
+      }
+
+      // (2) Each asset entry's own file, then each of its image variants.
+      let index: { assets?: Array<{ path?: string; hash?: string; variants?: Array<{ path?: string; hash?: string }> }> };
       try {
-        index = JSON.parse(fs.readFileSync(path.join(examplePath, indexRel), 'utf8'));
+        index = JSON.parse(indexBytes.toString('utf8'));
       } catch (err) {
         console.log(`  ✗ ${indexRel} — parse error: ${err instanceof Error ? err.message : String(err)}`);
         hasErrors = true;
         continue;
       }
       for (const entry of index.assets ?? []) {
-        if (typeof entry?.path !== 'string' || typeof entry?.hash !== 'string') continue;
-        const assetRel = `assets/${category}/${entry.path}`;
-        if (!fs.existsSync(path.join(examplePath, assetRel))) {
-          console.log(`  ✗ asset ${assetRel} (file missing)`);
-          hasErrors = true;
-          continue;
-        }
-        const assetAlgo = entry.hash.split(':')[0];
-        let actual: string;
-        try {
-          actual = `${assetAlgo}:${crypto.createHash(assetAlgo).update(fs.readFileSync(path.join(examplePath, assetRel))).digest('hex')}`;
-        } catch (err) {
-          console.log(`  ✗ asset ${assetRel} — cannot hash with '${assetAlgo}': ${err instanceof Error ? err.message : String(err)}`);
-          hasErrors = true;
-          continue;
-        }
-        if (actual === entry.hash) {
-          console.log(`  ✓ asset ${assetRel}`);
-        } else {
-          console.log(`  ✗ asset ${assetRel} — hash mismatch`);
-          console.log(`      declared ${entry.hash}`);
-          console.log(`      actual   ${actual}`);
-          hasErrors = true;
+        const files: Array<[string, string | undefined, string | undefined]> = [
+          ['asset', entry?.path, entry?.hash],
+          ...(entry?.variants ?? []).map((v): [string, string | undefined, string | undefined] => ['asset variant', v?.path, v?.hash]),
+        ];
+        for (const [kind, entryPath, entryHash] of files) {
+          if (typeof entryPath !== 'string' || typeof entryHash !== 'string') continue;
+          const assetRel = `assets/${category}/${entryPath}`;
+          if (!fs.existsSync(path.join(examplePath, assetRel))) {
+            console.log(`  ✗ ${kind} ${assetRel} (file missing)`);
+            hasErrors = true;
+            continue;
+          }
+          const assetAlgo = entryHash.split(':')[0];
+          let actual: string;
+          try {
+            actual = `${assetAlgo}:${crypto.createHash(assetAlgo).update(fs.readFileSync(path.join(examplePath, assetRel))).digest('hex')}`;
+          } catch (err) {
+            console.log(`  ✗ ${kind} ${assetRel} — cannot hash with '${assetAlgo}': ${err instanceof Error ? err.message : String(err)}`);
+            hasErrors = true;
+            continue;
+          }
+          if (actual === entryHash) {
+            console.log(`  ✓ ${kind} ${assetRel}`);
+          } else {
+            console.log(`  ✗ ${kind} ${assetRel} — hash mismatch`);
+            console.log(`      declared ${entryHash}`);
+            console.log(`      actual   ${actual}`);
+            hasErrors = true;
+          }
         }
       }
     }

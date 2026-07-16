@@ -209,6 +209,19 @@
             "additionalProperties": false
           }
         },
+        "assets": {
+          "type": "array",
+          "description": "Asset-index references ({path, hash}) — the index file of each category declared in manifest.assets, projected as {path: index, hash} and sorted by JCS with duplicate paths collapsed (section 9.7). Each index enumerates every asset's (and image variant's) hash, so hash-pinning the index transitively binds assets that sit outside the document hash — notably fonts (referenced by family name from the presentation) and image variants (selected by display size). Omitted when empty.",
+          "items": {
+            "type": "object",
+            "required": ["path", "hash"],
+            "properties": {
+              "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+              "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+            },
+            "additionalProperties": false
+          }
+        },
         "lineage": {
           "type": "object",
           "description": "Lineage, bound verbatim from the manifest"

@@ -62,6 +62,12 @@ breaking any signature, because they sit outside the signed byte-set):
   to bind in `requiredSigners`.
 - **`signed-semantic-document`** — a frozen document whose `scope.manifest` binds two
   hashed semantic config files (`configFiles`), demonstrating config-file attestation.
+- **`signed-asset-document`** — a frozen document with an embedded image (carrying an
+  out-of-content resolution variant) and an embedded font. Its `scope.manifest` binds
+  each asset category's hash-pinned index (`assets`), so the variant and the font —
+  neither of which is in the document ID — are tamper-evident under the signature: a
+  swapped variant or glyph-remapping font either fails its own hash check or breaks the
+  signature. Illustrates the transitive asset binding (§9.7).
 
 ## Rendering the illustrative content safely
 
