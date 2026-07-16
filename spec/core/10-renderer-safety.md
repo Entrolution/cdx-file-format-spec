@@ -198,6 +198,27 @@ of the integrity status of the surrounding document, and MUST NOT grant it any
 capability (script execution, navigation, network access) it would deny to
 primary content.
 
+**Active content is forbidden in the out-of-hash annotation layers.** A phantom
+cluster's content and a collaboration change snapshot are out-of-hash — outside
+every signature scope and the manifest projection (Security Extension section 9.8) —
+yet they render adjacent to the anchored block (Phantom Extension section 4.9).
+Interactive/active content there is a credential-phishing surface presented inside
+a validly-signed frame, so the phantom content model **excludes `forms:*` blocks**
+(Phantom Extension schema), and a renderer MUST NOT present — or grant submit or
+credential-input capability to — a form or active control that originates from a
+phantom cluster, a collaboration change snapshot, or any other out-of-hash channel,
+*even though* it grants that capability to primary content. This is a case where an
+out-of-hash channel gets *less* capability than primary content, not the same.
+
+**The unauthenticated layer MUST be visually demarcated.** Because phantom and
+annotation content is unauthenticated and forgeable yet is shown adjacent to signed
+content, a renderer that displays it MUST visually distinguish it from the document's
+authenticated (signed) content, so a reader cannot mistake an out-of-hash overlay — a
+"corrected figure", a revised liability amount — for signed content carrying the same
+valid-signature indicator. Machine-trust disclosure (integrity status) does not
+discharge this obligation on its own: the masquerade defense the human relies on is
+visual distinguishability.
+
 ## 7. Relationship to identity authority
 
 Renderer safety is concerned with what a renderer may *execute or fetch* from

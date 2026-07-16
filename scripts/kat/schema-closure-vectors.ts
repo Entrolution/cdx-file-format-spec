@@ -1634,4 +1634,14 @@ export const closureVectors: ClosureVector[] = [
     validInstance: { blockId: 'intro', start: 10, end: 25 },
     invalidInstance: { blockId: 'intro', start: 10, end: 25, bogus: 1 },
   },
+  // Phantom content excludes active forms:* blocks — a phantom layer is out-of-hash
+  // and must not carry a credential-phishing surface (Renderer Safety §6). A normal
+  // block passes; an otherwise-valid forms:submit block is rejected by the exclusion.
+  {
+    schema: 'phantoms.schema.json',
+    ref: '#/$defs/phantomContent',
+    description: 'phantom content accepts a normal block but rejects an active forms:* block',
+    validInstance: { blocks: [{ type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'x' }] }] },
+    invalidInstance: { blocks: [{ type: 'forms:submit' }] },
+  },
 ];

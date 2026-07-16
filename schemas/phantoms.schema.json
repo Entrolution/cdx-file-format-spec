@@ -152,8 +152,13 @@
       "properties": {
         "blocks": {
           "type": "array",
-          "description": "Array of content blocks (uses core content block model)",
-          "items": { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" }
+          "description": "Array of content blocks (uses core content block model). Interactive forms:* blocks are excluded: a phantom cluster is out-of-hash and MUST NOT carry an active-content / credential-phishing surface inside a signed frame (Renderer Safety section 6).",
+          "items": {
+            "allOf": [
+              { "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block" },
+              { "not": { "required": ["type"], "properties": { "type": { "pattern": "^forms:" } } } }
+            ]
+          }
         }
       },
       "additionalProperties": false
