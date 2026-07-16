@@ -40,6 +40,8 @@ export const CLOSED_SCHEMAS: string[] = [
   'legal.schema.json',
   'forms.schema.json',
   'phantoms.schema.json',
+  'annotations.schema.json',
+  'anchor.schema.json',
 ];
 
 // A syntactically valid algorithm-prefixed digest for hash-typed fields.
@@ -1614,5 +1616,22 @@ export const closureVectors: ClosureVector[] = [
     description: 'glossary sort is an open vocabulary (a non-enumerated order accepted); a non-string is rejected',
     validInstance: { type: 'semantic:glossary', sort: 'reverse-alphabetical' },
     invalidInstance: { type: 'semantic:glossary', sort: 42 },
+  },
+
+  // --- annotations / anchor (the unauthenticated annotation file and the shared
+  // definition library both close their objects; enrolled so a flipped closure is
+  // teeth-tested) --------------------------------------------------------------
+  {
+    schema: 'annotations.schema.json',
+    description: 'security/annotations.json root rejects unknown top-level keys',
+    validInstance: { version: '0.1', annotations: [] },
+    invalidInstance: { version: '0.1', annotations: [], bogus: 1 },
+  },
+  {
+    schema: 'anchor.schema.json',
+    ref: '#/$defs/contentAnchor',
+    description: 'ContentAnchor rejects unknown keys (a stray key alongside a range anchor)',
+    validInstance: { blockId: 'intro', start: 10, end: 25 },
+    invalidInstance: { blockId: 'intro', start: 10, end: 25, bogus: 1 },
   },
 ];

@@ -25,16 +25,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createAjv, loadSchema } from './lib/ajv-utils.js';
+import { CONFIG_SLOTS } from './lib/config-slots.js';
 
 // Manifest config slot -> the schema (and optional $ref) describing that slot's
-// shape. legal/academic/semantic use their schema ROOT; collaboration's root is a
-// comments/changes FILE, so it uses a dedicated manifestConfig $def.
-const CONFIG_SCHEMAS: Record<string, { schema: string; ref?: string }> = {
-  legal: { schema: 'legal.schema.json' },
-  academic: { schema: 'academic.schema.json' },
-  semantic: { schema: 'semantic.schema.json' },
-  collaboration: { schema: 'collaboration.schema.json', ref: '#/$defs/manifestConfig' },
-};
+// shape (shared source of truth; see lib/config-slots.ts).
+const CONFIG_SCHEMAS = CONFIG_SLOTS;
 
 // One AJV with every schema loaded so any cross-file $ref in a config root resolves.
 const schemasDir = path.join(__dirname, '..', 'schemas');

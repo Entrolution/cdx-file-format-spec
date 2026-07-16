@@ -69,6 +69,7 @@ Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/
 
 This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.org/standards)); it does not claim a JAdES baseline conformance level. It omits the JAdES `sigD` descriptor: the detached payload is reconstructed as `JCS(scope)` per this section.
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",
@@ -721,6 +722,7 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 
 ### 10.1 Single Signature
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",
@@ -739,6 +741,7 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 
 ### 10.2 Multiple Signers
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",

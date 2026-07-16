@@ -96,8 +96,14 @@ jobs:
       - name: Check schema closure
         run: npm run check:schema-closure
 
-      - name: Check README examples
-        run: npm run check:readme-examples
+      - name: Check spec examples
+        run: npm run check:spec-examples
 
       - name: Check manifest extension config
         run: npm run check:manifest-extension-config
+
+      - name: Check enumeration coverage
+        run: npm run check:enumeration-coverage
+
+      - name: Generate template (self-validating)
+        run: npm run generate:template -- --preset all --output "$RUNNER_TEMP/cdx-template"

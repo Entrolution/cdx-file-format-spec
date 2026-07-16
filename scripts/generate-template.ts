@@ -14,12 +14,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
 
-// Placeholder document id for a generated security/signatures.json. A real
-// signing flow replaces this with the canonical document content hash; the
-// all-zero digest is an unmistakable "fill me in" sentinel that still satisfies
-// the documentId pattern (^(sha256|...):[a-f0-9]+$).
-const PLACEHOLDER_DOCUMENT_ID = 'sha256:' + '0'.repeat(64);
-
 // Extension configurations
 interface ExtensionConfig {
   id: string;
@@ -74,17 +68,15 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   security: {
+    // A scaffolded document is an unsigned draft. The signatures file is written by
+    // a real signing flow — its schema requires at least one genuine signature (an
+    // empty set is "claims to be signed but is not"), and a template cannot produce
+    // one without a signing key — so the scaffold declares the extension and its
+    // directory but emits no signatures file. The manifest references it as empty.
     id: 'cdx.security',
     version: '0.1',
     required: false,
-    directories: ['security'],
-    files: {
-      'security/signatures.json': {
-        version: '0.1',
-        documentId: PLACEHOLDER_DOCUMENT_ID,
-        signatures: []
-      }
-    }
+    directories: ['security']
   },
   collaboration: {
     id: 'cdx.collaboration',
@@ -191,11 +183,12 @@ function generateManifest(extensions: string[], hashes: Record<string, string>):
     };
   }
 
-  // Reference the signatures file when the security extension is present, so the
-  // emitted file is wired into the manifest (mirrors the signed-document example).
+  // Declare the security slot when the extension is present. The scaffold is an
+  // unsigned draft, so both references are empty until a signing/encryption flow
+  // populates them.
   if (extensions.includes('security')) {
     manifest.security = {
-      signatures: 'security/signatures.json',
+      signatures: null,
       encryption: null
     };
   }

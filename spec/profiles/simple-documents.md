@@ -82,7 +82,8 @@ Simple Documents do not need:
   "created": "2025-01-15T10:30:00Z",
   "modified": "2025-01-15T10:30:00Z",
   "content": {
-    "path": "content/document.json"
+    "path": "content/document.json",
+    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
@@ -99,7 +100,7 @@ Simple Documents do not need:
 | `state` | Yes | Typically `"draft"` for simple documents |
 | `created` | Yes | ISO 8601 creation timestamp |
 | `modified` | Yes | ISO 8601 last modification timestamp |
-| `content` | Yes | Path to content file |
+| `content` | Yes | Path to content file plus its `hash` (required for file integrity in every state, including drafts) |
 | `metadata.dublinCore` | Yes | Path to Dublin Core metadata |
 | `extensions` | No | Simple Documents typically use no extensions |
 | `assets` | No | Only if images/fonts are embedded |
@@ -115,7 +116,8 @@ Simple Documents do not need:
   "created": "2025-01-15T10:30:00Z",
   "modified": "2025-01-15T10:30:00Z",
   "content": {
-    "path": "content/document.json"
+    "path": "content/document.json",
+    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
@@ -303,10 +305,10 @@ Renderers MAY ignore these hints in favor of user preferences.
 
 Simple Documents are typically in `draft` state:
 
-- No content hash computation required
+- Document ID computation is deferred — the manifest `id` is `"pending"` until the document is frozen or published
+- The content file `hash` is still required in every state; it is a file-integrity field (Manifest section 4.6), distinct from the document ID, and is not deferred for drafts
 - No precise layouts required
 - Document can be freely edited
-- ID may be `"pending"`
 
 ### 8.2 Published State
 
@@ -402,7 +404,8 @@ A minimal novel in three files:
   "created": "2025-01-15T10:30:00Z",
   "modified": "2025-01-15T10:30:00Z",
   "content": {
-    "path": "content/document.json"
+    "path": "content/document.json",
+    "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

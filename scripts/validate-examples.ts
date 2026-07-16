@@ -17,6 +17,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
+import { CONFIG_SLOTS } from './lib/config-slots.js';
 
 const examplesDir = path.join(__dirname, '..', 'examples');
 
@@ -133,7 +134,7 @@ for (const exampleName of exampleDirs) {
     // Extension config file references ({path, hash}) — bound by the manifest
     // projection, so a declared hash must match the referenced file, the same
     // invariant content/presentation hold.
-    for (const slot of ['academic', 'semantic', 'legal', 'collaboration']) {
+    for (const slot of Object.keys(CONFIG_SLOTS)) {
       const collectRefs = (v: unknown, label: string): void => {
         if (!v || typeof v !== 'object' || Array.isArray(v)) return;
         const o = v as Record<string, unknown>;

@@ -491,6 +491,7 @@ When modifying a document:
 
 ### 7.2 Signed Frozen Document
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",

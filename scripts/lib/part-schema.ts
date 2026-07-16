@@ -9,37 +9,15 @@
 
 import { ValidateFunction } from 'ajv/dist/2020';
 import { createAjv, loadSchema } from './ajv-utils.js';
+import { dependentSchemas } from './schema-registry.js';
 
 // Schema dependencies (schemas that need other schemas loaded first so their
-// cross-file $refs resolve at compile time).
-const schemaDependencies: Record<string, string[]> = {
-  'content.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'],
-  // academic references anchor.schema.json#/$defs/contentAnchorUri for its
-  // cross-reference target fields (the academic:*-ref mark targets, uses, of).
-  'academic.schema.json': ['anchor.schema.json'],
-  'collaboration.schema.json': ['anchor.schema.json'],
-  // forms/semantic/presentation reference anchor.schema.json#/$defs/safeUri (the
-  // shared safe-URI definition) for their author-controlled URI fields.
-  'forms.schema.json': ['anchor.schema.json'],
-  'semantic.schema.json': ['anchor.schema.json'],
-  // presentation also embeds the content block model via footnoteMark.content
-  // (the presentation:footnote mark), so it needs content plus content's cluster.
-  'presentation.schema.json': ['anchor.schema.json', 'content.schema.json', 'semantic.schema.json', 'academic.schema.json', 'legal.schema.json', 'forms.schema.json'],
-  // phantoms embeds the core content block model (phantomContent.blocks → content
-  // block dispatch), so it needs content plus content's whole cross-file cluster.
-  'phantoms.schema.json': ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json', 'content.schema.json'],
-  'security.schema.json': ['anchor.schema.json'],
-  'annotations.schema.json': ['anchor.schema.json'],
-  // dublin-core references anchor.schema.json#/$defs/mimeType (the shared
-  // MIME-type definition) for its terms.format field.
-  'dublin-core.schema.json': ['anchor.schema.json'],
-  // manifest/asset-index/provenance/precise-layout reference
-  // anchor.schema.json#/$defs/contentHash (the shared content-hash definition).
-  'manifest.schema.json': ['anchor.schema.json'],
-  'asset-index.schema.json': ['anchor.schema.json'],
-  'provenance.schema.json': ['anchor.schema.json'],
-  'precise-layout.schema.json': ['anchor.schema.json'],
-};
+// cross-file $refs resolve at compile time). Derived from the same registry
+// validate-schemas compiles against, so the compile path and this validation path
+// cannot declare different dependency sets for a schema.
+const schemaDependencies: Record<string, string[]> = Object.fromEntries(
+  dependentSchemas.map((d) => [d.schema, d.refs]),
+);
 
 // Validators compiled once, cached per (schema, ref) pair. The ref must be part
 // of the key: the same schema can be compiled both at its root and at a $def.

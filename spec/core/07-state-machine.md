@@ -546,6 +546,7 @@ For frozen documents:
 
 ### 11.1 Draft Document Manifest
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -565,6 +566,7 @@ For frozen documents:
 
 ### 11.2 Frozen Document Manifest
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -594,6 +596,7 @@ For frozen documents:
 
 ### 11.3 Forked Document
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
