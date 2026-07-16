@@ -29,6 +29,7 @@ import * as crypto from 'crypto';
 import { jcsOf } from './lib/canonicalize.js';
 import { projectManifest, projectManifestToJcs } from './lib/manifest-projection.js';
 import { projectionVectors, scopeVectors, errorVectors } from './kat/manifest-projection-vectors.js';
+import { getValidator } from './lib/part-schema.js';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -37,6 +38,18 @@ const fail = (msg: string): void => {
 };
 
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+
+// The projector's output is signed bytes, but the published manifestProjection
+// schema is what a schema-only re-implementer relies on — the two must agree. This
+// asserts every projection the code emits validates against the schema, so a field
+// the projector produces that the schema forbids (or vice versa) fails here instead
+// of shipping as a silent code↔schema divergence.
+const validateProjection = getValidator('security.schema.json', '#/$defs/manifestProjection');
+const schemaCheck = (label: string, projection: unknown): void => {
+  if (!validateProjection(projection)) {
+    fail(`${label} — projector output does not validate against the manifestProjection schema: ${JSON.stringify(validateProjection.errors)}`);
+  }
+};
 
 /** States in which a signature MUST cover the manifest projection (§9.7). */
 const COVERAGE_REQUIRED_STATES = new Set(['frozen', 'published']);
@@ -61,6 +74,7 @@ for (const v of projectionVectors) {
     fail(`${v.name} — sha256 mismatch (expected ${v.expectedSha256}, got ${sha256Of(jcs)})`);
     continue;
   }
+  schemaCheck(v.name, JSON.parse(jcs));
   console.log(`  ✓ ${v.name}`);
 }
 
@@ -141,6 +155,7 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
     fail(`${name} — ${err instanceof Error ? err.message : String(err)}`);
     continue;
   }
+  schemaCheck(`${name} recomputed projection`, JSON.parse(expectedProjectionJcs));
 
   const requireCoverage = COVERAGE_REQUIRED_STATES.has(manifest.state);
   const signatures: any[] = Array.isArray(sig.signatures) ? sig.signatures : [];

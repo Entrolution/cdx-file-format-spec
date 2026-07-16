@@ -1,0 +1,14 @@
+{
+  "version": "1.1",
+  "terms": {
+    "title": "The History of Computing",
+    "creator": "John Smith",
+    "subject": ["computer science", "history", "computing"],
+    "description": "A demonstration of semantic extension features including citations, footnotes, glossary terms, and entity annotations.",
+    "date": "2025-01-28",
+    "type": "Text",
+    "format": "application/vnd.cdx+zip",
+    "language": "en",
+    "rights": "CC BY 4.0"
+  }
+}

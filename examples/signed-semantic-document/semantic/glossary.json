@@ -1,0 +1,16 @@
+{
+  "version": "0.1",
+  "terms": [
+    {
+      "id": "algorithm",
+      "term": "Algorithm",
+      "definition": "A finite sequence of well-defined instructions for solving a class of problems or performing a computation.",
+      "see": ["turing-machine"]
+    },
+    {
+      "id": "turing-machine",
+      "term": "Turing Machine",
+      "definition": "A mathematical model of computation describing an abstract machine that manipulates symbols on a strip of tape according to a table of rules."
+    }
+  ]
+}

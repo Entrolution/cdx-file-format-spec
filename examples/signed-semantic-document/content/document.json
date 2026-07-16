@@ -1,0 +1,184 @@
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "title",
+      "level": 1,
+      "children": [
+        { "type": "text", "value": "The History of Computing" }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "intro",
+      "children": [
+        { "type": "text", "value": "The development of modern computing began with theoretical work by " },
+        {
+          "type": "text",
+          "value": "Alan Turing",
+          "marks": [
+            {
+              "type": "entity",
+              "uri": "https://www.wikidata.org/wiki/Q7251",
+              "entityType": "Person",
+              "source": "wikidata"
+            }
+          ]
+        },
+        { "type": "text", "value": " in the 1930s. His concept of the " },
+        {
+          "type": "text",
+          "value": "Turing machine",
+          "marks": [
+            { "type": "glossary", "ref": "turing-machine" }
+          ]
+        },
+        { "type": "text", "value": " laid the foundation for all modern computers" },
+        {
+          "type": "text",
+          "value": "[1]",
+          "marks": [
+            {
+              "type": "citation",
+              "refs": ["turing1936"],
+              "locator": "230-265",
+              "locatorType": "page"
+            }
+          ]
+        },
+        { "type": "text", "value": "." }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "para-2",
+      "children": [
+        { "type": "text", "value": "The first electronic general-purpose computer, " },
+        {
+          "type": "text",
+          "value": "ENIAC",
+          "marks": [
+            {
+              "type": "entity",
+              "uri": "https://www.wikidata.org/wiki/Q12637",
+              "entityType": "Product",
+              "source": "wikidata"
+            }
+          ]
+        },
+        { "type": "text", "value": ", was completed in 1945" },
+        {
+          "type": "text",
+          "value": "[2]",
+          "marks": [
+            { "type": "citation", "refs": ["goldstine1972"] }
+          ]
+        },
+        { "type": "text", "value": ". This marked the beginning of the digital age" },
+        {
+          "type": "text",
+          "value": "1",
+          "marks": [
+            { "type": "footnote", "number": 1, "id": "fn1" }
+          ]
+        },
+        { "type": "text", "value": "." }
+      ]
+    },
+    {
+      "type": "semantic:footnote",
+      "number": 1,
+      "id": "fn1",
+      "children": [
+        {
+          "type": "paragraph",
+          "children": [
+            { "type": "text", "value": "Some historians argue that earlier mechanical computers, such as Babbage's Analytical Engine, should be considered the true beginning of the computing era. See " },
+            {
+              "type": "text",
+              "value": "[3]",
+              "marks": [
+                { "type": "citation", "refs": ["swade2001"] }
+              ]
+            },
+            { "type": "text", "value": " for a detailed discussion." }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "id": "sec-algorithm",
+      "level": 2,
+      "children": [
+        { "type": "text", "value": "The Concept of an Algorithm" }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "para-3",
+      "children": [
+        { "type": "text", "value": "An " },
+        {
+          "type": "text",
+          "value": "algorithm",
+          "marks": [
+            { "type": "glossary", "ref": "algorithm" }
+          ]
+        },
+        { "type": "text", "value": " is a fundamental concept in computer science. Multiple researchers have contributed to its formalization, as noted by various scholars" },
+        {
+          "type": "text",
+          "value": "[1, 4]",
+          "marks": [
+            {
+              "type": "citation",
+              "refs": ["turing1936", "knuth1997"],
+              "prefix": "see"
+            }
+          ]
+        },
+        { "type": "text", "value": "." }
+      ]
+    },
+    {
+      "type": "semantic:term",
+      "id": "term-algorithm",
+      "term": "Algorithm",
+      "definition": "A finite sequence of well-defined instructions for solving a class of problems or performing a computation.",
+      "see": ["turing-machine"]
+    },
+    {
+      "type": "semantic:term",
+      "id": "term-turing-machine",
+      "term": "Turing Machine",
+      "definition": "A mathematical model of computation describing an abstract machine that manipulates symbols on a strip of tape according to a table of rules."
+    },
+    {
+      "type": "heading",
+      "id": "sec-glossary",
+      "level": 2,
+      "children": [
+        { "type": "text", "value": "Glossary" }
+      ]
+    },
+    {
+      "type": "semantic:glossary",
+      "title": "Terms",
+      "sort": "alphabetical"
+    },
+    {
+      "type": "heading",
+      "id": "sec-references",
+      "level": 2,
+      "children": [
+        { "type": "text", "value": "References" }
+      ]
+    },
+    {
+      "type": "semantic:bibliography",
+      "style": "apa"
+    }
+  ]
+}

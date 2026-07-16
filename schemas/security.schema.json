@@ -196,6 +196,19 @@
             "additionalProperties": false
           }
         },
+        "configFiles": {
+          "type": "array",
+          "description": "Extension-config file references ({path, hash}) declared in the top-level academic/semantic/legal/collaboration config slots, projected verbatim and sorted by JCS with duplicate paths collapsed (section 9.7). Binds auxiliary files that sit outside the document hash (e.g. academic numbering, semantic bibliography/glossary) so their content is attested. Omitted when empty.",
+          "items": {
+            "type": "object",
+            "required": ["path", "hash"],
+            "properties": {
+              "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+              "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+            },
+            "additionalProperties": false
+          }
+        },
         "lineage": {
           "type": "object",
           "description": "Lineage, bound verbatim from the manifest"
