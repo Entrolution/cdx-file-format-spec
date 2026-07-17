@@ -263,7 +263,7 @@ When loading a frozen/published document:
 
 ### 5.4 Failure Dispositions
 
-Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
+Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.5, 9.1 and 9.3, Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
 
 #### 5.4.1 Disposition Vocabulary
 
@@ -284,8 +284,9 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 
 | Failure class | DRAFT / REVIEW | FROZEN / PUBLISHED |
 |---------------|----------------|--------------------|
-| Archive unreadable, or an unsafe path — `..` or an escaping symlink (Container Format) | REJECT | REJECT |
+| Archive unreadable, or an unsafe entry name or symlink — see the full rejection set in Container Format sections 9.1 and 9.3 (`..`, an absolute or drive/UNC/colon-bearing name, a backslash, a reserved device name, or a symlink or path component whose resolved target escapes the extraction root) | REJECT | REJECT |
 | Duplicate JSON keys in any part (Document Hashing section 4.3.2) | REJECT | REJECT |
+| Duplicate archive entry path (including a case-only collision), or local-header/central-directory entry-set disagreement (Container Format section 3.5) | REJECT | REJECT |
 | Manifest absent, unparseable, or missing or mistyping a required field | REJECT | REJECT |
 | Unsupported **major** version (Manifest) | REJECT | REJECT |
 | Unsupported **minor** version (Manifest section 4.1) | WARNING — process known fields, IGNORE unknown additions | WARNING |
@@ -322,9 +323,11 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 
 #### 5.4.3 State-Invariant Rules
 
-Two rules do **not** vary by state and override the table above:
+The following rules do **not** vary by state and override the table above:
 
 - **Duplicate keys always REJECT.** Any part containing an object with duplicate keys MUST be rejected before hashing or verification, in *every* state (Document Hashing section 4.3.2); an unrejected duplicate permits a split-view substitution.
+- **Duplicate archive entries always REJECT.** An archive with a duplicate entry path (including a case-only collision), or whose local-file-header and central-directory views disagree on the entry set, MUST be rejected in *every* state (Container Format section 3.5); like a duplicate JSON key, an unrejected duplicate permits a split-view substitution.
+- **An unsafe archive path or symlink always REJECTs.** An entry name that fails the section 9.1 safety checks, or a symbolic-link entry in an untrusted archive (section 9.3), MUST cause the archive to be rejected in *every* state — a zip-slip is a security defect regardless of lifecycle.
 - **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof (an INCOMPLETE outcome) MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document. This covers the *unverifiable* case: a *proven-false* lineage (REJECTED — a cycle, forged tail, or root with ancestors) is not merely unverified but repudiated — the verifier MUST NOT present the claimed ancestry as authenticated (the row above) — though the document's content identity is still unaffected, so it too is not blocked on lineage grounds.
 - **An out-of-hash layer's internal validity is a load disposition, not an integrity failure.** A defect confined to the internal graph of an out-of-hash layer — for example a broken phantom-to-phantom `connection` target, or a duplicate phantom id (Phantoms section 4.7) — MAY stop that layer from loading or rendering coherently, but because the layer is bound by neither the document hash nor the manifest projection it MUST NOT escalate to an INTEGRITY-ERROR or downgrade the document, in *any* state. Such load "errors" are layer-validity dispositions distinct from this table's integrity axis.
 
