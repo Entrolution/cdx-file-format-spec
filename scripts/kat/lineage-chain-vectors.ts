@@ -186,6 +186,20 @@ export const lineageVectors: LineageVector[] = [
     expected: { outcome: 'verified', resolvedDepth: 3, warnings: 0 },
   },
   {
+    name: 'verified-unequal-depth-merge',
+    description:
+      'D merges a SHALLOW primary parent C (depth 2) with a DEEP merge parent B (depth 3), so resolvedDepth = max(parents)+1 = 4. A buggy primary-only or min() merge-depth would yield 3 — the equal-depth diamond cannot tell them apart, this can.',
+    docs: [
+      { id: ROOT, parent: null },
+      { id: A, parent: ROOT, ancestors: [ROOT] },
+      { id: B, parent: A, ancestors: [A, ROOT] },
+      { id: C, parent: ROOT, ancestors: [ROOT] },
+      { id: D, parent: C, mergedFrom: [B], ancestors: [C, ROOT] },
+    ],
+    subject: D,
+    expected: { outcome: 'verified', resolvedDepth: 4, warnings: 0 },
+  },
+  {
     name: 'incomplete-merge-parent-unresolvable',
     description: 'A merge parent the verifier cannot resolve makes the chain incomplete — a fabricated unresolvable mergedFrom never reaches verified.',
     docs: [

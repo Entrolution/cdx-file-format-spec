@@ -119,11 +119,13 @@ INCOMPLETE; only an all-resolved, all-consistent walk to roots is VERIFIED.
 ```
 verify(subject):
   memo = {}                                            // ids of already-VERIFIED subtrees
+  resolved = 0                                         // node resolutions (breadth meter)
   return visit(subject, path = {}, depth = 1)
 
 visit(id, path, d):
   if id in path: return REJECTED                       // cycle: revisit on the current path
   if id in memo: return VERIFIED                       // merge diamond: re-reached by another path
+  if (resolved += 1) > nodeBound: return INCOMPLETE    // breadth bound: cap total resolutions
   node = resolve(id)
   if node == null: return INCOMPLETE                   // unresolvable; no claim beyond here
   parents = (node.parent == null ? [] : [node.parent]) ++ (node.mergedFrom or [])
@@ -153,7 +155,7 @@ visit(id, path, d):
 
 A forged ancestor *beyond* a resolved parent's committed range is not rejected — it is simply **unverified** (the parent never vouched for it). The authoritative chain is the resolved walk, not the array, so such an entry is ignored, never endorsed.
 
-**Traversal bound (cycle / DoS safety).** A verifier MUST bound the walk; reaching the bound yields INCOMPLETE — never REJECTED, since a legitimately deep history is not an inconsistency. The bound is a verifier configuration; a conforming verifier MUST support a bound of at least **64** links and MAY allow a larger one. Cycle detection is separate and always rejects.
+**Traversal bounds (cycle / DoS safety).** A verifier MUST bound the walk in **two** dimensions, and reaching either bound yields INCOMPLETE — never REJECTED, since a legitimately large history is not an inconsistency. **Depth:** a conforming verifier MUST support a depth bound of at least **64** links and MAY allow a larger one. **Breadth:** because the chain is a reconverging DAG — `mergedFrom` gives a node more than one parent, so there can be exponentially many *paths* to a given depth — a depth bound alone does not bound the work; a verifier MUST also bound the total number of node resolutions across the walk. Verified subtrees are memoised, so a legitimate history resolves each ancestor about once and stays far below that bound; only a wide reconverging DAG that never resolves (an unresolvable base, or every node held at the depth bound) approaches it. Cycle detection is separate and always rejects. The bounds are verifier configuration, consistent with the mandatory resource bounds of Container Format section 5.3.
 
 **`depth` and `version` are advisory.** A verifier recomputes the chain depth from the resolved walk; a document's *claimed* `depth` and `version` are cross-checked only as warnings, never as rejection conditions. A hard `parent + 1` rule would reject legitimate branching (Section 3.4) and honest authoring mistakes: `depth` derives structurally from the resolved chain, and `version` is author-assigned and advisory.
 
@@ -596,7 +598,7 @@ The provenance record enables queries like:
 - **Merkle tree construction**: O(n) where n = number of blocks
 - **Proof generation**: O(log n)
 - **Proof verification**: O(log n)
-- **Chain traversal**: O(depth) — store ancestors to avoid repeated fetches
+- **Chain traversal**: O(resolved nodes) with verified-subtree memoisation — a linear spine is O(depth), a reconverging merge DAG is O(distinct nodes), not O(paths); the walk is capped by the depth and breadth bounds (Section 3.3)
 
 ### 9.2 Storage Efficiency
 

@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   verifyLineageChain,
+  DEFAULT_MAX_NODES,
   type LineageDoc,
   type LineageResolver,
 } from './lib/lineage-chain.js';
@@ -118,6 +119,87 @@ try {
   ground();
 } catch (err) {
   fail(`corpus grounding threw: ${err instanceof Error ? err.message : String(err)}`);
+}
+
+// --- Part 3: DoS resistance on a wide reconverging DAG ----------------------
+// A PoC-style grid: A(i) and B(i) at each level both point to A(i+1) (primary)
+// and B(i+1) (merge), so there are ~2^levels distinct PATHS to the base but only
+// 2*levels distinct NODES. This is the shape that made the old per-branch walk
+// exponential (core 09 §3.4). The fix must keep total resolutions bounded.
+console.log('\nDoS resistance (wide reconverging DAG):');
+
+function buildGrid(levels: number, base: string): LineageDoc[] {
+  const A = (i: number): string => `grid-A${i}`;
+  const B = (i: number): string => `grid-B${i}`;
+  const docs: LineageDoc[] = [];
+  for (let i = 0; i < levels; i++) {
+    const parent = i + 1 < levels ? A(i + 1) : base;
+    const mergedFrom = i + 1 < levels ? [B(i + 1)] : undefined;
+    docs.push({ id: A(i), parent, mergedFrom });
+    docs.push({ id: B(i), parent, mergedFrom });
+  }
+  return docs;
+}
+
+function countingResolve(docs: LineageDoc[]): { resolve: LineageResolver; count: () => number } {
+  const byId = new Map(docs.map((d) => [d.id, d]));
+  let n = 0;
+  return { resolve: (id) => { n++; return byId.get(id); }, count: () => n };
+}
+
+const GRID_LEVELS = 15; // ~2^15 resolve-calls under the old walk (the finding's PoC point)
+
+// (a) Unresolvable base → incomplete, and the breadth bound keeps resolutions
+// bounded instead of exponential (the DoS the fix must stop).
+{
+  const docs = buildGrid(GRID_LEVELS, 'grid-UNRESOLVABLE'); // base id absent from docs
+  const { resolve, count } = countingResolve(docs);
+  const res = verifyLineageChain('grid-A0', resolve);
+  if (res.outcome !== 'incomplete') {
+    fail(`wide DAG (unresolvable base) — expected incomplete, got ${res.outcome}`);
+  } else if (count() > DEFAULT_MAX_NODES) {
+    fail(`wide DAG (unresolvable base) — ${count()} resolutions exceed the breadth bound ${DEFAULT_MAX_NODES}: the exponential walk is not bounded`);
+  } else {
+    console.log(`  ✓ unresolvable-base grid → incomplete in ${count()} resolutions (≤ ${DEFAULT_MAX_NODES})`);
+  }
+}
+
+// (b) Resolvable root base → verified, and merge-diamond memoisation keeps the
+// resolution count linear in the node count (not exponential in the path count).
+{
+  const docs = buildGrid(GRID_LEVELS, 'grid-ROOT');
+  docs.push({ id: 'grid-ROOT', parent: null });
+  const { resolve, count } = countingResolve(docs);
+  const res = verifyLineageChain('grid-A0', resolve);
+  const reachableNodes = GRID_LEVELS * 2; // A0 + A1..A14 + B1..B14 + root, ~2*levels
+  if (res.outcome !== 'verified') {
+    fail(`wide DAG (resolvable root) — expected verified, got ${res.outcome}: ${res.reason ?? ''}`);
+  } else if (count() > reachableNodes * 3) {
+    fail(`wide DAG (resolvable root) — ${count()} resolutions is not linear in ~${reachableNodes} nodes: merge-diamond memoisation is broken`);
+  } else {
+    console.log(`  ✓ resolvable-root grid → verified in ${count()} resolutions (linear in ~${reachableNodes} nodes)`);
+  }
+}
+
+// (c) A single node with a huge mergedFrom fan-out is a wide DAG too: it must fail
+// closed (incomplete), not overflow push(...array) with an untyped RangeError.
+{
+  const fanout = 200_000;
+  const merged: string[] = [];
+  for (let i = 0; i < fanout; i++) merged.push(`fan-${i}`); // all unresolvable
+  const docs: LineageDoc[] = [{ id: 'fan-subject', parent: null, mergedFrom: merged }];
+  const { resolve, count } = countingResolve(docs);
+  let res;
+  try {
+    res = verifyLineageChain('fan-subject', resolve);
+  } catch (err) {
+    fail(`${fanout}-way mergedFrom fan-out threw instead of failing closed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (res && res.outcome !== 'incomplete') {
+    fail(`huge mergedFrom fan-out — expected incomplete, got ${res.outcome}`);
+  } else if (res) {
+    console.log(`  ✓ ${fanout}-way mergedFrom fan-out → incomplete in ${count()} resolutions (no crash)`);
+  }
 }
 
 if (failures > 0) {
