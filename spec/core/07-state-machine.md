@@ -137,10 +137,12 @@ Documents officially released for distribution.
 | DRAFT | REVIEW | `submitForReview()` | None |
 | REVIEW | DRAFT | `revertToDraft()` | No signatures; `id` reset to `pending` |
 | REVIEW | FROZEN | `sign()` | Valid signature |
-| FROZEN | PUBLISHED | `publish()` | None |
+| FROZEN | PUBLISHED | `publish()` | Re-sign over the published projection (see note) |
 | Any | DRAFT (new) | `fork()` | Creates new document |
 
 > **Note**: `revertToDraft()` MUST reset `id` to `pending`. A reverted draft is fully editable, so any previously computed ID is stale and MUST be recomputed on the next `draft → review` transition (see Document Hashing, section 7.2) — this prevents a stale ID from surviving edits into a signed, frozen document.
+
+> **Note**: `publish()` changes `state` from `frozen` to `published`. Because the manifest projection binds `state` and every `frozen`/`published` signature MUST cover the projection (Security Extension section 9.8), the pre-existing frozen signatures no longer match the published projection and MUST be regenerated over it — otherwise their stored `scope.manifest` no longer equals the recomputed projection, each such signature is `invalid`, and a conformant verifier does not accept the published document as valid (INTEGRITY-ERROR, section 5.4.2). The document ID is unchanged (content is unchanged), so this is a re-signature over the new projection, not a re-hash.
 
 ### 4.2 Submit for Review
 
@@ -189,7 +191,7 @@ Becomes:
 
 Actions:
 1. Verify document ID matches current content
-2. Create signature over document ID
+2. Create signature over the scope — the document ID plus the manifest projection, since the target state `frozen` requires manifest coverage (Security Extension section 9.8)
 3. Store signature in security layer
 4. Update state to "frozen"
 
@@ -308,34 +310,40 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 | Invalid or missing required signature on a frozen or published document (Security Extension section 3.7) | see note 1 | INTEGRITY-ERROR |
 | Stripped or downgraded signature set, or a signature that does not cover the manifest projection (Security Extension sections 3.7, 3.12) | — | REJECT (see note 2) |
 | Unverifiable **timestamp** (Provenance and Lineage section 6.7; Security Extension section 3.6) | the timestamp is reported *unverified*; the document is unaffected | same |
-| INCOMPLETE or REJECTED **lineage**, or a divergent claimed `depth` or `version` (Provenance and Lineage section 3.3) | WARNING — ancestry is not authenticated, but the document is never blocked | WARNING |
+| **INCOMPLETE** lineage — a link unresolvable, or the traversal bound reached (Provenance and Lineage section 3.3) | WARNING — the chain is not contradicted but cannot be fully walked; no ancestor beyond the break is presented as verified | WARNING |
+| A **divergent claimed `depth` or `version`** (Provenance and Lineage sections 3.3–3.4) | WARNING — advisory: the verifier recomputes depth from the resolved walk and cross-checks the claim, never enforcing it (legitimate branching diverges); it does not affect the VERIFIED/INCOMPLETE/REJECTED outcome | WARNING |
+| **REJECTED** lineage — a *proven* inconsistency: a cycle, a forged `ancestors` tail, or a root declaring ancestors (Provenance and Lineage section 3.3) | WARNING (forged-lineage) — the lineage MUST be treated as forged: a verifier MUST NOT present *any* of the claimed ancestry as authenticated and MUST surface the proven inconsistency, distinct from a merely unverifiable chain. The document's content identity is unaffected, so it is not blocked on lineage grounds | same |
 
 *Note 1*: a `draft` requires no signature and a `review` document's signature is optional (section 6.2), so a missing signature is not a failure below `frozen`. A signature that is *present* in any state still receives a per-signature state (Security Extension section 3.8).
 
 *Note 2*: a stripped or downgraded signature set is an actively detected attack on an author-declared policy, which the Security Extension requires rejecting (sections 3.7, 3.12) — stricter than the INTEGRITY-ERROR baseline because the author named exactly who must sign. The required-signer policy is carried only in a frozen or published document's signed manifest projection, so it does not apply below `frozen` (—). An individual invalid or missing signature, by contrast, leaves the document viewable-but-untrusted (INTEGRITY-ERROR).
+
+*Note 3 (lifecycle downgrade)*: the projection-coverage and required-signer rows above key off the document's *own* `state`, and a `draft`/`review` document has no mandatory projection (`—`). An attacker can therefore take a `frozen`/`published` document, rewrite `manifest.state` to `draft`/`review`, and present only a content-only signature over the unchanged content — escaping frozen-load validation and required-signer enforcement. This is the lifecycle-downgrade limitation disclosed in Security Extension section 9.8: a verifier MUST NOT represent a document's `state`, or any manifest field, as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. Authenticating the state against a content-only downgrade is out of scope for this version.
 
 #### 5.4.3 State-Invariant Rules
 
 Two rules do **not** vary by state and override the table above:
 
 - **Duplicate keys always REJECT.** Any part containing an object with duplicate keys MUST be rejected before hashing or verification, in *every* state (Document Hashing section 4.3.2); an unrejected duplicate permits a split-view substitution.
-- **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document.
+- **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof (an INCOMPLETE outcome) MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document. This covers the *unverifiable* case: a *proven-false* lineage (REJECTED — a cycle, forged tail, or root with ancestors) is not merely unverified but repudiated — the verifier MUST NOT present the claimed ancestry as authenticated (the row above) — though the document's content identity is still unaffected, so it too is not blocked on lineage grounds.
 - **An out-of-hash layer's internal validity is a load disposition, not an integrity failure.** A defect confined to the internal graph of an out-of-hash layer — for example a broken phantom-to-phantom `connection` target, or a duplicate phantom id (Phantoms section 4.7) — MAY stop that layer from loading or rendering coherently, but because the layer is bound by neither the document hash nor the manifest projection it MUST NOT escalate to an INTEGRITY-ERROR or downgrade the document, in *any* state. Such load "errors" are layer-validity dispositions distinct from this table's integrity axis.
 
 ## 6. Signatures and State
 
 ### 6.1 Signature Binding
 
-Signatures bind to the document ID, which is computed from content:
+A signature covers an explicit, signed **scope** — always the document ID (the content hash), and on a `frozen` or `published` document the **manifest projection** as well, which binds `state`, the presentation and asset-index hashes, the required-extension set, the required-signer policy, and the lineage (Security Extension sections 9.5–9.8). The signature is computed over the canonical bytes of that scope, not over the document ID alone:
 
 ```
-Signature = Sign(PrivateKey, DocumentID)
+Signature = Sign(PrivateKey, JCS(scope))     // scope = { documentId, [manifest], [layouts] }
 ```
+
+(Simplified: the detached-JWS signing input is `BASE64URL(protected) + "." + JCS(scope)`, so the protected header — `alg`, `b64:false`, `crit` — is bound too; see Security Extension section 9.5.)
 
 This means:
-- Any content change invalidates all signatures
-- Signature verification proves content unchanged
-- Multiple parties can sign the same content
+- Any content change invalidates all signatures (the document ID changes)
+- On a `frozen` or `published` document a manifest change also invalidates every manifest-covering signature (the projection changes); such coverage is REQUIRED there, so a signature that omits the projection is rejected (section 5.4.2, note 2; Security Extension section 9.8)
+- Multiple parties can sign the same scope
 
 ### 6.2 Signature Requirements by State
 
@@ -357,19 +365,25 @@ Frozen documents can accumulate signatures without changing content:
       "id": "sig-1",
       "protected": "eyJhbGci...",
       "signature": "MEUCIQ...",
-      "scope": { "documentId": "sha256:abc123..." }
+      "scope": {
+        "documentId": "sha256:abc123...",
+        "manifest": { "cdx": "0.1", "state": "frozen", "content": { "path": "content/document.json", "hash": "sha256:def456..." } }
+      }
     },
     {
       "id": "sig-2",
       "protected": "eyJhbGci...",
       "signature": "MGQCMA...",
-      "scope": { "documentId": "sha256:abc123..." }
+      "scope": {
+        "documentId": "sha256:abc123...",
+        "manifest": { "cdx": "0.1", "state": "frozen", "content": { "path": "content/document.json", "hash": "sha256:def456..." } }
+      }
     }
   ]
 }
 ```
 
-All signatures reference the same document ID. See the Security Extension §3.3 for the signature envelope.
+All signatures cover the same scope — the shared document ID plus, on this frozen document, the manifest projection (Security Extension section 9.8; the projection is abbreviated here — see section 9.7 for its full form). See the Security Extension §3.3 for the signature envelope.
 
 ## 7. Annotation Layer
 

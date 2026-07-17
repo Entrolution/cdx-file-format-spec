@@ -48,7 +48,7 @@ Beyond document-level hashing, individual content blocks have their own hashes. 
 
 ### 3.1 Chain Structure
 
-The provenance lineage extends the manifest's summary lineage (which contains `parent`, `version`, `branch`, `note`) with additional fields for the full ancestor chain, depth, and merge history. The manifest provides quick access to the immediate parent and version; the provenance record provides the complete lineage for verification and auditing.
+The **manifest's** `lineage` object (Manifest section 4.13) is the authoritative, signable chain: it carries `parent`, `ancestors`, `depth`, `branch`, `mergedFrom`, `version`, and `note` (Manifest schema). An author who wants a *signed* ancestor chain places `ancestors` (and `mergedFrom`) there, because a frozen or published document's manifest projection binds `manifest.lineage` (Section 3.3, Section 10.3). The **provenance record's** lineage (Section 8.1) restates the same chain with additional auditing context, but it is path-only and **unsigned**, so it is never the authoritative copy. A verifier resolves and checks the chain from `manifest.lineage`; the provenance record is advisory detail.
 
 The provenance lineage:
 
@@ -108,24 +108,42 @@ Lineage verification resolves the chain **backwards** from a subject document an
 
 **Algorithm.**
 
+The chain is a **DAG**, not a single spine: a node has a primary `parent` and
+zero or more `mergedFrom` parents (Section 3.4), each resolved and chain-checked
+alike. Verification is a depth-first walk that follows every parent; a node
+re-reached on the *current* path is a cycle (REJECTED), while one re-reached by a
+*different* path (a merge diamond) is memoised, not mistaken for a cycle. A
+REJECTED anywhere dominates; failing that, any INCOMPLETE makes the subject
+INCOMPLETE; only an all-resolved, all-consistent walk to roots is VERIFIED.
+
 ```
 verify(subject):
-  visited = {}
-  node = subject; depth = 0
-  loop:
-    if node.id in visited: return REJECTED            // cycle
-    visited += node.id;  depth += 1
-    if node.parent == null:
-      if node.ancestors is non-empty: return REJECTED // a root has no ancestors
-      return VERIFIED
-    if depth >= traversalBound: return INCOMPLETE      // honest deep history, not an error
+  memo = {}                                            // ids of already-VERIFIED subtrees
+  return visit(subject, path = {}, depth = 1)
+
+visit(id, path, d):
+  if id in path: return REJECTED                       // cycle: revisit on the current path
+  if id in memo: return VERIFIED                       // merge diamond: re-reached by another path
+  node = resolve(id)
+  if node == null: return INCOMPLETE                   // unresolvable; no claim beyond here
+  parents = (node.parent == null ? [] : [node.parent]) ++ (node.mergedFrom or [])
+  if parents is empty:                                 // root
+    if node.ancestors is non-empty: return REJECTED    // a root has no ancestors
+    memo += id;  return VERIFIED
+  if d >= traversalBound: return INCOMPLETE            // honest deep history, not an error
+  if node.ancestors is present:                        // cross-check vs the resolved PRIMARY parent
     parent = resolve(node.parent)
-    if parent == null: return INCOMPLETE               // unresolvable; no claim beyond here
-    if node.ancestors is present:
+    if parent != null:
       if node.ancestors[0] != node.parent: return REJECTED
       expected = [node.parent] ++ parent.ancestors
       if node.ancestors and expected differ on any shared index: return REJECTED  // forged tail
-    node = parent
+  outcome = VERIFIED
+  for p in parents:                                     // verify EVERY parent (primary + each merge)
+    r = visit(p, path ++ {id}, d + 1)
+    if r == REJECTED: return REJECTED                   // a proven inconsistency in any parent wins
+    if r == INCOMPLETE: outcome = INCOMPLETE            // keep scanning — a later REJECTED still dominates
+  if outcome == VERIFIED: memo += id
+  return outcome
 ```
 
 **Rejection conditions (a proven inconsistency):**
