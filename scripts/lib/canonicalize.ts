@@ -514,9 +514,13 @@ function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
  * array), the `id` of every `anchor` mark, and the `id` of every in-content
  * sub-block element reached as an array item — an academic equation line (in
  * `lines`) and a `subfigure` (in `subfigures`), which carry no block `type`. These
- * share one uniqueness-checked identifier namespace (Anchors & References §4). A
- * singular named sub-object such as a signature block's `signer` (a Person
- * identifier, not a content-anchor target) is not an array item and is excluded.
+ * share one uniqueness-checked identifier namespace (Anchors & References §4).
+ * Membership is keyed on WHERE a node sits, not merely its shape (see `definedId`):
+ * an id in a SEPARATE namespace is left as authored — a `semantic:bibliography`
+ * entry's CSL citation key (in `entries`; referenced by a `citation` mark), any
+ * id-bearing item an extension block carries in its own data array, and a singular
+ * named sub-object such as a signature block's `signer` (a Person identifier, not a
+ * content-anchor target) — are not relabeled.
  *
  * References rewritten: Content Anchor URIs (`#id[/offset]`) in an enumerated set
  * of reference fields. Identifiers that address OTHER namespaces — footnote /
@@ -534,13 +538,13 @@ function alphaRenameIds(content: unknown): unknown {
   // descendants), so alpha-equivalent inputs build identical maps regardless of
   // the original labels. Reject a duplicate id (Anchors & References §4 requires
   // uniqueness across the shared namespace).
-  const collect = (value: unknown, inMarks: boolean, inArray: boolean): void => {
+  const collect = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined): void => {
     if (Array.isArray(value)) {
-      for (const el of value) collect(el, inMarks, true);
+      for (const el of value) collect(el, inMarks, true, parentKey); // items inherit the array's field name
       return;
     }
     if (!isPlainObject(value)) return;
-    const id = definedId(value, inMarks, inArray);
+    const id = definedId(value, inMarks, inArray, parentKey);
     if (id !== undefined) {
       if (map.has(id)) {
         throw new CanonicalizationError(`duplicate id "${id}" in the shared identifier namespace`);
@@ -548,31 +552,65 @@ function alphaRenameIds(content: unknown): unknown {
       map.set(id, `b${counter++}`);
     }
     for (const key of Object.keys(value).sort()) {
-      collect(value[key], key === 'marks', false);
+      collect(value[key], key === 'marks', false, key);
     }
   };
-  collect(content, false, false);
+  collect(content, false, false, undefined);
 
   if (map.size === 0) return content; // no ids to canonicalize
 
-  return rewriteIds(content, map, false, false);
+  return rewriteIds(content, map, false, false, undefined);
 }
 
 /**
- * The in-namespace id this node defines, if any. Inside a `marks` array only an
- * `anchor` mark contributes an id (other marks address separate namespaces).
- * Outside `marks`: a typed object (every block) contributes its `id`, and so does
- * an untyped in-content sub-block reached as an array item — an academic equation
- * line (in `lines`) or a `subfigure` (in `subfigures`). A singular named sub-object
- * such as a signature block's `signer` (a Person identifier, not a content-anchor
- * target) carries no `type` and is not an array item, so it is excluded.
+ * Field keys whose ARRAY items are relabeled sub-block ids even though they carry
+ * no block `type`: an equation group's `lines` (equation lines) and a figure's
+ * `subfigures` (§4.3.1 item 5). This is the EXHAUSTIVE set of untyped sub-block id
+ * arrays — an untyped id-bearing array item reached through any other key (an id an
+ * extension block carries in its own data array) addresses a separate namespace and
+ * is left as authored.
  */
-function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: boolean): string | undefined {
+const SUB_BLOCK_ID_ARRAYS = new Set(['lines', 'subfigures']);
+
+/**
+ * Field keys carrying a block's opaque DATA payload of id-bearing objects whose ids
+ * belong to a SEPARATE identifier namespace, not the content-anchor namespace: a
+ * `semantic:bibliography` block's CSL `entries`, whose `id` is a citation key
+ * (referenced by a `citation` mark's `refs`, left as authored — §4.3.1 item 5). A
+ * bibliography entry carries a CSL `type` (`article-journal`, …) so it is shaped
+ * like a block; the enclosing key is what distinguishes it from one.
+ */
+const DATA_PAYLOAD_ID_ARRAYS = new Set(['entries']);
+
+/**
+ * The in-namespace id this node defines, if any — restricted to the EXHAUSTIVE
+ * shared identifier namespace of §4.3.1 item 5 (blocks, `anchor` marks, equation
+ * `lines`, and `subfigures`), keyed on WHERE the node sits (`parentKey`, the field
+ * it was reached through), not merely its shape.
+ *
+ * Inside a `marks` array only an `anchor` mark contributes an id (other marks
+ * address separate namespaces). Outside `marks`: a typed object contributes its
+ * `id` as a block, UNLESS it is a data-payload entry (a CSL `bibliographyEntry` in
+ * an `entries` array — a citation key, not a content-anchor target); and an untyped
+ * object contributes its `id` only as a sub-block array item of `lines` or
+ * `subfigures`. A structural heuristic (`has a type` OR `is any array item`) would
+ * instead admit a bibliography entry (or any id-bearing item an extension carries in
+ * a data array), relabeling a citation key into the block namespace — a wrong
+ * document ID and a hash collision.
+ */
+function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: boolean, parentKey: string | undefined): string | undefined {
   if (inMarks) {
     return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
   }
   if (typeof obj.id !== 'string') return undefined;
-  return typeof obj.type === 'string' || inArray ? obj.id : undefined;
+  const namedArrayItem = inArray && parentKey !== undefined;
+  if (typeof obj.type === 'string') {
+    // A typed object is a content block unless it is an item of a data-payload array.
+    return namedArrayItem && DATA_PAYLOAD_ID_ARRAYS.has(parentKey) ? undefined : obj.id;
+  }
+  // An untyped id-bearing object is in the namespace only as a `lines`/`subfigures`
+  // sub-block array item; any other untyped array item addresses a separate namespace.
+  return namedArrayItem && SUB_BLOCK_ID_ARRAYS.has(parentKey) ? obj.id : undefined;
 }
 
 /** Academic inline reference marks whose `target` is a Content Anchor URI. */
@@ -587,9 +625,9 @@ function isAnchorRefMark(type: unknown): boolean {
  * `target`; `academic:theorem` `uses[]`; `academic:proof` `of`; `semantic:ref`
  * and `presentation:reference` block `target`.
  */
-function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean): unknown {
+function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean, parentKey: string | undefined): unknown {
   if (Array.isArray(value)) {
-    return value.map((v) => rewriteIds(v, map, inMarks, true));
+    return value.map((v) => rewriteIds(v, map, inMarks, true, parentKey));
   }
   if (!isPlainObject(value)) return value;
 
@@ -602,9 +640,9 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
   // re-sort is always safe.
   for (const key of Object.keys(obj)) {
     if (key === 'marks' && Array.isArray(obj[key])) {
-      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true)));
+      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true, 'marks')));
     } else {
-      obj[key] = rewriteIds(obj[key], map, false, false);
+      obj[key] = rewriteIds(obj[key], map, false, false, key);
     }
   }
 
@@ -618,8 +656,13 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
       obj.target = rewriteContentAnchor(obj.target, map);
     }
   } else {
-    if ((typeof obj.type === 'string' || inArray) && typeof obj.id === 'string') {
-      obj.id = renameId(obj.id, map);
+    // Gate the id rewrite by the SAME namespace test used to build the map, so a
+    // data-payload id (a bibliography entry key) that happens to equal a relabeled
+    // block's original id is left as authored rather than rewritten to that block's
+    // canonical name.
+    const defined = definedId(obj, false, inArray, parentKey);
+    if (defined !== undefined) {
+      obj.id = renameId(defined, map);
     }
     if (type === 'academic:proof' && typeof obj.of === 'string') {
       obj.of = rewriteContentAnchor(obj.of, map);

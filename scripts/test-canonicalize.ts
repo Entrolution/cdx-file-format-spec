@@ -676,7 +676,7 @@ test('e2e: simple-document canonicalizes to a stable id', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Reviewer-driven hardening: determinism seams + regression guards
+// Determinism seams + regression guards
 // ---------------------------------------------------------------------------
 
 test('marks: sort uses UTF-16 code-unit order (astral mark sorts before a U+FFFF mark)', () => {
@@ -1013,6 +1013,62 @@ test('relabel: a signature signer.id is a Person id (named sub-object), not rela
   // 'intro' by label but is neither relabeled nor treated as a duplicate.
   assert.equal(blocks[0].id, 'b0'); // paragraph block id → relabeled
   assert.equal(blocks[1].signer.id, 'intro'); // signer id → verbatim, no collision error
+});
+
+test('relabel: a bibliography entry key (separate namespace) is not relabeled, even when it equals a block id', () => {
+  // A semantic:bibliography inline entry carries a string id (CSL citation key) AND a
+  // string type (CSL type), so a shape heuristic mistakes it for a block. Its id is a
+  // separate namespace: it must stay verbatim, and it must NOT count as a duplicate of
+  // a block that happens to share the label.
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'smith2024', level: 1, children: [{ type: 'text', value: 'H' }] },
+        { type: 'semantic:bibliography', id: 'bib', entries: [{ id: 'smith2024', type: 'article-journal', title: 'A' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // heading block id → relabeled
+  assert.equal(blocks[1].id, 'b1'); // bibliography block id → relabeled
+  assert.equal(blocks[1].entries[0].id, 'smith2024'); // entry key → verbatim, no false duplicate
+});
+
+test('id: changing only a bibliography entry key (citation ref unchanged) changes the id (collision closed)', () => {
+  // The malleability the fix closes: under the old heuristic the entry key was
+  // relabeled to bN while the citation ref stayed on the authored key, so changing the
+  // key produced the SAME document id — collapsing two different bibliographies onto one
+  // identity. The key is now hashed verbatim, so the two documents have distinct ids.
+  const doc = (key: string) => ({
+    version: '0.1',
+    blocks: [
+      { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'citation', refs: ['smith2024'] }] }] },
+      { type: 'semantic:bibliography', id: 'bib', entries: [{ id: key, type: 'article-journal' }] },
+    ],
+  });
+  assert.notEqual(
+    computeDocumentId(makeParts({ content: doc('smith2024') }), 'sha256'),
+    computeDocumentId(makeParts({ content: doc('smith2099') }), 'sha256'),
+  );
+});
+
+test('relabel: an id in an extension block\'s own data array (not `lines`/`subfigures`) is not relabeled', () => {
+  // An unknown namespaced block (open escape) carries an id-bearing object in an
+  // `items` array. Only `lines`/`subfigures` array-item ids join the relabeled
+  // namespace, so the nested id stays verbatim — a future extension's separate
+  // namespace is not swept in merely because a node has an id and sits in an array.
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'h', level: 2, children: [{ type: 'text', value: 'X' }] },
+        { type: 'x:widget', id: 'w', items: [{ id: 'k', label: 'L' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // heading block id → relabeled
+  assert.equal(blocks[1].id, 'b1'); // extension block id → relabeled
+  assert.equal(blocks[1].items[0].id, 'k'); // untyped id in a non-sub-block array → verbatim
 });
 
 test('relabel: a duplicate id in the shared identifier namespace is rejected', () => {

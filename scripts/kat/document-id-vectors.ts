@@ -230,4 +230,32 @@ export const vectors: KatVector[] = [
       `{"content":{"blocks":[{"id":"b0","lines":[{"id":"b1","number":"1","value":"e=mc^2"}],"type":"academic:equation-group"},{"children":[{"marks":[{"target":"#b1","type":"academic:equation-ref"}],"type":"text","value":"see "}],"type":"paragraph"}],"version":"0.1"},${META}}`,
     expectedId: 'sha256:175342eab21c533929b2163b5d728290f4f4e2354d9cf4c530bf797f02100fd7',
   },
+  {
+    name: 'inline-bibliography-entry-not-relabeled',
+    description:
+      "A semantic:bibliography block's inline CSL entry carries a string id (citation key) AND a string type (CSL type), but its id is a SEPARATE namespace: the block id relabels (bib→b1) while the entry key smith2024 and the citation-mark ref to it are left verbatim. A structural heuristic would relabel the entry key, diverging the id and enabling a collision (change the key, leave the ref → same hash).",
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"heading","id":"intro","level":1,"children":[{"type":"text","value":"Refs"}]},{"type":"paragraph","children":[{"type":"text","value":"See","marks":[{"type":"citation","refs":["smith2024"]}]}]},{"type":"semantic:bibliography","id":"bib","style":"apa","entries":[{"id":"smith2024","type":"article-journal","title":"A Study"}]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"children":[{"type":"text","value":"Refs"}],"id":"b0","level":1,"type":"heading"},{"children":[{"marks":[{"refs":["smith2024"],"type":"citation"}],"type":"text","value":"See"}],"type":"paragraph"},{"entries":[{"id":"smith2024","title":"A Study","type":"article-journal"}],"id":"b1","style":"apa","type":"semantic:bibliography"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:fb631d9ae4a3cced0707b52356edc9bee78ccfe36e417d988550226395dc0a7d',
+  },
+  {
+    name: 'extension-data-array-id-not-relabeled',
+    description:
+      "An unknown namespaced extension block (open escape, Content Blocks §5) carries an id-bearing object in its own data array (`items`). The block id relabels (w→b1) while the nested `items` id `k` is left verbatim: only `lines`/`subfigures` array-item ids join the relabeled namespace, so a future extension's separate-namespace ids are not swept in by the structural shape (the robustness a `has-a-type-or-is-any-array-item` heuristic lacked).",
+    parts: {
+      manifest: '{}',
+      content:
+        '{"version":"0.1","blocks":[{"type":"heading","id":"h","level":2,"children":[{"type":"text","value":"X"}]},{"type":"x:widget","id":"w","items":[{"id":"k","label":"L"}]}]}',
+      dublinCore: DC,
+    },
+    expectedCanonicalJcs:
+      `{"content":{"blocks":[{"children":[{"type":"text","value":"X"}],"id":"b0","level":2,"type":"heading"},{"id":"b1","items":[{"id":"k","label":"L"}],"type":"x:widget"}],"version":"0.1"},${META}}`,
+    expectedId: 'sha256:1534d1ee22b6f6ceeaa8f56365071dbb1aeabbdbe50520044c3b9b6e6087208c',
+  },
 ];
