@@ -646,8 +646,8 @@
               "description": "When true, `src` is an external reference (e.g. an absolute URL) resolved at render time and left verbatim in the canonical content; the image is not packaged in the archive (Document Hashing section 4.3.1)"
             },
             "fallback": {
-              "type": "string",
-              "description": "Archive-relative path to a packaged fallback image shown when an external `src` is unavailable; left verbatim in the canonical content, not resolved into the document ID (Document Hashing section 4.3.1)"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath",
+              "description": "Archive-relative path to a packaged fallback image shown when an external `src` is unavailable; constrained to the Zip-Slip-safe relativePath form (no absolute path, no '..' traversal, no URL). Left verbatim in the canonical content, not resolved into the document ID (Document Hashing section 4.3.1)"
             }
           }
         }
@@ -906,8 +906,8 @@
               "description": "Type of signature"
             },
             "image": {
-              "type": "string",
-              "description": "Path to signature image"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+              "description": "Signature image source — an archive-relative path, or an external reference resolved at render time when `external` is true. Constrained to safe image schemes (see the Renderer Safety core specification, section 2.2): https/relative or a data:image raster payload, excluding data:image/svg+xml (active content) and javascript:/data:text."
             },
             "signer": {
               "type": "object",
