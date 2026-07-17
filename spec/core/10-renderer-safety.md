@@ -44,9 +44,20 @@ independently.
 
 Fields whose value is rendered as a hyperlink, a navigation target, or a
 submitted action — core `link` mark `href`, the forms extension's form
-`action`, the semantic extension's entity `uri` and cross-reference `target`,
-and the presentation extension's cross-reference `target` — are constrained by
-the shared `safeUri` definition (`anchor.schema.json#/$defs/safeUri`).
+`action`, the semantic extension's entity `uri`, cross-reference `target`, and
+bibliography entry `URL` and `DOI`, and the presentation extension's
+cross-reference `target` — are constrained by the shared `safeUri` definition
+(`anchor.schema.json#/$defs/safeUri`).
+
+The allowlist is also a **render-time** obligation. A person `identifier` (an
+author's ORCID, DID, or URL — academic extension section 12) is one value the
+schema cannot pin to `safeUri`, because it legitimately holds a `did:` value,
+which is not a `safeUri` scheme; a renderer MUST NOT emit such an identifier as a
+raw link `href`, and any identifier it does turn into a hyperlink MUST pass the
+`safeUri` allowlist first. A renderer MUST apply the same allowlist to a `DOI` it
+linkifies even though the schema already constrains it — the renderer is the
+security boundary (Section 2.3). A `javascript:` identifier MUST be shown as inert
+text, never promoted to a navigation target.
 
 `safeUri` is an **allowlist**. It permits:
 
@@ -116,10 +127,16 @@ embedded in the document.
 
 ### 3.2 Mathematical notation
 
-The academic extension carries mathematical and algorithmic source as LaTeX
-(equation lines, algorithm lines) rendered by a typesetting engine such as
-KaTeX, MathJax, or a full TeX system. Untrusted LaTeX is a code-execution and
-denial-of-service surface. A renderer MUST:
+Mathematical source is untrusted author data wherever it appears, and the core
+content model carries the largest surface: the core `math` mark and `math` block
+(`content.schema.json`, `format: latex | mathml`). The academic extension adds
+equation lines, algorithm lines, and an equation-line `tag` or reference `format`
+template a renderer may route through the math engine (Section 3.5). This section
+governs all of them; it is **not** scoped to the academic extension.
+
+**LaTeX** (`format: latex`, core or academic) is rendered by a typesetting engine
+such as KaTeX, MathJax, or a full TeX system, and untrusted LaTeX is a
+code-execution and denial-of-service surface. A renderer MUST:
 
 - disable file-access and shell-escape constructs (`\input`, `\include`,
   `\write18`, `\openin`, and equivalents) — a full-TeX engine MUST NOT be
@@ -132,6 +149,18 @@ denial-of-service surface. A renderer MUST:
 
 A renderer SHOULD prefer a restricted, non-Turing-complete math renderer
 (KaTeX-class) over a full TeX system for untrusted input.
+
+**MathML** (`format: mathml`, core `math` mark or block) is not LaTeX but
+untrusted **markup**, and is a historical XSS surface (`<maction>`, event-handler
+attributes, `href`/`xlink:href` values, and markup-reentering elements). A renderer
+MUST sanitize author-supplied MathML — removing script elements and event-handler
+attributes, rejecting `href`/`xlink:href` values that fall outside the Section 2.1
+`safeUri` allowlist, and removing or neutralizing active or markup-reentering
+elements such as `<maction>` and `<annotation-xml encoding="text/html">` (which
+re-parses its contents as HTML, like SVG's `<foreignObject>`) — or render it in a
+sandbox that cannot execute script or reach the network, with the same rigor it
+applies to SVG (Section 3.1). MathML is never exempt from sanitization by virtue of
+a valid signature.
 
 ### 3.3 Style and color values
 
@@ -152,6 +181,30 @@ renderer MUST render them as inert text, escaping any markup, and MUST NOT
 auto-linkify or otherwise promote them to a navigation target except through the
 safe-URI allowlist of Section 2. (Their *authority* status is governed
 separately by the Security Extension section 3.10.)
+
+### 3.5 Pre-rendered and interpolated markup
+
+Some fields carry author-controlled markup, or template text a renderer
+interpolates into a markup context:
+
+- **Pre-rendered citations.** The semantic extension's bibliography entry
+  `renderedText` carries pre-rendered citation markup — its purpose is to display
+  a formatted reference without running a CSL processor — so a renderer that
+  honours it interprets it as HTML, and it is author-controlled (an inline entry,
+  or a path-only external `bibliography.json`). A renderer MUST sanitize
+  `renderedText` against an allowlist of inline formatting elements (emphasis,
+  superscript/subscript, and equivalents), removing script, event-handler
+  attributes, and any active or external-fetching content, with the same rigor it
+  applies to SVG (Section 3.1). A signature over the citation bytes attests who
+  wrote them, never that they are safe to inject.
+
+- **Interpolated labels and templates.** Author strings interpolated into
+  rendered output — an academic equation-line `tag` (`*`, `\dagger`) or `number`,
+  and a reference mark's display `format` template (`Theorem {number}`) or `line`
+  label — MUST be escaped as inert text (Section 3.4) before they are emitted into
+  a markup context, so a template carrying `<…>` cannot inject markup. A `tag` a
+  renderer instead routes through the math engine (a `\dagger` typeset as a
+  symbol) is untrusted math source and is subject to the Section 3.2 hardening.
 
 ## 4. Client-side validation patterns
 
@@ -191,8 +244,8 @@ phantom extension, whose clusters carry an embedded content model and whose
 assets are an unverified channel (Phantom Extension section 5.1). A renderer
 MUST render embedded and phantom content with the *same* safe-URI allowlist and
 sanitization rules it applies to primary content: embedded link targets, image
-sources, SVG, math, and style values are no more trustworthy than their
-top-level counterparts, and an embedded or out-of-hash channel is frequently
+sources, SVG, math, pre-rendered markup, and style values are no more trustworthy
+than their top-level counterparts, and an embedded or out-of-hash channel is frequently
 *less* trustworthy. A renderer MUST treat such content as untrusted regardless
 of the integrity status of the surrounding document, and MUST NOT grant it any
 capability (script execution, navigation, network access) it would deny to

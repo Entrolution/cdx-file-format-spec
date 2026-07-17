@@ -199,7 +199,7 @@ The bibliography block renders citations. It can reference an external bibliogra
 | `filter` | string\|null | No | Filter expression for selective bibliography |
 | `entries` | array | No | Inline CSL JSON entries (alternative to external file) |
 
-When `entries` is provided, each entry MAY include a `renderedText` field containing pre-rendered citation text from citeproc. This enables accurate display without requiring a CSL processor in the reader.
+When `entries` is provided, each entry MAY include a `renderedText` field containing pre-rendered citation markup from citeproc. This enables accurate display without requiring a CSL processor in the reader. Because it is author-controlled markup that a reader interprets as HTML, a renderer MUST sanitize `renderedText` against an inline-formatting allowlist before rendering it (Renderer Safety section 3.5).
 
 **Note:** Both CSL date formats are supported for the `issued` field: the short form (`{ "year": 2023 }`) and the standard form (`{ "date-parts": [[2023, 3, 15]] }`). Implementations MUST accept both formats.
 
@@ -455,7 +455,7 @@ Internal references use Content Anchor URI syntax (see core Anchors and Referenc
 
 An external reference MUST set `external: true`. An internal reference (the default — `external` false or absent) MUST give `target` as a Content Anchor URI (a `#`-prefixed reference, section 7.1); an absolute or external URL written without `external: true` is rejected as a malformed internal reference, so set the flag whenever `target` leaves the document.
 
-> **Renderer safety.** An entity `uri` and a cross-reference `target` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
+> **Renderer safety.** An entity `uri`, a cross-reference `target`, and a bibliography entry's `URL` and `DOI` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A bibliography `renderedText` is author markup a renderer MUST sanitize before rendering (Renderer Safety section 3.5), and an author `identifier` (ORCID/DID/URL) a renderer MUST route through the safe-URI allowlist before linkifying (section 2.1). A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
 
 ## 8. Glossary
 
