@@ -271,7 +271,7 @@ Symbol footnotes are commonly used for:
 - Equal contribution statements
 - Disclaimers and conflicts of interest
 
-For documents requiring more than six symbol footnotes, the sequence typically doubles (**, ††, ‡‡, etc.). Implementations MAY support this extended sequence.
+The `symbol` field selects one of the six named symbols above; it has no seventh value. For a page with more than six symbol footnotes, a renderer MAY reuse the set with a doubled glyph as a **display convention** — a seventh note shown as `**`, an eighth as `††`, and so on. The doubling is applied by the renderer at display time and is not a stored value: the footnote's `symbol` remains one of the six enumerated names (or, past the sixth note, the author uses numbered footnotes instead).
 
 #### 4.5.2 Footnote Block
 

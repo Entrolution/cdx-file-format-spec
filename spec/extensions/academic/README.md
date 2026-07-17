@@ -680,6 +680,8 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `chapter.section.number` | 2.3.1, 2.3.2 | Full hierarchical |
 | `section.number` | 3.1, 3.2 | Section-prefixed |
 
+**Default.** When an environment does not configure a `style`, its default is `"number"` — a bare sequence counter that carries no heading prefix and never resets (section 10.4). A configuration MUST NOT rely on an implementation-defined style default: the number format is deterministic because omission resolves to `"number"`.
+
 ### 10.2 Counter Sharing
 
 Theorem-like environments can share counters. When counters are shared, all variants in the group increment the same counter:
@@ -691,6 +693,8 @@ Theorem-like environments can share counters. When counters are shared, all vari
 ```
 
 This produces: Theorem 1, Lemma 2, Proposition 3, Theorem 4, etc.
+
+**Custom-variant sharing.** A custom variant's `sharesWith` (section 4.3) names the variant whose counter it joins. Resolution is transitive — a chain `a → b → c` collapses to `c`'s counter — and MUST terminate: a `sharesWith` cycle, or a target that names no defined variant (dangling), is a configuration error that a reader resolves by giving the variant its **own independent counter** and a rendering-degradation WARNING (section 9). A variant is governed by exactly one counter: it MUST NOT appear both in a `theorems.counters` `share` group and as a `sharesWith` target of a different group; if it does, the `share` group wins and the conflicting `sharesWith` falls back to an independent counter (WARNING).
 
 ### 10.3 Reset Triggers
 
@@ -725,7 +729,7 @@ Equations, algorithms, and exercises are auto-numbered whenever `academic/number
 
 **Counter sharing.** Variants listed together under `theorems.counters` (section 10.2) share one sequence counter. A custom variant (section 4.3) shares the counter of its `sharesWith` target, or has its own independent counter when `sharesWith` is `null`.
 
-**Reset.** An environment's **reset level** is the heading level named by its `resetOn` when it declares one (equations, algorithms, exercises); a theorem-like environment has no `resetOn`, so its reset level is the deepest heading level named by its `style` prefix — `chapter` is level 1, `section` is level 2 — and a bare `number` style (no prefix) never resets. `resetOn: "none"` never resets. The reader resets a sequence counter to 0 at every heading whose level is at most the environment's reset level, so a new chapter restarts section-scoped counters.
+**Reset.** An environment's **reset level** is derived from its `style` prefix by default — the deepest heading level the prefix names: `chapter` is level 1, `section` is level 2, and a bare `number` style (no prefix) never resets. Equations, algorithms, and exercises MAY override this default with an explicit `resetOn`: a heading level (`heading1`…`heading6`) sets the reset level to that level, and `resetOn: "none"` never resets. When `resetOn` is omitted — and always for a theorem-like environment, which has no `resetOn` field — the style-prefix-derived level applies, so the reset level is deterministic in every configuration (an omitted `resetOn` is never implementation-defined). The reader resets a sequence counter to 0 at every heading whose level is at most the environment's reset level, so a new chapter restarts section-scoped counters.
 
 **Advancing and composing.** On reaching a numbered unit whose number is auto-computed, the reader increments its environment's sequence counter by 1 (after any reset triggered by an intervening heading), then forms the number from the environment's `style` (section 10.1): each component is replaced by a counter value — `chapter` → the chapter counter, `section` → the section counter, `number` → the sequence counter — joined with `.`. With `style: "chapter.section.number"`, chapter 2, section 3, and sequence 8 produce `2.3.8`.
 
@@ -741,7 +745,7 @@ A theorem-like block MAY carry an explicit `number` and a `numbering` mode (`"au
 
 1. If `numbering` is `"none"`, the block is unnumbered: no number is displayed and it advances no counter. A `*-ref` whose target is this block cannot fill `{number}`, so the reader substitutes the authored display text carried by the mark's text node, otherwise the bare target id (section 9). Any `number` present is ignored for display.
 2. Otherwise, if an explicit `number` is present, it is displayed verbatim. An explicit `number` is authored content carried in the document hash, so it is integrity-protected (section 13), takes precedence over any auto value, and does not advance the auto sequence counter (section 10.4).
-3. Otherwise, if `numbering` is `"auto"`, the number is computed by the auto-numbering algorithm (section 10.4); a number derived this way is advisory and out-of-hash (section 13).
+3. Otherwise, if `numbering` is `"auto"`, the number is computed by the auto-numbering algorithm (section 10.4); a number derived this way is advisory and out-of-hash (section 13). **Exception:** a `restate: true` theorem is never auto-numbered even when `numbering` is `"auto"` — it repeats a theorem stated earlier, so rule 2 applies instead (it SHOULD carry that theorem's explicit `number`) and it advances no counter.
 4. Otherwise (no `number`, `numbering` omitted), the block is unnumbered.
 
 Equation lines, algorithm blocks, and exercises have no `numbering` field: they are auto-numbered when `academic/numbering.json` configures their environment (section 10.4), and an explicit per-unit `number` — or, for an equation line, a `tag` — overrides the auto value the same way and likewise advances no counter.
