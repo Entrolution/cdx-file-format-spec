@@ -288,6 +288,20 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'presentation.schema.json',
+    ref: '#/$defs/flowElement',
+    description: 'flowElement',
+    validInstance: { type: 'flow', blockIds: ['b1'], regions: [{ page: 1, position: { x: '0', y: '0', width: '1in' } }] },
+    invalidInstance: { type: 'flow', blockIds: ['b1'], regions: [{ page: 1, position: { x: '0', y: '0', width: '1in' } }], bogus: 1 },
+  },
+  {
+    schema: 'presentation.schema.json',
+    ref: '#/$defs/flowElement/properties/regions/items',
+    description: 'flowElement region item',
+    validInstance: { page: 1, position: { x: '0', y: '0', width: '1in' } },
+    invalidInstance: { page: 1, position: { x: '0', y: '0', width: '1in' }, bogus: 1 },
+  },
+  {
+    schema: 'presentation.schema.json',
     ref: '#/$defs/position',
     description: 'position',
     validInstance: { x: '0', y: '0', width: '1in' },

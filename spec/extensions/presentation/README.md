@@ -15,15 +15,9 @@ The Presentation Extension provides advanced layout and styling capabilities bey
 
 ### File Paths
 
-Presentation extension data is stored within the `presentation/` directory in the CDX archive:
+Presentation data is stored in the `presentation/` directory as one **reactive presentation file per type** — `presentation/paginated.json`, `presentation/continuous.json`, and/or `presentation/responsive.json` (Presentation Layers, core specification section 4.1) — plus optional precise `presentation/layouts/*.json`. Each reactive file is a **single object** conforming to `presentation.schema.json` and declared in `manifest.presentation[]` with its `{type, path, hash}` (Manifest section 4.7).
 
-| File | Purpose |
-|------|---------|
-| `presentation/styles.json` | Typography, colors, and style definitions |
-| `presentation/layout.json` | Master pages, templates, and layout rules |
-| `presentation/toc.json` | Table of contents configuration |
-
-These files are referenced from the manifest's extension declaration.
+This extension's concepts are **top-level sections of that one presentation object**, not separate files: styles under `styles`/`typography`/`colors`, master pages and templates under `masterPages`/`masterRules`/`pageTemplate`, and the table of contents under `tableOfContents` (with `listOfFigures`/`listOfTables`/`index`). A document does not ship `styles.json`, `layout.json`, or `toc.json`; those concepts live inside the reactive presentation file the manifest already declares.
 
 ## 2. Extension Declaration
 
@@ -608,11 +602,15 @@ The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-en
 {
   "pageTemplate": {
     "header": {
-      "left": { "variable": "chapter-title" },
-      "right": { "variable": "section-title" }
+      "content": {
+        "left": { "variable": "chapter-title" },
+        "right": { "variable": "section-title" }
+      }
     },
     "footer": {
-      "center": { "text": "Page {pageNumber} of {pageCount}" }
+      "content": {
+        "center": { "text": "Page {pageNumber} of {pageCount}" }
+      }
     }
   }
 }
@@ -636,10 +634,10 @@ The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-en
 {
   "pageTemplate": {
     "odd": {
-      "header": { "right": { "variable": "section-title" } }
+      "header": { "content": { "right": { "variable": "section-title" } } }
     },
     "even": {
-      "header": { "left": { "variable": "chapter-title" } }
+      "header": { "content": { "left": { "variable": "chapter-title" } } }
     }
   }
 }
@@ -660,14 +658,14 @@ The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-en
   "masterPages": {
     "chapter": {
       "margins": { "top": "2in" },
-      "footer": { "center": { "text": "{pageNumber}" } }
+      "footer": { "content": { "center": { "text": "{pageNumber}" } } }
     },
     "body": {
       "header": {
-        "outside": { "variable": "section-title" }
+        "content": { "outside": { "variable": "section-title" } }
       },
       "footer": {
-        "outside": { "text": "{pageNumber}" }
+        "content": { "outside": { "text": "{pageNumber}" } }
       }
     }
   },
@@ -675,6 +673,9 @@ The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-en
     "hyphenation": { "enabled": true, "language": "en-US" },
     "widows": 2,
     "orphans": 2
+  },
+  "styles": {
+    "body": { "fontFamily": "Georgia, serif", "fontSize": "11pt", "lineHeight": 1.4 }
   }
 }
 ```

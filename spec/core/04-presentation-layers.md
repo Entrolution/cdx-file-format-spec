@@ -460,7 +460,7 @@ Continuous presentation groups content into sections for styling purposes:
   "styles": {
     "heading1": {
       "base": { "fontSize": "2rem", "fontWeight": "700" },
-      "mobile": { "fontSize": "1.5rem" }
+      "breakpoints": { "mobile": { "fontSize": "1.5rem" } }
     }
   }
 }
@@ -490,12 +490,14 @@ Styles can have breakpoint-specific overrides:
       "lineHeight": 1.6,
       "marginBottom": "1em"
     },
-    "mobile": {
-      "fontSize": "0.9rem",
-      "lineHeight": 1.5
-    },
-    "desktop": {
-      "fontSize": "1.1rem"
+    "breakpoints": {
+      "mobile": {
+        "fontSize": "0.9rem",
+        "lineHeight": 1.5
+      },
+      "desktop": {
+        "fontSize": "1.1rem"
+      }
     }
   }
 }
