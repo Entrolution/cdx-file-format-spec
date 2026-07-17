@@ -219,6 +219,23 @@ valid-signature indicator. Machine-trust disclosure (integrity status) does not
 discharge this obligation on its own: the masquerade defense the human relies on is
 visual distinguishability.
 
+**Out-of-hash derived fields MUST be regenerated, not trusted.** Some content blocks
+carry a derived, out-of-hash convenience copy of hashed data: a `measurement`'s
+human-readable `display` string, whose authoritative quantity is the hashed
+`value`/`unit`; and a `codeBlock`'s pre-tokenized `tokens`, whose authoritative code
+is the hashed `children` text. Both are stripped before hashing (Document Hashing
+section 4.3.1), so no signature attests them, and a tampered copy can present a
+different quantity or different code than the signed source *under a still-valid
+signature* — a hashed `value` of `7.677` beneath an out-of-hash `display` of
+`"9999 mm"`, or benign `children` beneath a `tokens` array that reads `curl … | sh`
+for the sighted reader. A renderer MUST derive what it presents from the hashed
+source: it MUST regenerate the measurement display from the hashed fields, and MUST
+take the displayed code characters from `children` (using `tokens` only as a styling
+overlay, and only after confirming the tokens reconstruct `children`). It MUST NOT
+present a stored `display` or `tokens` as authoritative — the same principle as the
+out-of-hash annotation layers above: an out-of-hash channel is never presented as
+signed content (Content Blocks sections 4.7 and 4.16).
+
 ## 7. Relationship to identity authority
 
 Renderer safety is concerned with what a renderer may *execute or fetch* from

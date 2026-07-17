@@ -570,7 +570,7 @@
             },
             "tokens": {
               "type": "array",
-              "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens')",
+              "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens'). Out-of-hash and non-authoritative: stripped before hashing (Document Hashing 4.3.1) and attested by no signature, whereas the children text is the hashed, authoritative code. A renderer MUST take displayed characters from children and use tokens only as a styling overlay after confirming they reconstruct children (Renderer Safety 6).",
               "items": { "$ref": "#/$defs/highlightToken" }
             },
             "children": {
@@ -885,7 +885,7 @@
             },
             "display": {
               "type": "string",
-              "description": "Human-readable display string"
+              "description": "Human-readable display string. Presentational and out-of-hash: stripped before hashing (Document Hashing 4.3.1) and attested by no signature, so a renderer MUST NOT present it as authoritative — the hashed value/unit are the authoritative quantity and the display SHOULD be regenerated from them (Renderer Safety 6)."
             }
           }
         }

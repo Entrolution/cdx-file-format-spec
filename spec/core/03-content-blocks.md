@@ -363,10 +363,9 @@ For documents requiring stable, portable syntax highlighting, code blocks can in
 | `plain` | Plain text (default/fallback) |
 
 **Behavior:**
-- If `highlighting` is absent or `"none"`, renderers use the `children` text node (current behavior)
-- If `highlighting` is `"tokens"`, renderers use the `tokens` array for colored output
-- Renderers MAY re-highlight from `children` if they don't support the tokens format
-- The `children` field MUST always contain the complete source code for fallback and accessibility
+- The `children` text node is the **authoritative** source code: it is the only code content inside the document hash (a signature attests it), and MUST always contain the complete source code for rendering, fallback, and accessibility.
+- `tokens` is an out-of-hash presentation hint — regenerable syntax highlighting, stripped before hashing (Document Hashing section 4.3.1) and attested by no signature. A renderer MUST NOT take the displayed characters from `tokens`. When `highlighting` is `"tokens"`, a renderer MAY apply the tokens as a *styling overlay* on the `children` text only after verifying that the concatenation of the tokens' `value`s equals the `children` text (the single text node's `value`); on any mismatch — or when it does not support the tokens format — it MUST render `children`, regenerating highlighting from `children` + `language` or showing it unhighlighted. This prevents a tampered out-of-hash `tokens` array from displaying code that is absent from the signed `children` (for example an injected `curl … | sh`); see Renderer Safety section 6.
+- If `highlighting` is absent or `"none"`, renderers render the `children` text node directly.
 
 ### 4.8 Horizontal Rule
 
@@ -667,7 +666,7 @@ Semantic representation of a measurement with optional uncertainty and units. Us
 | `range` | Range format | 7.668–7.686 |
 | `percent` | Percentage | 7.677 ± 0.12% |
 
-The `display` field is REQUIRED for accessibility and fallback rendering. It SHOULD accurately represent the measurement as intended for human readers.
+The `display` field is REQUIRED for accessibility and fallback rendering, and SHOULD accurately represent the measurement as intended for human readers. It is, however, a **presentational convenience, not the authoritative value**: `display` is stripped before hashing (Document Hashing section 4.3.1) and attested by no signature, whereas the numeric `value` (with `unit`, `exponent`, `uncertainty`, and `uncertaintyNotation`) is hashed. A renderer MUST treat the hashed fields as the authoritative measurement and MUST NOT present a stored `display` as authoritative: it SHOULD regenerate the display from the hashed fields, and where it does show the stored string it MUST confirm the string is consistent with the hashed `value` and MUST NOT display a `display` that contradicts it. Otherwise a tampered out-of-hash `display` (e.g. `"9999 mm"` over a hashed `value` of `7.677`) would state a different quantity than the signed value; see Renderer Safety section 6.
 
 Children: None (void element)
 

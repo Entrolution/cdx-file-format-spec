@@ -98,7 +98,7 @@ The canonical content EXCLUDES:
 - Collaboration data (comments, change tracking)
 - Phantom data (off-page annotations)
 - Form data (`forms/data.json` — filled values are mutable even on frozen documents)
-- Derived fields carried inside content blocks: `measurement.display` (a human-readable rendering of the value) and `codeBlock.tokens` (regenerable syntax highlighting), which have no canonical form
+- Derived fields carried inside content blocks: `measurement.display` (a human-readable rendering of the value) and `codeBlock.tokens` (regenerable syntax highlighting), which have no canonical form. Because they are excluded, no signature attests them, so a renderer MUST derive what it presents from the hashed source — the measurement `value`/`unit`, the code-block `children` — and MUST NOT present the stored `display`/`tokens` as authoritative (Content Blocks section 4.7, Content Blocks section 4.16; Renderer Safety section 6)
 - Fonts and other packaged assets not referenced from content (referenced only by the presentation layer); only content-referenced assets are bound to identity
 
 > **Metadata inclusion**: The Dublin Core terms included in the hash are `title`, `creator`, `subject`, `description`, and `language`. Administrative terms (`date`, `publisher`, `identifier`, `rights`) and the structured `creators` array are excluded. See Metadata specification, section 6 for details.
@@ -119,7 +119,7 @@ The following table summarizes what is included in and excluded from the documen
 | Asset filenames / paths | No | Resolved away to content hashes; renaming a referenced asset's file does not change the ID |
 | Block & anchor id labels | Canonicalized | Relabeled to position-based names (`b0`, `b1`, …); the author's chosen label does not change the ID, and references to it are rewritten to match (section 4.3.1) |
 | Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity; they are still tamper-evident via the hash-pinned asset index bound in the manifest projection (Security Extension section 9.7) |
-| Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing |
+| Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing. Attested by no signature, so a renderer MUST derive what it shows from the hashed source and MUST NOT present the stored copy as authoritative (Renderer Safety section 6) |
 | Presentation | No | Visual rendering instructions — not part of semantic identity |
 | Precise layouts | No | Coordinate-level positioning — rendering fidelity; tamper-evident when declared in `presentation[]` (type `precise`) via the file hash bound in the manifest projection (Security Extension section 9.7) |
 | Collaboration | No | Comments, suggestions, change tracking |
