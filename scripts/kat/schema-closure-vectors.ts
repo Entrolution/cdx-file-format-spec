@@ -724,8 +724,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'security.schema.json',
     ref: '#/$defs/encryptionFile',
     description: 'encryptionFile (no example coverage)',
-    validInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' } },
-    invalidInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }, bogus: 1 },
+    validInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: [{ iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }] },
+    invalidInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: [{ iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }], bogus: 1 },
   },
   {
     schema: 'security.schema.json',
@@ -736,8 +736,8 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'security.schema.json',
-    ref: '#/$defs/encryptedContent',
-    description: 'encryptedContent (no example coverage)',
+    ref: '#/$defs/encryptedPart',
+    description: 'encryptedPart (no example coverage)',
     validInstance: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' },
     invalidInstance: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc', bogus: 1 },
   },

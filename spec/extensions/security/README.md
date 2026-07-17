@@ -332,29 +332,48 @@ Location: `security/encryption.json`
       "ephemeralPublicKey": "base64..."
     }
   ],
-  "encryptedContent": {
-    "iv": "base64...",
-    "tag": "base64...",
-    "path": "content/document.json.enc"
-  }
+  "encryptedContent": [
+    {
+      "iv": "base64-iv-content...",
+      "tag": "base64-tag-content...",
+      "path": "content/document.json.enc"
+    },
+    {
+      "iv": "base64-iv-dublincore...",
+      "tag": "base64-tag-dublincore...",
+      "path": "metadata/dublin-core.json.enc"
+    }
+  ]
 }
 ```
+
+`encryptedContent` is an array — one entry per encrypted file — so the content part and the optionally-encrypted Dublin Core part (Section 4.4) each carry their own unique `iv` and `tag`. Each `iv` MUST be unique under the content-encryption key (Section 4.6).
 
 ### 4.4 Encrypted Files
 
 When encryption is enabled:
 
-- Content files are encrypted in place (`.enc` suffix)
+- Content files are encrypted in place (`.enc` suffix), one `encryptedContent` entry per file
 - The manifest remains unencrypted (for metadata access)
-- Dublin Core metadata can optionally be encrypted
+- Dublin Core metadata can optionally be encrypted (as its own `encryptedContent` entry)
+
+Each encrypted file carries its own unique `iv` and authentication `tag` (Section 4.6).
 
 ### 4.5 Decryption Process
 
-1. Parse encryption metadata
-2. Identify recipient (by key ID or try each)
-3. Unwrap content encryption key using recipient's private key
-4. Decrypt content files using CEK
-5. Verify authentication tags
+1. Parse the encryption metadata
+2. Identify the recipient (by key ID, or try each)
+3. Unwrap the content-encryption key (CEK):
+   - for the asymmetric wraps (`ECDH-ES+A256KW`, `RSA-OAEP-256`), use the recipient's private key;
+   - for `PBES2-HS256+A256KW`, derive the key-wrapping key with PBKDF2-HMAC-SHA256 over the password using the recipient's `p2s` (salt) and `p2c` (iteration count) per RFC 7518 section 4.8, then AES-KW-unwrap the CEK.
+4. For each `encryptedContent` entry, **decrypt-and-verify** the part with the CEK and the entry's `iv`. AEAD decryption verifies the authentication `tag` as an integral step: a reader MUST verify the tag **before** releasing or acting on any plaintext, and MUST discard the plaintext entirely if verification fails. A conforming implementation never exposes or processes unverified plaintext (Section 8.7).
+
+### 4.6 Nonce and Key Management
+
+AES-256-GCM and ChaCha20-Poly1305 are AEAD ciphers that fail catastrophically on nonce reuse: two messages encrypted under the same (key, `iv`) pair let an attacker recover the authentication key — forging valid ciphertext — and leak plaintext. Therefore:
+
+- A distinct `iv` MUST be used for every encryption operation under a given content-encryption key. An implementation MUST NOT reuse a (CEK, `iv`) pair across parts, across documents, or when re-encrypting an edited part. Derive each `iv` from a cryptographically secure source (a random 96-bit nonce, or a counter that never repeats under one key).
+- With password-based key wrapping (`PBES2-HS256+A256KW`), each recipient MUST carry a unique per-document salt `p2s` (at least 8 octets) and an iteration count `p2c` of at least 600000, raised over time. Omitting the salt enables cross-document precomputation; a low iteration count makes offline password cracking cheap (RFC 7518 section 4.8).
 
 ## 5. Access Control
 
@@ -593,6 +612,14 @@ A production document MUST do what the placeholders cannot:
 - **Identity is the credential, not the `signer` block.** The authenticated identity is the certificate subject, the resolved-and-anchored DID, or the pinned WebAuthn key (section 3.10) — never `signer.name`, `signer.email`, `signer.organization`, or a job title. The example deliberately carries no `title`: a "Chief Executive Officer" string is an authority claim bound by nothing, and presenting it as the signer's role is the misuse section 3.10 forbids.
 - **A keyId is a real, resolvable key.** The example's `did:key` decodes to an actual Ed25519 public key; an undecodable identifier resolves to `unknown`, not a valid signer (section 3.11).
 - **Trust is verifier-side.** None of the in-archive material — the certificate chain, a DID document, the `signer` fields, or annotations (section 3.10) — is self-authorizing; a verifier validates against its own configured trust, or reports a non-`valid` state.
+
+### 8.7 Encryption Misuse Resistance
+
+The encryption model (Section 4) uses AEAD ciphers (AES-256-GCM, ChaCha20-Poly1305) whose security collapses under misuse; a conforming implementation MUST defend all three of the following:
+
+- **Nonce reuse is catastrophic.** Two ciphertexts sharing a (key, `iv`) pair leak plaintext and let an attacker forge authenticated ciphertext. An implementation MUST enforce a unique `iv` per encryption under each content-encryption key (Section 4.6).
+- **No release of unverified plaintext.** A reader MUST verify the authentication tag before releasing or acting on any decrypted bytes; the decryption procedure (Section 4.5) is defined so verification gates plaintext use, and a failed tag MUST discard the plaintext.
+- **Weak password KDF.** Password-based wrapping (`PBES2-HS256+A256KW`) MUST use a unique per-document salt (`p2s`) and a high iteration count (`p2c` ≥ 600000) (Section 4.6); otherwise the encrypted archive is open to offline password cracking and cross-document precomputation.
 
 ## 9. Scoped Signatures
 

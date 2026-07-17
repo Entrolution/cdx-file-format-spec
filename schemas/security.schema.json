@@ -420,17 +420,27 @@
         "ephemeralPublicKey": {
           "description": "Base64-encoded ephemeral public key (for ECDH)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+        },
+        "p2s": {
+          "description": "PBES2 salt input (base64url), REQUIRED when keyManagement is PBES2-HS256+A256KW (RFC 7518 section 4.8). At least 8 octets (11 base64url chars) and unique per document; without it, offline password cracking can be precomputed across documents.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64",
+          "minLength": 11
+        },
+        "p2c": {
+          "type": "integer",
+          "description": "PBES2 iteration count, REQUIRED when keyManagement is PBES2-HS256+A256KW. MUST be at least 600000 (OWASP PBKDF2-HMAC-SHA256 guidance) and SHOULD be raised over time; a low count makes brute-force cheap.",
+          "minimum": 600000
         }
       },
       "additionalProperties": false
     },
-    "encryptedContent": {
+    "encryptedPart": {
       "type": "object",
-      "description": "Encrypted content reference",
+      "description": "One encrypted part: its ciphertext file plus the AEAD iv and authentication tag. The iv MUST be unique per encryption under the content-encryption key (Security Extension README section 4.6); reusing an (key, iv) pair is a catastrophic AEAD misuse that breaks both confidentiality and integrity.",
       "required": ["iv", "tag", "path"],
       "properties": {
         "iv": {
-          "description": "Base64-encoded initialization vector",
+          "description": "Base64-encoded AEAD nonce / initialization vector, unique per (key, encryption)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "tag": {
@@ -438,11 +448,18 @@
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "path": {
-          "description": "Path to encrypted file (typically with .enc suffix)",
+          "description": "Path to the encrypted file (typically with a .enc suffix)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       },
       "additionalProperties": false
+    },
+    "encryptedContent": {
+      "type": "array",
+      "description": "The encrypted parts — one per encrypted file (the content file, and optionally the Dublin Core metadata, README section 4.4). Each part MUST carry its own unique iv (README section 4.6); the schema does not enforce iv uniqueness.",
+      "items": { "$ref": "#/$defs/encryptedPart" },
+      "minItems": 1,
+      "uniqueItems": true
     },
     "encryptionFile": {
       "type": "object",
@@ -472,7 +489,22 @@
           "$ref": "#/$defs/encryptedContent"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["keyManagement"],
+            "properties": { "keyManagement": { "const": "PBES2-HS256+A256KW" } }
+          },
+          "then": {
+            "properties": {
+              "recipients": {
+                "items": { "required": ["id", "encryptedKey", "p2s", "p2c"] }
+              }
+            }
+          }
+        }
+      ]
     },
     "permission": {
       "type": "object",
