@@ -330,7 +330,7 @@ This document records key design decisions made during the CDX format specificat
 
 ## DD-015: State-Aware Progressive Enhancement Presentation
 
-**Decision**: Presentation precision evolves with document maturity — reactive presentation for drafts, with precise layout snapshots required for FROZEN and PUBLISHED states.
+**Decision**: Presentation precision evolves with document maturity — reactive presentation for drafts, with precise layout snapshots required for FROZEN and PUBLISHED documents **that assert page-precise fidelity** (e.g. citable pagination or print/legal use), and recommended otherwise.
 
 **Alternatives Considered**:
 1. Always require precise layouts (PDF model)
@@ -339,7 +339,7 @@ This document records key design decisions made during the CDX format specificat
 4. External rendering only (no stored layouts)
 
 **Rationale**:
-- **Rendering fidelity** — When frozen, the precise layout is required for rendering fidelity, but the document ID covers semantic content only. For legal contexts requiring appearance attestation, use scoped signatures (see Security Extension).
+- **Rendering fidelity** — When a frozen document asserts page-precise fidelity, a precise layout is required (recommended otherwise); the document ID covers semantic content only. A precise layout declared in `presentation[]` is bound into the signed manifest projection, so its appearance is attested by a manifest-covering signature (see Security Extension; DD-018).
 - **Legal/academic needs** — Citations reference "page 7, line 23" with confidence
 - **Lifecycle alignment** — Precision emerges naturally as documents mature
 - **No capability loss** — Semantic content always present for accessibility/search
@@ -352,7 +352,7 @@ This document records key design decisions made during the CDX format specificat
 | Type | Purpose | When Required |
 |------|---------|---------------|
 | Reactive (paginated, continuous, responsive) | Hints and styles for renderers | Optional always |
-| Precise (layouts/) | Exact coordinates for pixel-perfect reproduction | Required for FROZEN/PUBLISHED |
+| Precise (layouts/) | Exact coordinates for pixel-perfect reproduction | Required for FROZEN/PUBLISHED when page-precise fidelity is asserted; recommended otherwise |
 
 **Precise Layout Features**:
 - Exact element coordinates (x, y, width, height)
@@ -362,9 +362,9 @@ This document records key design decisions made during the CDX format specificat
 - Font metrics for exact text reproduction
 
 **Consequences**:
-- FROZEN/PUBLISHED validation must check for precise layout
+- FROZEN/PUBLISHED validation must check for a precise layout when the document asserts page-precise fidelity
 - Layout content hash must match current content (staleness check)
-- State transition to FROZEN may fail if no precise layout exists
+- State transition to FROZEN may fail if a fidelity-asserting document has no precise layout
 - Layout generation is external tooling responsibility
 - Increases document size for frozen documents (layout data)
 

@@ -288,7 +288,9 @@ References to metadata files.
 {
   "metadata": {
     "dublinCore": "metadata/dublin-core.json",
-    "custom": "metadata/custom.json"
+    "custom": {
+      "legal": "metadata/legal.json"
+    }
   }
 }
 ```
@@ -296,7 +298,7 @@ References to metadata files.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `dublinCore` | string | Yes | Path to Dublin Core metadata |
-| `custom` | string | No | Path to custom metadata |
+| `custom` | object | No | Map of custom metadata references (name → path) |
 
 ### 4.12 `phantoms` (Optional)
 

@@ -550,13 +550,13 @@ Line break within a block.
 
 Children: None (void element)
 
-Used for hard/forced line breaks within paragraphs.
+A `break` is a **block-level** element — a void block placed among other blocks to force a break in the block flow. A line break *within* a paragraph is a soft break (`\n` in a text value), not a `break` block: a paragraph's children are text nodes only (it cannot contain a `break`), as are the children of `heading`, `figcaption`, and `definitionTerm`.
 
 #### 4.14.1 Inline Breaks vs Block Breaks
 
 Text nodes MAY contain newline characters (`\n`) for soft line breaks. These represent inline breaks where the text flow continues but a line break is rendered. Soft breaks are typically used for poetry, addresses, or other content where line breaks are semantically meaningful but not paragraph separators.
 
-The `break` block represents a hard break — a forced line break that interrupts text flow. This is equivalent to HTML's `<br>` element.
+The `break` block represents a hard, block-level break — a standalone void block that forces a break in the block flow (for example between stanzas, or among the block children of a list item). It is not an inline element and does not appear inside a paragraph's text; an inline `<br>`-style line break within a paragraph is a soft break (`\n` in a text value).
 
 | Type | Representation | Use Case |
 |------|---------------|----------|

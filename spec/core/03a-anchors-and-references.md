@@ -102,12 +102,13 @@ The `contentHash` is the hash of the target block's text content at anchor creat
 
 ## 3. Character Offset Computation
 
-Character offsets address positions within a block's text content. The text content of a block is computed as follows:
+Character offsets address positions within the text content of a **text-bearing block** — a block whose `children` are text nodes (such as `paragraph`, `heading`, `figcaption`, `definitionTerm`, and `codeBlock`). The text content of such a block is computed as follows:
 
-1. Traverse all child nodes of the block in depth-first document order
-2. For each text node, concatenate its `value` string
-3. For each non-text inline child (e.g., `break`), contribute U+000A (line feed)
-4. The result is the block's text content string
+1. Traverse the block's text-node children in document order
+2. Concatenate each text node's `value` string
+3. The result is the block's text content string
+
+A block-level element carries no inline text of its own: a `break` is a void block (Content Blocks section 4.14), not an inline child, and a container block whose children are other blocks (`list`, `listItem`, `blockquote`, `table`, and the like) has no text content of its own — its text lives in its text-bearing descendants. A character-offset anchor therefore MUST target a text-bearing block; to address text inside a container, anchor the leaf text-bearing block that holds it. This makes a block's text content well-defined for `contentHash` and offset purposes in every state.
 
 A **character** is one Unicode scalar value (code point) — not a UTF-16 code unit and not a grapheme cluster. Offsets are zero-based code-point indices into the text content. Ranges use half-open intervals: `start` is inclusive, `end` is exclusive.
 
