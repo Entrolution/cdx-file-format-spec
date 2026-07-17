@@ -32,6 +32,20 @@ export class CanonicalizationError extends Error {
   }
 }
 
+/**
+ * Maximum nesting depth of canonical content. Canonicalization walks the content
+ * tree with native recursion (canon, id-relabel, reference-rewrite, byte-invariant
+ * validation, JCS serialization), so an unbounded depth is a stack-overflow DoS on
+ * document open/sign/verify. This bound is checked iteratively up front, before any
+ * recursive walk runs, so a deep input is rejected with a typed CanonicalizationError
+ * — never an untyped RangeError a verifier catching only the typed error would miss.
+ * Real documents nest a few tens deep at most; this leaves ample headroom while
+ * staying well below the native stack limit. This bounds the recursion-overflow
+ * (depth) axis; total node count and single-string size are bounded upstream by the
+ * container size limits (Container Format §5.2/§5.3 resource bounds).
+ */
+export const MAX_CANONICALIZATION_DEPTH = 256;
+
 // ---------------------------------------------------------------------------
 // Hash algorithm handling (§3)
 // ---------------------------------------------------------------------------
@@ -107,7 +121,19 @@ function nodeHashName(algorithm: string): string {
  * collapse last-wins.
  */
 export function parseStrictJson(text: string): unknown {
-  const value = JSON.parse(text); // syntax validation + canonical value semantics
+  let value: unknown;
+  try {
+    value = JSON.parse(text); // syntax validation + canonical value semantics
+  } catch (err) {
+    // JSON.parse can throw an untyped RangeError when an input exhausts a parser
+    // resource limit (an over-long string, or — on a runtime with a recursive parser
+    // — deep nesting); convert it to the module's typed error so a verifier catching
+    // only CanonicalizationError does not crash (Container Format §5.3 resource bounds).
+    if (err instanceof RangeError) {
+      throw new CanonicalizationError('input exceeds a parser resource limit');
+    }
+    throw err;
+  }
   detectDuplicateKeys(text); // structural duplicate-key scan over the (now valid) text
   return value;
 }
@@ -221,6 +247,26 @@ export interface CanonicalizeOptions {
 }
 
 /**
+ * Reject content nested deeper than `maxDepth` with a typed CanonicalizationError.
+ * Traverses iteratively with an explicit stack, so the check itself never recurses
+ * and cannot overflow while measuring depth. `depth` counts nested containers
+ * (objects/arrays); scalars are leaves. A structure exactly `maxDepth` containers
+ * deep is accepted; one level deeper is rejected.
+ */
+function assertBoundedDepth(root: unknown, maxDepth: number): void {
+  const stack: Array<{ node: unknown; depth: number }> = [{ node: root, depth: 1 }];
+  while (stack.length > 0) {
+    const { node, depth } = stack.pop()!;
+    if (node === null || typeof node !== 'object') continue;
+    if (depth > maxDepth) {
+      throw new CanonicalizationError(`content nesting exceeds the maximum depth of ${maxDepth}`);
+    }
+    const children = Array.isArray(node) ? node : Object.values(node as Record<string, unknown>);
+    for (const child of children) stack.push({ node: child, depth: depth + 1 });
+  }
+}
+
+/**
  * Build the two-slot canonical content `{ content, metadata }` (§4.2) from the
  * raw document parts. Always returns both slots; `metadata` may be `{}`.
  */
@@ -230,6 +276,16 @@ export function canonicalContent(parts: DocumentParts, options: CanonicalizeOpti
   const manifest = parseStrictJson(parts.manifest);
   const content = parseStrictJson(parts.content);
   const dublinCore = parseStrictJson(parts.dublinCore);
+
+  // Bound nesting depth *before* any recursive walk (canon, id-relabel,
+  // reference-rewrite, byte-invariant validation, JCS) so a deep input is rejected
+  // with a typed error instead of overflowing the native stack (Container Format
+  // §5.3 resource bounds). Both deep-walked inputs are guarded: `content`, and
+  // `dublinCore` — projectMetadata copies its term arrays by reference, so a deeply
+  // nested Dublin Core term reaches validateStoredByteInvariants and jcsOf verbatim.
+  // (manifest and asset indexes only yield scalar path/hash strings, never deep.)
+  assertBoundedDepth(content, MAX_CANONICALIZATION_DEPTH);
+  assertBoundedDepth(dublinCore, MAX_CANONICALIZATION_DEPTH);
 
   const assetMap = buildAssetMap(manifest, parts.assetIndexes);
   const metadata = projectMetadata(dublinCore);

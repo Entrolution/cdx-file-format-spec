@@ -155,6 +155,17 @@ Conforming implementations MUST support:
 - At least 1,000 files
 - Paths up to 200 characters
 
+### 5.3 Mandatory Bounds
+
+The section 5.1 figures are RECOMMENDED baselines, and section 5.2 is a support *floor*, not a cap. Neither obliges an implementation to enforce any *upper* limit — so a conformant reader could omit every bound and be driven to exhaust memory, CPU, or the native stack by a small crafted document.
+
+A conforming implementation MUST therefore enforce a finite upper bound on every attacker-controlled dimension of a document, and MUST fail closed when a bound is exceeded — rejecting the document, or (for an out-of-hash layer) declining to load that layer, with a catchable error, never crashing, hanging, or overflowing the stack. The specific values are implementation-defined (the section 5.1 figures are a reasonable default); the *existence and enforcement* of a bound is the requirement. The dimensions that MUST be bounded include at least:
+
+- **Container:** total archive size, entry count, per-entry compressed and decompressed size, the decompression ratio (section 9.2), and path length.
+- **Content tree:** block-tree nesting depth, total node count, and the size of any single string field. Because document-ID computation is itself a depth-first recursion over the content (Document Hashing section 4.3), an unbounded tree can stop a reader from even computing the ID needed to reject the document; the bound MUST make canonicalization fail with a catchable error rather than a native stack overflow.
+- **Out-of-hash collections:** the cardinality and nesting of every out-of-hash, path-only collection — core annotations; collaboration comments, changes, and replies; phantom clusters, phantoms, connections, and embedded phantom content; form values; and the provenance record's `timestamps`, `derivedFrom`, and proof arrays with each embedded token. These sit outside the document hash and every signature scope, so a **valid signature does not bound them** (Security Extension section 9.8): a party — not necessarily the author — can inflate them without changing the document ID or invalidating any signature, so a reader that trusts the signature and then loads the layer unboundedly is DoS-able beneath a "signature valid" indicator. A reader MUST bound these independently of signature status and fail the affected layer closed (a layer-load disposition, State Machine section 5.4.3).
+- **Per-entry work:** where validating an entry does real work — a timestamp obliges CMS/ASN.1 parsing, TSA-chain or blockchain validation, and possibly a network fetch (Provenance and Lineage section 6) — the bound MUST cap the *total* such work, not merely each entry's size, so an uncapped array cannot amplify CPU or steer network requests.
+
 ## 6. Integrity
 
 ### 6.1 ZIP CRC-32
@@ -247,11 +258,13 @@ These are **consumer** obligations, evaluated over the *entire* entry set, and t
 
 ### 9.2 Decompression Bombs
 
-Implementations SHOULD impose limits on:
+Implementations MUST impose a finite limit on each of the following, and MUST fail closed (reject the archive) when one is exceeded rather than decompress unboundedly (section 5.3):
 
 - Compression ratio (reject suspiciously high ratios)
-- Decompressed size relative to compressed size
+- Decompressed size, absolute and relative to compressed size
 - Total extraction size
+
+The specific thresholds are implementation-defined (section 5.1 gives reasonable defaults); a reader MUST NOT decompress a Deflate or Zstandard stream — including the mandatory-supported Deflate method — without such a bound in force.
 
 ### 9.3 Symbolic Links
 

@@ -14,12 +14,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   CanonicalizationError,
+  MAX_CANONICALIZATION_DEPTH,
   algorithmOf,
   canonicalContent,
   computeDocumentId,
   parseStrictJson,
   type DocumentParts,
 } from './lib/canonicalize.js';
+
+/** Wrap a value in `depth` nested arrays (each array is one container level). */
+function nestArrays(depth: number): unknown {
+  let v: unknown = 'x';
+  for (let i = 0; i < depth; i++) v = [v];
+  return v;
+}
 
 let passed = 0;
 let failed = 0;
@@ -1186,6 +1194,41 @@ test('purity: alpha-equivalence holds across a text-node id boundary and merge',
       },
     });
   assert.equal(computeDocumentId(mk('w'), 'sha256'), computeDocumentId(mk('other'), 'sha256'));
+});
+
+test('resource bounds: content nested past MAX_CANONICALIZATION_DEPTH throws a typed error, not a RangeError', () => {
+  const parts = makeParts({ content: nestArrays(MAX_CANONICALIZATION_DEPTH + 1) });
+  // Must be the module's typed error (a verifier catching only this must not crash),
+  // never an untyped RangeError from a native stack overflow.
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(parts, 'sha256');
+  } catch (err) {
+    assert.ok(!(err instanceof RangeError), 'must not surface an untyped RangeError');
+    assert.match((err as Error).message, /nesting exceeds the maximum depth/);
+  }
+});
+
+test('resource bounds: content nested exactly to MAX_CANONICALIZATION_DEPTH still canonicalizes', () => {
+  const parts = makeParts({ content: nestArrays(MAX_CANONICALIZATION_DEPTH) });
+  const id = computeDocumentId(parts, 'sha256');
+  assert.match(id, /^sha256:[a-f0-9]{64}$/);
+});
+
+test('resource bounds: deeply nested Dublin Core metadata throws a typed error, not a RangeError', () => {
+  // projectMetadata copies term arrays by reference, so a deep Dublin Core term
+  // reaches validateStoredByteInvariants/jcsOf verbatim — the metadata walk path
+  // must be guarded too, not just the content path.
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: nestArrays(MAX_CANONICALIZATION_DEPTH + 1) } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(parts, 'sha256');
+  } catch (err) {
+    assert.ok(!(err instanceof RangeError), 'must not surface an untyped RangeError');
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
