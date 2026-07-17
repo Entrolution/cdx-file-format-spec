@@ -121,7 +121,7 @@ The following table summarizes what is included in and excluded from the documen
 | Fonts & non-content-referenced assets | No | Packaged assets referenced only by the presentation layer (e.g. fonts by family name) are not part of semantic identity; they are still tamper-evident via the hash-pinned asset index bound in the manifest projection (Security Extension section 9.7) |
 | Derived content fields | No | `measurement.display` (free-form) and `codeBlock.tokens` (regenerable) — presentational, no canonical form; stripped before hashing |
 | Presentation | No | Visual rendering instructions — not part of semantic identity |
-| Precise layouts | No | Coordinate-level positioning — rendering fidelity |
+| Precise layouts | No | Coordinate-level positioning — rendering fidelity; tamper-evident when declared in `presentation[]` (type `precise`) via the file hash bound in the manifest projection (Security Extension section 9.7) |
 | Collaboration | No | Comments, suggestions, change tracking |
 | Phantoms | No | Off-page annotations and margin notes |
 | Forms data | No | Fillable field values (mutable even on frozen documents) |

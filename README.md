@@ -109,7 +109,7 @@ CDX uses **progressive enhancement** for presentation — the level of layout pr
 |----------------|-------------------------|---------------|
 | DRAFT | Reactive only (hints/styles) | Nothing — content flows freely |
 | REVIEW | Reactive (precise optional) | Nothing — still editing |
-| FROZEN | Reactive (precise when fidelity required) | Content immutable; included layout locked |
+| FROZEN | Reactive (precise when fidelity required) | Content immutable; a declared precise layout is bound (locked) |
 | PUBLISHED | Same as FROZEN | Authoritative, immutable record |
 
 ### Why This Matters
@@ -117,12 +117,12 @@ CDX uses **progressive enhancement** for presentation — the level of layout pr
 When a frozen or published document includes a **precise layout** (exact coordinates for every element), that layout becomes part of the immutable record:
 
 - **Semantic content is the hash**: The document ID covers semantic content only — what it says, not how it looks
-- **Appearance is locked alongside content**: Precise layouts are immutable when frozen, but separate from the content hash. Use scoped signatures (Security Extension) for appearance attestation
+- **Appearance is locked alongside content**: A precise layout is separate from the content hash, but declaring it in the manifest binds its file hash into the manifest projection — which a frozen or published document's signature must cover — so its appearance is attested by default (Security Extension)
 - **Citations are reliable**: "Page 7, line 23" means the same thing in every viewer
-- **Legal/archival integrity**: documents that assert page-precise fidelity render pixel-perfectly, forever
+- **Legal/archival integrity**: documents that assert page-precise fidelity commit an immutable, signature-bound layout that cannot be silently altered
 - **No viewer inconsistency**: Unlike PDF, whose appearance varies by renderer
 
-This is the key insight: **the state machine isn't just about workflow** — it ties presentation precision to content stability. Freezing always locks the semantic content; documents that assert page-precise fidelity also commit the precise layout that shows exactly how they look.
+This is the key insight: **the state machine isn't just about workflow** — it ties presentation precision to content stability. Freezing always locks the semantic content; documents that assert page-precise fidelity also declare the precise layout in the manifest, binding it into the signature-covered projection so it cannot be silently altered.
 
 ```
 DRAFT                    FROZEN/PUBLISHED
@@ -132,8 +132,8 @@ DRAFT                    FROZEN/PUBLISHED
 ├─────────────────┤      ├─────────────────┤
 │ Reactive hints  │  →   │ Reactive hints  │
 │ (optional)      │      │ + Precise layout│ ← When fidelity required
-└─────────────────┘      │ (exact coords)  │    (scoped signatures
-                         └─────────────────┘     for attestation)
+└─────────────────┘      │ (exact coords)  │    (bound into the
+                         └─────────────────┘     manifest projection)
 ```
 
 ## Specification Structure

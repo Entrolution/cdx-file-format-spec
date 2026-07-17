@@ -165,14 +165,14 @@
         },
         "presentation": {
           "type": "array",
-          "description": "Presentation declaration: each presentation part's type, path and hash, plus the default-selection flag on the default entry",
+          "description": "Presentation declaration: each presentation part's type, path and hash, plus the default-selection flag on the default entry. A `precise` entry binds a precise-layout file's hash, so a declared precise layout is attested by a manifest-covering signature (section 9.7).",
           "items": {
             "type": "object",
             "required": ["type", "path", "hash"],
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["paginated", "continuous", "responsive"]
+                "enum": ["paginated", "continuous", "responsive", "precise"]
               },
               "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
               "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },

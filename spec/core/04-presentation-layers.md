@@ -39,12 +39,12 @@ Presentation precision evolves with document maturity. The presentation layer fo
 |----------------|-------------------------|-----------|
 | **DRAFT** | Reactive only | Content is fluid, layout doesn't matter yet |
 | **REVIEW** | Reactive (precise optional) | Reviewers see approximate pagination |
-| **FROZEN** | Reactive (precise when page-precise fidelity is required) | Content immutable; an included layout is locked too |
+| **FROZEN** | Reactive (precise when page-precise fidelity is required) | Content immutable; a precise layout declared in `presentation[]` is bound (locked) too |
 | **PUBLISHED** | Same as FROZEN | Authoritative, immutable record |
 
 ### 3.2 Why State-Awareness Matters
 
-1. **Provenance integrity** — When a frozen document includes a precise layout, that layout is immutable alongside the content. The document ID covers semantic content; use scoped signatures (Security Extension) for appearance attestation
+1. **Provenance integrity** — When a frozen document declares a precise layout in `presentation[]`, that layout's file hash is bound into the manifest projection, so it is immutable alongside the content under a manifest-covering signature. The document ID covers semantic content only; appearance is attested by the mandatory manifest projection (Security Extension section 9.7), with scoped `layouts` (section 9.3) available for finer per-layout attestation
 2. **Legal/academic needs** — Citations reference "page 7, line 23" with confidence
 3. **Lifecycle alignment** — Precision emerges naturally as documents mature
 4. **No capability loss** — Semantic content always present for accessibility/search
@@ -61,10 +61,11 @@ Presentation precision evolves with document maturity. The presentation layer fo
 When transitioning to FROZEN or PUBLISHED state:
 
 1. If the document asserts page-precise fidelity (e.g. citable pagination or print/legal use), at least one precise layout MUST exist; otherwise a precise layout is RECOMMENDED but not required
-2. Any precise layout present MUST have a `contentHash` matching the current content hash
+2. Any precise layout present MUST have a `contentHash` matching the current content hash (a staleness guard: it binds the layout to *this* content version, not the layout file's own integrity)
 3. If a present layout is stale, the transition MUST fail
+4. Every precise-layout file present MUST be declared in `manifest.presentation[]` (type `precise`), so its file hash is bound into the manifest projection (Security Extension section 9.7) and attested by the mandatory manifest-covering signature. An undeclared precise-layout file is unauthenticated — the signature attests only *declared* layouts — so it could be substituted or injected under a valid signature, and a renderer MUST NOT treat it as authoritative (section 12)
 
-Freezing always locks the semantic content (the document ID). When a precise layout is included, its appearance is locked alongside the content and attested via scoped signatures (Security Extension).
+Freezing always locks the semantic content (the document ID). When a precise layout is declared in `presentation[]`, its file hash is bound into the manifest projection, so on a frozen or published document — where a manifest-covering signature is mandatory — its appearance is locked alongside the content and tamper-evident: editing the layout to hide, occlude, or inject content changes its hash and invalidates every manifest-covering signature.
 
 ## 4. Presentation File Structure
 
@@ -639,6 +640,10 @@ If `contentHash` doesn't match current content hash, the presentation should be 
 
 Precise layouts provide exact coordinates for every element, enabling pixel-perfect reproduction regardless of rendering implementation. They are **required** for FROZEN and PUBLISHED documents that assert page-precise fidelity (e.g. citable pagination or print/legal use), and **RECOMMENDED** otherwise.
 
+A precise layout is declared in `manifest.presentation[]` with `type: "precise"` and the file's `path` and `hash`, exactly like a reactive presentation. Declaring it binds its file hash into the manifest projection (Security Extension section 9.7); on a frozen or published document, where a manifest-covering signature is mandatory, this makes the coordinates tamper-evident — the property page-precise fidelity depends on (section 3.4).
+
+**Only a declared layout is authoritative.** On a `frozen` or `published` document a renderer MUST NOT render a precise-layout file that is not declared in `manifest.presentation[]`. An undeclared layout carries no bound hash, so the mandatory manifest-covering signature does not attest it and an attacker could add or substitute one — a hidden clause, an occluded signature block, an injected "CERTIFIED" stamp — under a still-valid signature. Selecting a layout by scanning `presentation/layouts/` (for example by `targetFormat`) MUST therefore be restricted to declared layouts; an undeclared precise-layout file present in the archive is unauthenticated, MUST NOT be used as the authoritative appearance, and its presence SHOULD be surfaced as an integrity concern rather than treated as a benign out-of-hash layer (State Machine section 5.4.2). Where no declared layout matches, the renderer falls back to a declared presentation.
+
 ### 12.1 Location
 
 Precise layouts are stored in `presentation/layouts/`:
@@ -835,7 +840,7 @@ For content blocks without styling rules:
 
 ### 13.3 Unsupported Presentation Type
 
-A presentation's `type` (`paginated`, `continuous`, `responsive`) is a **closed** set: it selects the file's entire structure, so unlike a content block it has no defined fallback shape, and the set is intentionally not extensible. A `type` outside this set is a validation failure (State Machine section 5.4), not a forward-compatibility escape, and the `type` MUST agree between the manifest's `presentation` reference and the presentation file.
+A presentation's `type` (`paginated`, `continuous`, `responsive`, `precise`) is a **closed** set: it selects the file's entire structure, so unlike a content block it has no defined fallback shape, and the set is intentionally not extensible. A `type` outside this set is a validation failure (State Machine section 5.4), not a forward-compatibility escape, and the `type` MUST agree between the manifest's `presentation` reference and the presentation file's own discriminator — the reactive types with a presentation.schema.json file's `type`, and `precise` with a precise-layout file's `presentationType`.
 
 An implementation that recognizes the `type` but does not implement that presentation mode falls back to default rendering (section 13.1); the document's content is unaffected.
 

@@ -116,6 +116,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedJcs: `{"assets":[{"hash":"${sha('a')}","path":"assets/images/index.json"},{"hash":"${sha('b')}","path":"assets/fonts/index.json"}],"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
     expectedSha256: 'sha256:781a77097306db621695b02d20a76c2939052381b3bebb4bcb04939fc6437046',
   },
+  {
+    name: 'precise-layout-in-presentation',
+    description:
+      'A precise layout declared as a presentation[] entry (type "precise") binds its file hash into the projection alongside reactive presentations; entries sort by JCS (the paginated default before precise), so a frozen document\'s precise layout is attested by a manifest-covering signature.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"paginated","path":"presentation/paginated.json","hash":"${sha('3')}","default":true},{"type":"precise","path":"presentation/layouts/letter.json","hash":"${sha('4')}"}]}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"presentation":[{"default":true,"hash":"${sha('3')}","path":"presentation/paginated.json","type":"paginated"},{"hash":"${sha('4')}","path":"presentation/layouts/letter.json","type":"precise"}],"state":"frozen"}`,
+    expectedSha256: 'sha256:f04f9a36ff374bb092ad47e87bb150bcaf9a18c9f23a19495274eafcf4e430d9',
+  },
 ];
 
 export const scopeVectors: ScopeVector[] = [

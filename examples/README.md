@@ -68,6 +68,12 @@ breaking any signature, because they sit outside the signed byte-set):
   neither of which is in the document ID — are tamper-evident under the signature: a
   swapped variant or glyph-remapping font either fails its own hash check or breaks the
   signature. Illustrates the transitive asset binding (§9.7).
+- **`signed-precise-document`** — a frozen document with a precise page layout declared
+  in `presentation[]` (type `precise`). The layout's file hash is bound into
+  `scope.manifest`, so its exact coordinates are attested by default (no reliance on the
+  optional `scope.layouts`). Editing the layout to hide, occlude, or inject content
+  changes its hash and breaks the signature — the precise layout is genuinely locked, not
+  merely labelled so (§9.7; Presentation Layers §3.4).
 
 ## Rendering the illustrative content safely
 

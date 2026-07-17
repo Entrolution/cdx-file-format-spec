@@ -260,12 +260,15 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   projection.content = { path: content.path, hash: content.hash };
 
   // --- presentation[] (optional) — the presentation *declaration* -------------
-  // Binds each presentation manifest's {type, path, hash} plus which one is the
-  // default. This authenticates the manifest's selection of presentation parts;
-  // it does NOT attest visual rendering (precise-layout attestation remains the
-  // separate `scope.layouts` mechanism). The array is author-ordered, so it is
-  // sorted by JCS to a canonical order; the default-selection is bound as a flag
-  // present only on the default entry (no default-value materialization).
+  // Binds each presentation part's {type, path, hash} plus which one is the
+  // default. For a reactive type (paginated/continuous/responsive) this
+  // authenticates the manifest's selection of presentation parts, not the
+  // interpreted rendering; for a `precise` layout the bound file hash IS the exact
+  // coordinates, so a declared precise layout's appearance is attested here (the
+  // optional `scope.layouts` mechanism remains available for finer per-layout
+  // attestation). The array is author-ordered, so it is sorted by JCS to a
+  // canonical order; the default-selection is bound as a flag present only on the
+  // default entry (no default-value materialization).
   const presentation = manifest.presentation;
   if (Array.isArray(presentation) && presentation.length > 0) {
     const items = presentation.map((entry) => {

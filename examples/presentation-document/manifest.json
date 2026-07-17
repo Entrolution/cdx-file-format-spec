@@ -14,6 +14,11 @@
       "path": "presentation/paginated.json",
       "hash": "sha256:8e226eff3953676f23ed06c630cc6fe7ad6d96e305f1913bc688699685d86b3e",
       "default": true
+    },
+    {
+      "type": "precise",
+      "path": "presentation/layouts/letter.json",
+      "hash": "sha256:46c87676c9aa1b461826e05d7b803ef1d3af92a9eeb04425e259fed14c4985c3"
     }
   ],
   "assets": {

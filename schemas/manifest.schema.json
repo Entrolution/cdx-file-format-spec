@@ -233,8 +233,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Presentation type identifier",
-          "enum": ["paginated", "continuous", "responsive"]
+          "description": "Presentation type identifier. `precise` references a precise-layout file (presentation/layouts/*.json, precise-layout.schema.json, whose own discriminator is `presentationType`); the reactive types reference a presentation.schema.json file. Declaring a precise layout here binds its file `hash` into the manifest projection (Security Extension section 9.7), so a frozen or published document's precise layout is tamper-evident under a manifest-covering signature.",
+          "enum": ["paginated", "continuous", "responsive", "precise"]
         },
         "path": {
           "description": "Relative path within archive",

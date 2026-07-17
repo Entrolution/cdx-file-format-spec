@@ -615,7 +615,9 @@ A content-only signature has a `scope` that binds just the document ID:
 
 ### 9.3 Scoped Signature (Content + Layout Attestation)
 
-A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes:
+A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes.
+
+A precise layout declared in `manifest.presentation[]` (type `precise`) is already bound by the manifest projection — its file hash rides `scope.manifest.presentation[]` (Section 9.7), which is mandatory on a `frozen` or `published` document. `scope.layouts` is therefore **supplementary**: it lets a signer explicitly attest specific layout files independent of the manifest declaration — for example a layout in a `draft`/`review` document (where `scope.manifest` is optional), or a signer asserting they visually reviewed a named subset. On a frozen or published document with declared precise layouts, `scope.layouts` is redundant with the mandatory projection and MAY be omitted.
 
 ```json
 {
@@ -669,7 +671,7 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 | `cdx` | `manifest.cdx` | Specification version (prevents a silent version downgrade) |
 | `state` | `manifest.state` | Lifecycle state |
 | `content` | `manifest.content` | Projected to `{path, hash}` |
-| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds the presentation *declaration* (which parts, which is default), not visual rendering — visual attestation remains `scope.layouts` (Section 9.3) |
+| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds each declared presentation part's file hash. For a reactive type (`paginated`/`continuous`/`responsive`) this binds the *declaration* (which parts, which is default), not the interpreted rendering; for a `precise` layout the bound file hash **is** the exact coordinates, so a declared precise layout's appearance is attested here. Finer per-layout attestation independent of the manifest declaration remains available via `scope.layouts` (Section 9.3) |
 | `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
 | `lineage` | `manifest.lineage` | Bound verbatim |
 | `signaturePolicy` | `manifest.signaturePolicy` | The required-signer set (Section 3.12). Each `requiredSigners` entry carries its single identity kind (`did`, `x5tS256` or `jkt`) verbatim; entries are sorted by JCS |
@@ -695,16 +697,16 @@ The document ID is **not** part of the projection — it is carried separately b
 A signature's coverage is exactly:
 
 - The **document ID** (semantic content) — always.
-- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present.
-- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3).
+- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present. This binds each *declared* `presentation[]` file hash, including a `precise` layout's, so a declared precise layout is covered wherever `scope.manifest` is (mandatory on a `frozen`/`published` document).
+- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3). This is additional, finer-grained per-layout attestation, independent of the manifest declaration.
 
 A signature does **not** cover, in this version of the extension:
 
 - The raw **asset files** directly, and any asset in a category the manifest does not declare in `assets`. Embedded fonts and image variants sit outside the document ID by design and are attested only *transitively*, through the hash-pinned index of a declared category (`assets`, Section 9.7): a content-only signature (no `scope.manifest`) attests no asset, and a font, variant, or whole category not carried by a declared, hash-pinned index is unbound even under a manifest-covering signature.
 - The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. The manifest hashes the projection binds are `content`, `presentation[]`, the `{path, hash}` file references in the extension config slots (`configFiles`), and the asset-index references (`assets`) — all Section 9.7; a part the manifest references by path only carries no hash and is not bound.
 - **Authoritative-looking fields inside those path-only parts.** Because the whole part is unbound (above), a field that reads as an identity, licensing, or provenance claim is forgeable and MUST NOT be presented as authenticated: the Dublin Core `rights`, `publisher`, `identifier`, and `date` (Core Metadata, Section 6.2); the provenance record's `creator` (name and `did:web` identifier), `timestamps`, `lineage`, and `derivedFrom` (Core Provenance, Section 8.1); and the editorial, collaboration, and phantom `author`/`content`/`status` fields (Section 3.10). A `did:web` value is not authenticated by being named.
-- **Presentation files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares*; a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation file present in the archive but undeclared. Only declared presentations are tamper-evident against a presentation-swap.
-- **Layout files outside `scope.layouts`.** A `scope.layouts` attestation (Section 9.3) binds only the layouts it lists; an unlisted layout file is unbound even on a frozen document.
+- **Presentation and precise-layout files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares* (including a `precise` layout); a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation or layout file present in the archive but undeclared. Only declared presentations and layouts are tamper-evident against a swap — which is why a frozen or published document that asserts page-precise fidelity MUST declare its precise layouts (Presentation Layers section 3.4).
+- **Layout files bound by neither path.** A precise layout is bound when declared in `presentation[]` (via the manifest projection) or when listed in `scope.layouts` (Section 9.3); a layout file that is neither declared nor listed is unbound even on a frozen document.
 - The **complete set of signatures**, beyond the declared required set: a `signaturePolicy` (Section 3.12) binds the *declared required* signers against stripping and downgrade, but a signature still cannot attest that an *optional* signature was not removed, that signers signed in a particular order, or — where no policy is declared — anything about set completeness.
 - Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
 - Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.

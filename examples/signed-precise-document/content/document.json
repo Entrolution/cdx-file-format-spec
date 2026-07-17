@@ -1,0 +1,26 @@
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "title",
+      "level": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Certified Statement"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "body",
+      "children": [
+        {
+          "type": "text",
+          "value": "This statement is rendered from a signature-bound precise layout."
+        }
+      ]
+    }
+  ]
+}
