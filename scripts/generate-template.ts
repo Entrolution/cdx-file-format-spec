@@ -14,12 +14,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
 
-// Placeholder document id for a generated security/signatures.json. A real
-// signing flow replaces this with the canonical document content hash; the
-// all-zero digest is an unmistakable "fill me in" sentinel that still satisfies
-// the documentId pattern (^(sha256|...):[a-f0-9]+$).
-const PLACEHOLDER_DOCUMENT_ID = 'sha256:' + '0'.repeat(64);
-
 // Extension configurations
 interface ExtensionConfig {
   id: string;
@@ -74,17 +68,15 @@ const extensionConfigs: Record<string, ExtensionConfig> = {
     }
   },
   security: {
+    // A scaffolded document is an unsigned draft. The signatures file is written by
+    // a real signing flow — its schema requires at least one genuine signature (an
+    // empty set is "claims to be signed but is not"), and a template cannot produce
+    // one without a signing key — so the scaffold declares the extension and its
+    // directory but emits no signatures file. The manifest references it as empty.
     id: 'cdx.security',
     version: '0.1',
     required: false,
-    directories: ['security'],
-    files: {
-      'security/signatures.json': {
-        version: '0.1',
-        documentId: PLACEHOLDER_DOCUMENT_ID,
-        signatures: []
-      }
-    }
+    directories: ['security']
   },
   collaboration: {
     id: 'cdx.collaboration',
@@ -191,12 +183,37 @@ function generateManifest(extensions: string[], hashes: Record<string, string>):
     };
   }
 
-  // Reference the signatures file when the security extension is present, so the
-  // emitted file is wired into the manifest (mirrors the signed-document example).
+  // Declare the security slot when the extension is present. The scaffold is an
+  // unsigned draft, so both references are empty until a signing/encryption flow
+  // populates them.
   if (extensions.includes('security')) {
     manifest.security = {
-      signatures: 'security/signatures.json',
+      signatures: null,
       encryption: null
+    };
+  }
+
+  // Wire each active extension's config file(s) into its manifest slot. The
+  // academic numbering and semantic bibliography/glossary files sit outside the
+  // document hash, so they are bound as {path, hash} references (they ride the
+  // manifest projection's configFiles and are attested by a manifest-covering
+  // signature). Collaboration is intentionally path-only: its comments/changes are
+  // mutable collaboration state, referenced by path and not hash-bound.
+  if (extensions.includes('academic')) {
+    manifest.academic = {
+      numbering: { path: 'academic/numbering.json', hash: hashes['academic/numbering.json'] }
+    };
+  }
+  if (extensions.includes('semantic')) {
+    manifest.semantic = {
+      bibliography: { path: 'semantic/bibliography.json', hash: hashes['semantic/bibliography.json'] },
+      glossary: { path: 'semantic/glossary.json', hash: hashes['semantic/glossary.json'] }
+    };
+  }
+  if (extensions.includes('collaboration')) {
+    manifest.collaboration = {
+      comments: 'collaboration/comments.json',
+      changes: 'collaboration/changes.json'
     };
   }
 
@@ -289,13 +306,20 @@ function generateTemplate(outputDir: string, extensions: string[]): void {
     serialized[filePath] = serializeJson(content);
   }
 
-  // Only content and (when present) the paginated presentation are referenced by
-  // hash in the manifest; hash their exact serialized bytes (§5.1).
+  // The hash-referenced parts: content, the paginated presentation (when present),
+  // and the hash-bound extension-config files (academic numbering, semantic
+  // bibliography/glossary). Hash their exact serialized bytes (§5.1). Collaboration
+  // config is path-only and is not hashed here.
   const hashes: Record<string, string> = {
     'content/document.json': sha256(serialized['content/document.json'])
   };
-  if (serialized['presentation/paginated.json']) {
-    hashes['presentation/paginated.json'] = sha256(serialized['presentation/paginated.json']);
+  for (const p of [
+    'presentation/paginated.json',
+    'academic/numbering.json',
+    'semantic/bibliography.json',
+    'semantic/glossary.json'
+  ]) {
+    if (serialized[p]) hashes[p] = sha256(serialized[p]);
   }
 
   serialized['manifest.json'] = serializeJson(generateManifest(extensions, hashes));
@@ -346,6 +370,17 @@ function selfValidate(outputDir: string, relPaths: string[]): void {
   (manifest.presentation ?? []).forEach((pr: { path?: string; hash?: string }, i: number) => {
     if (pr.path && pr.hash) hashRefs.push([`presentation[${i}].hash`, pr.path, pr.hash]);
   });
+  // Extension-config {path, hash} references (academic numbering, semantic
+  // bibliography/glossary) must resolve to the bytes on disk too — mirror the
+  // presentation check. Collaboration is path-only and carries no hash to verify.
+  const configRefs: Array<[string, { path?: string; hash?: string } | undefined]> = [
+    ['academic.numbering', manifest.academic?.numbering],
+    ['semantic.bibliography', manifest.semantic?.bibliography],
+    ['semantic.glossary', manifest.semantic?.glossary]
+  ];
+  for (const [label, ref] of configRefs) {
+    if (ref?.path && ref?.hash) hashRefs.push([`${label}.hash`, ref.path, ref.hash]);
+  }
   for (const [label, rel, declared] of hashRefs) {
     const actual = sha256(fs.readFileSync(path.join(outputDir, rel)));
     if (actual === declared) {

@@ -39,12 +39,12 @@ Presentation precision evolves with document maturity. The presentation layer fo
 |----------------|-------------------------|-----------|
 | **DRAFT** | Reactive only | Content is fluid, layout doesn't matter yet |
 | **REVIEW** | Reactive (precise optional) | Reviewers see approximate pagination |
-| **FROZEN** | Reactive (precise when page-precise fidelity is required) | Content immutable; an included layout is locked too |
+| **FROZEN** | Reactive (precise when page-precise fidelity is required) | Content immutable; a precise layout declared in `presentation[]` is bound (locked) too |
 | **PUBLISHED** | Same as FROZEN | Authoritative, immutable record |
 
 ### 3.2 Why State-Awareness Matters
 
-1. **Provenance integrity** — When a frozen document includes a precise layout, that layout is immutable alongside the content. The document ID covers semantic content; use scoped signatures (Security Extension) for appearance attestation
+1. **Provenance integrity** — When a frozen document declares a precise layout in `presentation[]`, that layout's file hash is bound into the manifest projection, so it is immutable alongside the content under a manifest-covering signature. The document ID covers semantic content only; appearance is attested by the mandatory manifest projection (Security Extension section 9.7), with scoped `layouts` (section 9.3) available for finer per-layout attestation
 2. **Legal/academic needs** — Citations reference "page 7, line 23" with confidence
 3. **Lifecycle alignment** — Precision emerges naturally as documents mature
 4. **No capability loss** — Semantic content always present for accessibility/search
@@ -61,10 +61,11 @@ Presentation precision evolves with document maturity. The presentation layer fo
 When transitioning to FROZEN or PUBLISHED state:
 
 1. If the document asserts page-precise fidelity (e.g. citable pagination or print/legal use), at least one precise layout MUST exist; otherwise a precise layout is RECOMMENDED but not required
-2. Any precise layout present MUST have a `contentHash` matching the current content hash
+2. Any precise layout present MUST have a `contentHash` matching the current content hash (a staleness guard: it binds the layout to *this* content version, not the layout file's own integrity)
 3. If a present layout is stale, the transition MUST fail
+4. Every precise-layout file present MUST be declared in `manifest.presentation[]` (type `precise`), so its file hash is bound into the manifest projection (Security Extension section 9.7) and attested by the mandatory manifest-covering signature. An undeclared precise-layout file is unauthenticated — the signature attests only *declared* layouts — so it could be substituted or injected under a valid signature, and a renderer MUST NOT treat it as authoritative (section 12)
 
-Freezing always locks the semantic content (the document ID). When a precise layout is included, its appearance is locked alongside the content and attested via scoped signatures (Security Extension).
+Freezing always locks the semantic content (the document ID). When a precise layout is declared in `presentation[]`, its file hash is bound into the manifest projection, so on a frozen or published document — where a manifest-covering signature is mandatory — its appearance is locked alongside the content and tamper-evident: editing the layout to hide, occlude, or inject content changes its hash and invalidates every manifest-covering signature.
 
 ## 4. Presentation File Structure
 
@@ -101,6 +102,17 @@ presentation/
 | `defaults` | object | Yes | Default styling values |
 | `pages` | array | Varies | Page definitions (paginated only) |
 | `styles` | object | Yes | Style definitions |
+
+### 4.3 Selecting a Presentation
+
+A document MAY declare several presentations in `manifest.presentation[]` — reactive files (`paginated`, `continuous`, `responsive`) and one or more precise layouts — so a reader needs a deterministic rule for which to show by default:
+
+1. A reader first narrows to presentations appropriate to its output target: a screen/scroll reader SHOULD prefer a `continuous` or `responsive` presentation; a print or page-precise reader SHOULD prefer a `precise` layout whose `targetFormat` matches the requested page size (section 12.2), falling back to a `paginated` presentation.
+2. Among the reactive candidates for that target, if exactly one entry is marked `default: true`, it is used. A document SHOULD mark at most one entry `default: true`; a reader encountering more than one uses the first such entry in `manifest.presentation[]` array order.
+3. Where several precise layouts are eligible and none is singled out by `targetFormat`, the reader uses the first eligible entry in `manifest.presentation[]` array order.
+4. Absent any of the above signals, the reader uses the first entry in `manifest.presentation[]`.
+
+Only a declared entry is ever selected (section 12); an undeclared presentation file is never chosen as the default view.
 
 ## 5. Styling Model
 
@@ -177,6 +189,7 @@ The `writingMode` property controls the direction of text flow and block progres
 **Layout:**
 - `width`, `height`, `maxWidth`, `maxHeight`
 - `display` - block, inline, none
+- `overflow` - `visible`, `hidden`, `scroll`, `auto` (styling-level overflow; distinct from a paginated page element's `overflow`, section 6.3, which instead offers `flow`)
 
 ### 5.2 Units
 
@@ -348,6 +361,10 @@ Each page contains positioned elements that reference content blocks:
 | `zIndex` | integer | No | Stacking order (higher values render on top) |
 | `transform` | object | No | Transform properties (see Section 16) |
 
+Positions are measured from the top-left corner of the page: `x` is the distance from the page's left edge and `y` the distance from its top edge (the same origin precise layouts use, section 12.3), not from the margin box.
+
+The element-level `overflow` here (`visible`/`hidden`/`flow`) governs how a positioned block's content behaves when it exceeds its box, and `flow` continues the overflow onto the next region. It is distinct from the style-level `overflow` property (section 5.1), whose values are `visible`/`hidden`/`scroll`/`auto`; the two are not interchangeable.
+
 ### 6.3.1 Z-Index and Stacking Order
 
 The `zIndex` property controls the stacking order of overlapping elements:
@@ -458,8 +475,8 @@ Continuous presentation groups content into sections for styling purposes:
   ],
   "styles": {
     "heading1": {
-      "base": { "fontSize": "2rem", "fontWeight": "700" },
-      "mobile": { "fontSize": "1.5rem" }
+      "base": { "fontSize": "2rem", "fontWeight": 700 },
+      "breakpoints": { "mobile": { "fontSize": "1.5rem" } }
     }
   }
 }
@@ -477,6 +494,8 @@ Continuous presentation groups content into sections for styling purposes:
 }
 ```
 
+Both bounds are inclusive: a breakpoint matches a viewport when `minWidth` ≤ width ≤ `maxWidth` (an omitted bound is unbounded on that side). Breakpoints MAY overlap. When more than one matches a given width, the breakpoint with the greatest `minWidth` wins; if two matching breakpoints share the same `minWidth`, the one appearing later in the `breakpoints` array wins. Defining this precedence makes the active breakpoint — and therefore the applied style overrides — deterministic even at a boundary width or across overlapping ranges.
+
 ### 8.3 Responsive Styles
 
 Styles can have breakpoint-specific overrides:
@@ -489,12 +508,14 @@ Styles can have breakpoint-specific overrides:
       "lineHeight": 1.6,
       "marginBottom": "1em"
     },
-    "mobile": {
-      "fontSize": "0.9rem",
-      "lineHeight": 1.5
-    },
-    "desktop": {
-      "fontSize": "1.1rem"
+    "breakpoints": {
+      "mobile": {
+        "fontSize": "0.9rem",
+        "lineHeight": 1.5
+      },
+      "desktop": {
+        "fontSize": "1.1rem"
+      }
     }
   }
 }
@@ -512,7 +533,7 @@ Styles are defined by name and referenced by elements:
     "heading1": {
       "fontFamily": "Georgia, serif",
       "fontSize": "2em",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "marginTop": "1.5em",
       "marginBottom": "0.5em",
       "color": "#1a1a1a"
@@ -562,7 +583,7 @@ Styles can inherit from other styles:
     "lead": {
       "extends": "paragraph",
       "fontSize": "1.2rem",
-      "fontWeight": "500"
+      "fontWeight": 500
     }
   }
 }
@@ -626,6 +647,7 @@ The manifest's content hash can be compared to detect staleness:
     {
       "type": "paginated",
       "path": "presentation/paginated.json",
+      "hash": "sha256:...",
       "contentHash": "sha256:abc123...",
       "generated": "2025-01-15T10:00:00Z"
     }
@@ -635,9 +657,15 @@ The manifest's content hash can be compared to detect staleness:
 
 If `contentHash` doesn't match current content hash, the presentation should be regenerated.
 
+The manifest entry's `generated` timestamp and a precise-layout file's own `generatedAt` field (section 12.2) record the same fact — when that presentation was generated — from the manifest side and the file side respectively.
+
 ## 12. Precise Layouts
 
 Precise layouts provide exact coordinates for every element, enabling pixel-perfect reproduction regardless of rendering implementation. They are **required** for FROZEN and PUBLISHED documents that assert page-precise fidelity (e.g. citable pagination or print/legal use), and **RECOMMENDED** otherwise.
+
+A precise layout is declared in `manifest.presentation[]` with `type: "precise"` and the file's `path` and `hash`, exactly like a reactive presentation. Declaring it binds its file hash into the manifest projection (Security Extension section 9.7); on a frozen or published document, where a manifest-covering signature is mandatory, this makes the coordinates tamper-evident — the property page-precise fidelity depends on (section 3.4).
+
+**Only a declared layout is authoritative.** On a `frozen` or `published` document a renderer MUST NOT render a precise-layout file that is not declared in `manifest.presentation[]`. An undeclared layout carries no bound hash, so the mandatory manifest-covering signature does not attest it and an attacker could add or substitute one — a hidden clause, an occluded signature block, an injected "CERTIFIED" stamp — under a still-valid signature. Selecting a layout by scanning `presentation/layouts/` (for example by `targetFormat`) MUST therefore be restricted to declared layouts; an undeclared precise-layout file present in the archive is unauthenticated, MUST NOT be used as the authoritative appearance, and its presence SHOULD be surfaced as an integrity concern rather than treated as a benign out-of-hash layer (State Machine section 5.4.2). Where no declared layout matches, the renderer falls back to a declared presentation.
 
 ### 12.1 Location
 
@@ -672,7 +700,7 @@ presentation/
       "y": "0.5in"
     },
     "footer": {
-      "content": "Page {pageNumber} of {totalPages}",
+      "content": "Page {pageNumber} of {pageCount}",
       "style": "footer",
       "y": "10.5in"
     }
@@ -693,6 +721,8 @@ presentation/
 | `pageTemplate` | object | No | Headers, footers, margins for all pages |
 | `pages` | array | Yes | Array of page definitions |
 | `fonts` | object | No | Font metrics for exact reproduction |
+
+In a precise layout the `pageTemplate` header/footer `content` is a single **string** (rendered verbatim with the section 14.2 variables substituted), unlike the reactive/paginated header/footer whose `content` is a `{ left, center, right }` object (section 14.2). The difference is deliberate: a precise layout fixes exact geometry, so it carries one positioned string rather than three flow-aligned zones. The string occupies the content width — from the left to the right page margin (`pageTemplate.margins`) — at the given `y`, and its horizontal alignment within that box follows the `textAlign` of the referenced `style` (section 5.1). Horizontal placement is therefore deterministic without a separate coordinate.
 
 ### 12.3 Page Definitions
 
@@ -745,8 +775,11 @@ Each page contains precisely positioned elements:
 | `y` | string | Yes | Vertical position from top edge |
 | `width` | string | Yes | Element width |
 | `height` | string | Yes | Element height |
+| `zIndex` | integer | No | Stacking order for overlapping precise elements (higher values render on top; default 0) |
 | `continues` | boolean | No | True if element continues to next page |
 | `continuation` | boolean | No | True if element is continued from previous page |
+
+`continues` and `continuation` MUST be paired: an element carrying `continues: true` on page N MUST reappear with the same `blockId` and `continuation: true` on page N+1, and every `continuation: true` element MUST be matched by a `continues: true` element for the same `blockId` on the immediately preceding page. An unmatched or misplaced flag — a `continues` with no following `continuation`, a `continuation` with no preceding `continues`, or a pairing that skips a page — is a malformed layout, dispositioned as a structurally malformed element of a known type (State Machine section 5.4).
 
 ### 12.4 Line-Level Precision
 
@@ -835,13 +868,24 @@ For content blocks without styling rules:
 
 ### 13.3 Unsupported Presentation Type
 
-A presentation's `type` (`paginated`, `continuous`, `responsive`) is a **closed** set: it selects the file's entire structure, so unlike a content block it has no defined fallback shape, and the set is intentionally not extensible. A `type` outside this set is a validation failure (State Machine section 5.4), not a forward-compatibility escape, and the `type` MUST agree between the manifest's `presentation` reference and the presentation file.
+A presentation's `type` (`paginated`, `continuous`, `responsive`, `precise`) is a **closed** set: it selects the file's entire structure, so unlike a content block it has no defined fallback shape, and the set is intentionally not extensible. A `type` outside this set is a validation failure (State Machine section 5.4), not a forward-compatibility escape, and the `type` MUST agree between the manifest's `presentation` reference and the presentation file's own discriminator — the reactive types with a presentation.schema.json file's `type`, and `precise` with a precise-layout file's `presentationType`.
+
+The `type` further fixes the file's required substructure — a `paginated` file carries `pages`, a `continuous` file carries `sections`, and a `responsive` file carries `breakpoints`. A file whose payload does not match its declared `type` (for example a `paginated` file with no `pages`, or a `continuous` file carrying `pages`) is a validation failure. The JSON Schema does not bind the payload to the discriminator, so a consumer enforces this coupling as a conformance check.
 
 An implementation that recognizes the `type` but does not implement that presentation mode falls back to default rendering (section 13.1); the document's content is unaffected.
 
 ### 13.4 Dangling Presentation Reference
 
 A presentation rule targets content by `blockId` (a `pageElement`) or `blockRefs` (a `section`). If a referenced block does not exist in the content — a stale reference, or a typo — the reader omits that rule and renders the affected content with default styling, surfacing a warning (State Machine section 5.4). Because presentation is outside the document-hash boundary (Document Hashing section 4.1a), a dangling presentation reference degrades rendering but never impugns document integrity, in any state. The presentation file's own integrity — its hash, and its coverage by a signature on a frozen or published document — is a separate matter, dispositioned by the integrity rows of State Machine section 5.4.
+
+### 13.5 Content Not Referenced by a Presentation
+
+Content is authoritative (section 2.1), so a presentation never removes it. A content block that no presentation rule references is still rendered, never dropped:
+
+- In a **reactive** presentation (`paginated`/`continuous`/`responsive`), styling is an overlay: a block matched by no explicit style rule is rendered with its default block styling (sections 10.1, 13.2) in document order. Reactive presentations are not required to enumerate every block.
+- In a **precise** layout, which asserts exact placement, a content block positioned by no `pageElement` is a coverage gap. The reader MUST surface a warning (State Machine section 5.4) and MUST still render the uncovered block — appended after the positioned content in document order — rather than silently omit signed content.
+
+A reader MUST NOT present a document as though unreferenced content did not exist.
 
 ## 14. Print Considerations
 
@@ -955,6 +999,8 @@ Elements in paginated presentations and precise layouts MAY include a `transform
 | `rad` | Radians (2π = full rotation) | `"1.5708rad"` |
 | `turn` | Turns (1 = full rotation) | `"0.25turn"` |
 
+A positive angle rotates the element **clockwise**, and a negative angle counter-clockwise, consistent with the page's y-down coordinate system (positive `y` runs from the top edge downward) and the `90°` matrix in section 16.4.
+
 ### 16.3 Transform Origin
 
 The `origin` property specifies the point around which transforms are applied:
@@ -1025,7 +1071,7 @@ If `matrix` is specified, it overrides all other transform properties.
   "styles": {
     "heading1": {
       "fontSize": "2.5rem",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "marginTop": "2rem",
       "marginBottom": "1rem"
     },
@@ -1064,7 +1110,7 @@ If `matrix` is specified, it overrides all other transform properties.
     "heading1": {
       "fontFamily": "Helvetica, sans-serif",
       "fontSize": "24pt",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "pageBreakBefore": "always"
     },
     "bodyText": {

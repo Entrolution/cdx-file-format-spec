@@ -31,17 +31,26 @@
  * signature SET against stripping/downgrade — and `configFiles`: the `{path, hash}`
  * references an extension config slot declares (academic numbering, semantic
  * bibliography/glossary), so their content is attested even though it is outside
- * the document hash.
+ * the document hash — and `assets`: the `{path, hash}` of each declared asset
+ * category's index file. An index enumerates every asset's (and image variant's)
+ * hash, so hash-pinning the index transitively attests assets that sit outside the
+ * document ID — notably fonts (referenced by presentation family name) and image
+ * variants (selected by display size) — closing the swap-a-variant / remap-a-font
+ * substitution that a valid signature would otherwise miss.
  *
  * What it does NOT bind (negative coverage, by design — see the spec §9.8):
  *  - The document ID / content semantics — carried separately by
  *    `scope.documentId` (the projection never repeats it).
- *  - Embedded fonts and other non-content assets (excluded from the document ID
- *    by design; a later increment may bind them).
+ *  - The raw asset *files* directly, or an asset category the manifest does not
+ *    declare in `assets`: assets are attested only transitively, through the
+ *    hash-pinned index of a declared category (`assets`, above), and only while a
+ *    manifest-covering signature is present.
  *  - The *bytes* of path-only parts (metadata, provenance, phantoms,
- *    annotations) and of the `security` block. An extension config file is bound
- *    only when declared as a `{path, hash}` reference; a path-only declaration
- *    (e.g. collaboration comments/changes) is not.
+ *    annotations) and of the path-only `security` references (signatures,
+ *    encryption). An auxiliary file is bound only when declared as a `{path, hash}`
+ *    reference — an extension config file, an asset-category index, or the
+ *    `security.accessControl` policy; a path-only declaration (e.g. collaboration
+ *    comments/changes, or the signatures/encryption paths) is not.
  *  - Signatures OUTSIDE the declared required set: the `signaturePolicy` binds
  *    only the *declared required* signers, so stripping an optional signature,
  *    signing order, and late-joiners are not detected (§3.12, §9.8). A document
@@ -54,10 +63,25 @@ import {
   parseStrictJson,
   jcsOf,
   validateStoredByteInvariants,
+  assertBoundedDepth,
+  MAX_CANONICALIZATION_DEPTH,
   isPlainObject,
   isValidContentHash,
   CanonicalizationError,
 } from './canonicalize.js';
+
+/** Semantic-version pattern for `cdx` and extension/presentation versions. */
+const VERSION_PATTERN = /^\d+\.\d+$/;
+/** The four presentation part types (mirrors manifest.schema presentationReference.type). */
+const PRESENTATION_TYPES = new Set(['paginated', 'continuous', 'responsive', 'precise']);
+/** Zip-Slip-safe archive-relative path (mirrors anchor.schema relativePath). */
+const RELATIVE_PATH = /^(?!\.\.?(?:\/|$))(?!.*\/\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+/** Per-kind required-signer value patterns (mirror anchor.schema requiredSigner). */
+const REQUIRED_SIGNER_PATTERNS: Record<string, RegExp> = {
+  did: /^did:(key|jwk|web):[A-Za-z0-9._:%-]+$/,
+  x5tS256: /^[A-Za-z0-9_-]{4,}$/,
+  jkt: /^[A-Za-z0-9_-]{4,}$/,
+};
 
 /**
  * The manifest lifecycle states (mirrors manifest.schema.json). The projector
@@ -104,8 +128,8 @@ function projectRequiredSigner(entry: unknown): Record<string, unknown> {
   }
   const kind = present[0];
   const value = entry[kind];
-  if (typeof value !== 'string' || value === '') {
-    throw new CanonicalizationError(`requiredSigners ${kind} must be a non-empty string`);
+  if (typeof value !== 'string' || !REQUIRED_SIGNER_PATTERNS[kind].test(value)) {
+    throw new CanonicalizationError(`requiredSigners ${kind} is malformed for its identity kind`);
   }
   return { [kind]: value };
 }
@@ -143,6 +167,9 @@ function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{
   const byPath = new Map<string, string>();
   const visit = (v: unknown): void => {
     if (isFileReference(v)) {
+      if (!RELATIVE_PATH.test(v.path)) {
+        throw new CanonicalizationError(`config file path "${v.path}" is not a valid archive-relative path`);
+      }
       const existing = byPath.get(v.path);
       if (existing !== undefined && existing !== v.hash) {
         throw new CanonicalizationError(`config file "${v.path}" is declared with conflicting hashes`);
@@ -158,6 +185,52 @@ function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{
   };
   for (const slot of EXTENSION_CONFIG_SLOTS) visit(manifest[slot]);
 
+  const items = [...byPath.entries()].map(([path, hash]) => ({ path, hash }));
+  items.sort(byJcs);
+  return items;
+}
+
+/**
+ * Collect the `{path, hash}` index reference of every asset category declared in
+ * `manifest.assets`, projected as `{path: <index>, hash}` and sorted by JCS. Each
+ * `assetCategory` (mirrors manifest.schema.json) declares `{count, totalSize,
+ * index, hash}`; only the index reference is bound, because the index enumerates
+ * every asset's and image variant's own hash — so hash-pinning the one index hash
+ * transitively attests the whole category (fonts, image variants included). The
+ * advisory `count`/`totalSize` are subordinate to the index and are not bound.
+ *
+ * Fails closed: a present-but-malformed `assets` block, or a category missing a
+ * well-formed index path and hash, throws rather than letting that category escape
+ * the binding. Two categories declaring the same index path with conflicting
+ * hashes is ambiguous and rejected.
+ */
+function collectAssetIndexReferences(manifest: Record<string, unknown>): Array<{ path: string; hash: string }> {
+  const assets = manifest.assets;
+  if (assets === undefined || assets === null) return [];
+  if (!isPlainObject(assets)) {
+    throw new CanonicalizationError('manifest.assets must be an object');
+  }
+  const byPath = new Map<string, string>();
+  for (const category of Object.keys(assets)) {
+    const cat = assets[category];
+    if (!isPlainObject(cat)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" must be an object`);
+    }
+    if (typeof cat.index !== 'string') {
+      throw new CanonicalizationError(`manifest.assets category "${category}" must declare a string index path`);
+    }
+    if (!RELATIVE_PATH.test(cat.index)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" index path "${cat.index}" is not a valid archive-relative path`);
+    }
+    if (!isValidContentHash(cat.hash)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" index hash "${String(cat.hash)}" is malformed`);
+    }
+    const existing = byPath.get(cat.index);
+    if (existing !== undefined && existing !== cat.hash) {
+      throw new CanonicalizationError(`asset index "${cat.index}" is declared with conflicting hashes`);
+    }
+    byPath.set(cat.index, cat.hash);
+  }
   const items = [...byPath.entries()].map(([path, hash]) => ({ path, hash }));
   items.sort(byJcs);
   return items;
@@ -185,11 +258,18 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     throw new CanonicalizationError('manifest id is "pending"; a manifest projection is undefined until the document id is assigned');
   }
 
+  // Bound nesting depth before the recursive walks (config-ref collection, byte-invariant
+  // validation, JCS) so a deeply nested lineage/config slot fails with a typed error
+  // rather than overflowing the native stack (Container Format §5.3).
+  assertBoundedDepth(manifest, MAX_CANONICALIZATION_DEPTH);
+
   const projection: Record<string, unknown> = {};
 
   // --- cdx (spec version) — always present (manifest required field) ---------
-  if (typeof manifest.cdx !== 'string') {
-    throw new CanonicalizationError('manifest.cdx must be a string');
+  // Pattern-checked, not merely typed: a signer skipping manifest-schema validation
+  // must not bind a malformed version into the signed projection (fail closed).
+  if (typeof manifest.cdx !== 'string' || !VERSION_PATTERN.test(manifest.cdx)) {
+    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string');
   }
   projection.cdx = manifest.cdx;
 
@@ -204,23 +284,35 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   if (!isPlainObject(content) || typeof content.path !== 'string' || typeof content.hash !== 'string') {
     throw new CanonicalizationError('manifest.content must be an object with string path and hash');
   }
+  if (!RELATIVE_PATH.test(content.path)) {
+    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`);
+  }
   if (!isValidContentHash(content.hash)) {
     throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`);
   }
   projection.content = { path: content.path, hash: content.hash };
 
   // --- presentation[] (optional) — the presentation *declaration* -------------
-  // Binds each presentation manifest's {type, path, hash} plus which one is the
-  // default. This authenticates the manifest's selection of presentation parts;
-  // it does NOT attest visual rendering (precise-layout attestation remains the
-  // separate `scope.layouts` mechanism). The array is author-ordered, so it is
-  // sorted by JCS to a canonical order; the default-selection is bound as a flag
-  // present only on the default entry (no default-value materialization).
+  // Binds each presentation part's {type, path, hash} plus which one is the
+  // default. For a reactive type (paginated/continuous/responsive) this
+  // authenticates the manifest's selection of presentation parts, not the
+  // interpreted rendering; for a `precise` layout the bound file hash IS the exact
+  // coordinates, so a declared precise layout's appearance is attested here (the
+  // optional `scope.layouts` mechanism remains available for finer per-layout
+  // attestation). The array is author-ordered, so it is sorted by JCS to a
+  // canonical order; the default-selection is bound as a flag present only on the
+  // default entry (no default-value materialization).
   const presentation = manifest.presentation;
   if (Array.isArray(presentation) && presentation.length > 0) {
     const items = presentation.map((entry) => {
       if (!isPlainObject(entry) || typeof entry.type !== 'string' || typeof entry.path !== 'string' || typeof entry.hash !== 'string') {
         throw new CanonicalizationError('each manifest.presentation[] entry must have string type, path and hash');
+      }
+      if (!PRESENTATION_TYPES.has(entry.type)) {
+        throw new CanonicalizationError(`manifest.presentation[] type "${entry.type}" is not one of: ${[...PRESENTATION_TYPES].join(', ')}`);
+      }
+      if (!RELATIVE_PATH.test(entry.path)) {
+        throw new CanonicalizationError(`manifest.presentation[] path "${entry.path}" is not a valid archive-relative path`);
       }
       if (!isValidContentHash(entry.hash)) {
         throw new CanonicalizationError(`presentation "${entry.path}" has a malformed hash "${entry.hash}"`);
@@ -273,7 +365,11 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     if (!isPlainObject(manifest.lineage)) {
       throw new CanonicalizationError('manifest.lineage must be an object');
     }
-    projection.lineage = manifest.lineage;
+    // An empty lineage object is omitted like any absent optional field (§9.7);
+    // otherwise a `lineage: {}` would bind different signed bytes than an absent one.
+    if (Object.keys(manifest.lineage).length > 0) {
+      projection.lineage = manifest.lineage;
+    }
   }
 
   // --- signaturePolicy (optional) — the required-signer set (§3.12) -----------
@@ -317,6 +413,39 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   // sorted by JCS to a canonical order; absent → the field is omitted.
   const configFiles = collectConfigFileReferences(manifest);
   if (configFiles.length > 0) projection.configFiles = configFiles;
+
+  // --- asset-index references (optional) — hash-pin each category's index -------
+  // A category's assets — fonts (referenced by presentation family name) and image
+  // variants (selected by display size) — are NOT resolved into the document ID, so
+  // a repackager can swap a variant file or a glyph-remapping font while a content
+  // signature still verifies. Bind each declared category's index file `{path, hash}`:
+  // the index lists every asset's and variant's own hash, so pinning the index hash
+  // transitively attests the whole category. A tampered asset then either fails its
+  // load-time hash check (05 §4.3, §8.1) or forces an index edit that breaks this
+  // binding. Sorted by JCS; absent → the field is omitted.
+  const assetIndexes = collectAssetIndexReferences(manifest);
+  if (assetIndexes.length > 0) projection.assets = assetIndexes;
+
+  // --- access-control policy reference (optional) — bind its hash ---------------
+  // manifest.security.accessControl is the ONE security-block reference carried as a
+  // {path, hash} rather than a bare path, precisely so a manifest-covering signature
+  // attests the access-control policy's content: a repackager cannot swap the policy
+  // (e.g. widen permissions) while a signature still verifies. Only {path, hash} is
+  // bound — any advisory storage hints (compression, merkleRoot) are dropped like
+  // other non-integrity fields. The path-only security references (signatures,
+  // encryption) remain unbound by design: signatures cannot self-sign and the
+  // encryption block is not a signed-content claim. Absent → the field is omitted.
+  const security = manifest.security;
+  if (isPlainObject(security) && security.accessControl !== undefined && security.accessControl !== null) {
+    const ref = security.accessControl;
+    if (!isPlainObject(ref) || typeof ref.path !== 'string' || !isValidContentHash(ref.hash)) {
+      throw new CanonicalizationError('manifest.security.accessControl must carry a string path and a valid content hash');
+    }
+    if (!RELATIVE_PATH.test(ref.path)) {
+      throw new CanonicalizationError(`manifest.security.accessControl path "${ref.path}" is not a valid archive-relative path`);
+    }
+    projection.accessControl = { path: ref.path, hash: ref.hash };
+  }
 
   // The projected bytes obey the same stored-byte invariants as the document ID
   // (NFC, well-formed Unicode, safe integers) — validate, never normalize.

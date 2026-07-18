@@ -1,0 +1,43 @@
+{
+  "cdx": "0.1",
+  "id": "sha256:506d34ce79ff9a0ef3d0b93cca34a5df94fd2fe22fd7852ee2ae22ca27aad565",
+  "state": "frozen",
+  "created": "2025-02-01T09:00:00Z",
+  "modified": "2025-02-01T09:00:00Z",
+  "content": {
+    "path": "content/document.json",
+    "hash": "sha256:8860be4b537cdb66431b49c9798aeb8ec9e8dcf666925cbda63df7059f4eda20"
+  },
+  "assets": {
+    "images": {
+      "count": 1,
+      "totalSize": 63,
+      "index": "assets/images/index.json",
+      "hash": "sha256:96786208334fb0b41c533af7604659e0badfe287c023de330431a2f7b5e3fd3d"
+    },
+    "fonts": {
+      "count": 1,
+      "totalSize": 42,
+      "index": "assets/fonts/index.json",
+      "hash": "sha256:61c251b23f5f7942a0b4d55f352666fbbbdac2857f38189c37cf6a63ba3411b4"
+    }
+  },
+  "metadata": {
+    "dublinCore": "metadata/dublin-core.json"
+  },
+  "security": {
+    "signatures": "security/signatures.json",
+    "encryption": null
+  },
+  "extensions": [
+    {
+      "id": "cdx.security",
+      "version": "0.1",
+      "required": true
+    }
+  ],
+  "lineage": {
+    "parent": null,
+    "version": 1
+  }
+}

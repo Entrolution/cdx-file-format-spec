@@ -196,10 +196,12 @@ The bibliography block renders citations. It can reference an external bibliogra
 | `type` | string | Yes | Always `"semantic:bibliography"` |
 | `style` | string | No | Citation style (apa, mla, chicago, ieee, harvard, vancouver) |
 | `title` | string | No | Section heading for the bibliography |
-| `filter` | string\|null | No | Filter expression for selective bibliography |
+| `filter` | string\|null | No | Reserved filter expression for selective bibliography; its grammar is not defined by this specification (see note) |
 | `entries` | array | No | Inline CSL JSON entries (alternative to external file) |
 
-When `entries` is provided, each entry MAY include a `renderedText` field containing pre-rendered citation text from citeproc. This enables accurate display without requiring a CSL processor in the reader.
+**Note on `filter`.** This specification does not define a grammar for the `filter` expression, so a non-null `filter` is **non-portable** — its meaning is implementation-defined. A reader that does not recognize a `filter` MUST render the full bibliography rather than fail, and authors targeting interoperable rendering SHOULD leave `filter` `null`.
+
+When `entries` is provided, each entry MAY include a `renderedText` field containing pre-rendered citation markup from citeproc. This enables accurate display without requiring a CSL processor in the reader. Because it is author-controlled markup that a reader interprets as HTML, a renderer MUST sanitize `renderedText` against an inline-formatting allowlist before rendering it (Renderer Safety section 3.5).
 
 **Note:** Both CSL date formats are supported for the `issued` field: the short form (`{ "year": 2023 }`) and the standard form (`{ "date-parts": [[2023, 3, 15]] }`). Implementations MUST accept both formats.
 
@@ -271,7 +273,7 @@ Symbol footnotes are commonly used for:
 - Equal contribution statements
 - Disclaimers and conflicts of interest
 
-For documents requiring more than six symbol footnotes, the sequence typically doubles (**, ††, ‡‡, etc.). Implementations MAY support this extended sequence.
+The `symbol` field selects one of the six named symbols above; it has no seventh value. For a page with more than six symbol footnotes, a renderer MAY reuse the set with a doubled glyph as a **display convention** — a seventh note shown as `**`, an eighth as `††`, and so on. The doubling is applied by the renderer at display time and is not a stored value: the footnote's `symbol` remains one of the six enumerated names (or, past the sixth note, the author uses numbered footnotes instead).
 
 #### 4.5.2 Footnote Block
 
@@ -305,7 +307,7 @@ Footnote content is stored as a block, typically at the end of a section or docu
 | `number` | integer | Conditional | Footnote number (must match mark). Required unless `symbol` is provided. |
 | `symbol` | string | Conditional | Symbol-based footnote marker (must match mark). Required unless `number` is provided. |
 | `id` | string | No | Unique identifier (must match mark if present) |
-| `children` | array | Yes | Footnote content (paragraph blocks) |
+| `children` | array | Conditional | Footnote content (paragraph blocks); required unless `content` is provided (see below) |
 
 Footnote blocks support full rich text content including citations, links, and formatting. For simple text-only footnotes, a shorthand form is available:
 
@@ -322,6 +324,8 @@ Footnote blocks support full rich text content including citations, links, and f
 | `content` | string | No | Simple text content (alternative to `children`) |
 
 Implementations MUST support either `children` (rich content) or `content` (plain text), but not both on the same footnote.
+
+**Mark-to-block resolution.** A footnote `mark` (section 4.5.1) resolves to its `semantic:footnote` block by a single key: when both the mark and a block carry an `id`, the mark's `id` MUST equal the block's `id` (id match takes precedence); otherwise the mark resolves by its marker value — a `number` mark to the block with the equal `number`, a `symbol` mark to the block with the equal `symbol`. The resolution key MUST be unique across the document: no two `semantic:footnote` blocks may share an `id`, and — absent `id`s — no two may share a `number` or a `symbol`. Because a bare `number` or `symbol` can legitimately repeat (for example, per-section footnote numbering, or symbol reuse past the sixth note, section 4.5.1a), an author who repeats a marker MUST give each footnote a unique `id` and reference it by `id`, so resolution stays deterministic. A reader that finds a marker resolving to more than one block treats it as a rendering-degradation WARNING (section 11) and resolves to the first block in document order; a footnote mark that resolves to no block is likewise a WARNING, never an integrity failure.
 
 ## 5. Entity Linking
 
@@ -442,6 +446,8 @@ Internal references use Content Anchor URI syntax (see core Anchors and Referenc
 }
 ```
 
+**Placeholder resolution.** A `semantic:ref` MAY carry a `format` string with `{number}` and `{title}` placeholders. A reader fills each placeholder from the resolved target at render time — `{number}` from the target's displayed number, `{title}` from its title or heading text — and a value resolved from the target takes precedence over any disagreeing authored `children`. The authored `children` are a **fallback**. Because the core content model gives most blocks no intrinsic number — a core `heading` in particular is unnumbered — `{number}` is fillable only for a target that a numbering scheme numbers: a `semantic:footnote`, or, when the academic extension is active, a theorem, equation, or algorithm (academic section 9). When a placeholder cannot be filled, or the `target` is unresolvable, the reader renders the authored `children`, otherwise the bare target id, and never emits an empty string or the literal `{number}`/`{title}` token. A dangling `target` is a rendering-degradation WARNING in all states (section 11), never an integrity failure.
+
 ### 7.2 External References
 
 ```json
@@ -455,7 +461,7 @@ Internal references use Content Anchor URI syntax (see core Anchors and Referenc
 
 An external reference MUST set `external: true`. An internal reference (the default — `external` false or absent) MUST give `target` as a Content Anchor URI (a `#`-prefixed reference, section 7.1); an absolute or external URL written without `external: true` is rejected as a malformed internal reference, so set the flag whenever `target` leaves the document.
 
-> **Renderer safety.** An entity `uri` and a cross-reference `target` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
+> **Renderer safety.** An entity `uri`, a cross-reference `target`, and a bibliography entry's `URL` and `DOI` are constrained to safe schemes (Renderer Safety section 2.1); fragment and relative references remain permitted, but dangerous schemes such as `javascript:` are rejected. A bibliography `renderedText` is author markup a renderer MUST sanitize before rendering (Renderer Safety section 3.5), and an author `identifier` (ORCID/DID/URL) a renderer MUST route through the safe-URI allowlist before linkifying (section 2.1). A JSON-LD `@context` (section 3) MUST NOT be dereferenced from an untrusted document by default — a processor MUST resolve it offline or from an operator allowlist (Renderer Safety section 5).
 
 ## 8. Glossary
 
@@ -492,6 +498,11 @@ The `definition` field is intentionally a plain string for simplicity, portabili
   ]
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Always `"glossary"` |
+| `ref` | string | Yes | Reference to the term definition `id` (section 8.1) |
 
 ### 8.3 Glossary Block
 

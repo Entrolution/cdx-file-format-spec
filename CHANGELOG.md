@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Collaboration** (`cdx.collaboration` v0.2) - CRDT integration, comments, change tracking, presence
 - **Forms** (`cdx.forms`) - Interactive form fields with validation
 - **Legal** (`cdx.legal`) - Citations, Table of Authorities, court captions, signature blocks
-- **Phantoms** (`cdx.phantoms`) - Invisible structural elements for complex layouts
+- **Phantoms** (`cdx.phantoms`) - Off-page annotation layer for spatially-organized content (research notes, marginalia, mind-maps)
 - **Presentation** (`cdx.presentation`) - Advanced typography, master pages, print features
 - **Security** (`cdx.security`) - Digital signatures, encryption, redaction, scoped signatures
 - **Semantic** (`cdx.semantic`) - Bibliography, footnotes, glossary, entity markup, JSON-LD

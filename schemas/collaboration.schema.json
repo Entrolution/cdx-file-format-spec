@@ -9,12 +9,12 @@
       "description": "Shape of the manifest's `collaboration` configuration slot: paths to the collaboration part files. (Presence and synchronization metadata are transport-layer and not carried here — see the extension README, section 3.7.)",
       "properties": {
         "comments": {
-          "type": "string",
-          "description": "Path to the comments file (e.g. 'collaboration/comments.json')"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath",
+          "description": "Archive-relative path to the comments file (e.g. 'collaboration/comments.json'). Constrained to the Zip-Slip-safe relativePath form."
         },
         "changes": {
-          "type": "string",
-          "description": "Path to the change-tracking file (e.g. 'collaboration/changes.json')"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath",
+          "description": "Archive-relative path to the change-tracking file (e.g. 'collaboration/changes.json'). Constrained to the Zip-Slip-safe relativePath form."
         }
       },
       "additionalProperties": false
@@ -306,6 +306,10 @@
           "$ref": "#/$defs/crdtFormat",
           "description": "CRDT library format hint for interoperability"
         },
+        "crdtVersion": {
+          "type": "string",
+          "description": "Version of the CRDT library used, declared alongside crdtFormat (section 3.6)"
+        },
         "comments": {
           "type": "array",
           "description": "Array of comment entries",
@@ -333,6 +337,10 @@
         "crdtFormat": {
           "$ref": "#/$defs/crdtFormat",
           "description": "CRDT library format hint for interoperability"
+        },
+        "crdtVersion": {
+          "type": "string",
+          "description": "Version of the CRDT library used, declared alongside crdtFormat (section 3.6)"
         },
         "changes": {
           "type": "array",

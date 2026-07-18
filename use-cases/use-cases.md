@@ -259,6 +259,8 @@ Investigative report:
 - **Controlled redaction**: Original preserved but encrypted
 - **Permanent citation**: Hash-based citation never breaks
 
+> **Caveat — an encrypted original is not redaction.** Embedding the full unredacted original (encrypted) keeps the sensitive source travelling inside the public artifact, so the redaction holds only as long as key custody and the cipher hold: a leaked or later-compromised key, a weakened cipher, or future cryptanalysis fully un-redacts a document that has already been distributed. This is the same failure mode as a PDF whose "redacted" text is merely covered — the data is still there. When the goal is to protect a source, prefer the format's selective-disclosure model (README, *Selective disclosure*; DD-013), which **removes** the sensitive data and provides a cryptographic proof of what was removed rather than shipping it under encryption. Reserve the encrypted-original pattern for cases where the original genuinely must remain retrievable by key holders and that retention is an accepted, documented risk.
+
 ---
 
 ## 9. Real Estate Transactions

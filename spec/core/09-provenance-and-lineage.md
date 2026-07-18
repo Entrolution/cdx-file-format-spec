@@ -48,7 +48,7 @@ Beyond document-level hashing, individual content blocks have their own hashes. 
 
 ### 3.1 Chain Structure
 
-The provenance lineage extends the manifest's summary lineage (which contains `parent`, `version`, `branch`, `note`) with additional fields for the full ancestor chain, depth, and merge history. The manifest provides quick access to the immediate parent and version; the provenance record provides the complete lineage for verification and auditing.
+The **manifest's** `lineage` object (Manifest section 4.13) is the authoritative, signable chain: it carries `parent`, `ancestors`, `depth`, `branch`, `mergedFrom`, `version`, and `note` (Manifest schema). An author who wants a *signed* ancestor chain places `ancestors` (and `mergedFrom`) there, because a frozen or published document's manifest projection binds `manifest.lineage` (Section 3.3, Section 10.3). The **provenance record's** lineage (Section 8.1) restates the same chain with additional auditing context, but it is path-only and **unsigned**, so it is never the authoritative copy. A verifier resolves and checks the chain from `manifest.lineage`; the provenance record is advisory detail.
 
 The provenance lineage:
 
@@ -72,7 +72,7 @@ The provenance lineage:
 | `parent` | string | No | Immediate parent document hash |
 | `ancestors` | array | No | Chain of ancestor hashes (nearest first) |
 | `version` | integer | No | Sequential version number |
-| `depth` | integer | No | Distance from root document |
+| `depth` | integer | No | Generation number: 1 for the root, +1 per generation (the merge rule sets it to `max(parents.depth) + 1`) |
 
 ### 3.2 Ancestor Chain
 
@@ -108,24 +108,44 @@ Lineage verification resolves the chain **backwards** from a subject document an
 
 **Algorithm.**
 
+The chain is a **DAG**, not a single spine: a node has a primary `parent` and
+zero or more `mergedFrom` parents (Section 3.4), each resolved and chain-checked
+alike. Verification is a depth-first walk that follows every parent; a node
+re-reached on the *current* path is a cycle (REJECTED), while one re-reached by a
+*different* path (a merge diamond) is memoised, not mistaken for a cycle. A
+REJECTED anywhere dominates; failing that, any INCOMPLETE makes the subject
+INCOMPLETE; only an all-resolved, all-consistent walk to roots is VERIFIED.
+
 ```
 verify(subject):
-  visited = {}
-  node = subject; depth = 0
-  loop:
-    if node.id in visited: return REJECTED            // cycle
-    visited += node.id;  depth += 1
-    if node.parent == null:
-      if node.ancestors is non-empty: return REJECTED // a root has no ancestors
-      return VERIFIED
-    if depth >= traversalBound: return INCOMPLETE      // honest deep history, not an error
+  memo = {}                                            // ids of already-VERIFIED subtrees
+  resolved = 0                                         // node resolutions (breadth meter)
+  return visit(subject, path = {}, depth = 1)
+
+visit(id, path, d):
+  if id in path: return REJECTED                       // cycle: revisit on the current path
+  if id in memo: return VERIFIED                       // merge diamond: re-reached by another path
+  if (resolved += 1) > nodeBound: return INCOMPLETE    // breadth bound: cap total resolutions
+  node = resolve(id)
+  if node == null: return INCOMPLETE                   // unresolvable; no claim beyond here
+  parents = (node.parent == null ? [] : [node.parent]) ++ (node.mergedFrom or [])
+  if parents is empty:                                 // root
+    if node.ancestors is non-empty: return REJECTED    // a root has no ancestors
+    memo += id;  return VERIFIED
+  if d >= traversalBound: return INCOMPLETE            // honest deep history, not an error
+  if node.ancestors is present and non-empty:          // cross-check vs the resolved PRIMARY parent
     parent = resolve(node.parent)
-    if parent == null: return INCOMPLETE               // unresolvable; no claim beyond here
-    if node.ancestors is present:
+    if parent != null:
       if node.ancestors[0] != node.parent: return REJECTED
       expected = [node.parent] ++ parent.ancestors
       if node.ancestors and expected differ on any shared index: return REJECTED  // forged tail
-    node = parent
+  outcome = VERIFIED
+  for p in parents:                                     // verify EVERY parent (primary + each merge)
+    r = visit(p, path ++ {id}, d + 1)
+    if r == REJECTED: return REJECTED                   // a proven inconsistency in any parent wins
+    if r == INCOMPLETE: outcome = INCOMPLETE            // keep scanning — a later REJECTED still dominates
+  if outcome == VERIFIED: memo += id
+  return outcome
 ```
 
 **Rejection conditions (a proven inconsistency):**
@@ -135,7 +155,7 @@ verify(subject):
 
 A forged ancestor *beyond* a resolved parent's committed range is not rejected — it is simply **unverified** (the parent never vouched for it). The authoritative chain is the resolved walk, not the array, so such an entry is ignored, never endorsed.
 
-**Traversal bound (cycle / DoS safety).** A verifier MUST bound the walk; reaching the bound yields INCOMPLETE — never REJECTED, since a legitimately deep history is not an inconsistency. The bound is a verifier configuration; a conforming verifier MUST support a bound of at least **64** links and MAY allow a larger one. Cycle detection is separate and always rejects.
+**Traversal bounds (cycle / DoS safety).** A verifier MUST bound the walk in **two** dimensions, and reaching either bound yields INCOMPLETE — never REJECTED, since a legitimately large history is not an inconsistency. **Depth:** the walk counts generations with the 1-based `d` counter of the algorithm above — the subject is generation 1, incremented once per ancestor generation, and the walk stops with INCOMPLETE once `d` reaches the bound. A conforming verifier MUST support a depth bound of at least **64** generations and MAY allow a larger one. **Breadth:** because the chain is a reconverging DAG — `mergedFrom` gives a node more than one parent, so there can be exponentially many *paths* to a given depth — a depth bound alone does not bound the work; a verifier MUST also bound the total number of node resolutions across the walk. Verified subtrees are memoised, so a legitimate history resolves each ancestor about once and stays far below that bound; only a wide reconverging DAG that never resolves (an unresolvable base, or every node held at the depth bound) approaches it. Cycle detection is separate and always rejects. The bounds are verifier configuration, consistent with the mandatory resource bounds of Container Format section 5.3.
 
 **`depth` and `version` are advisory.** A verifier recomputes the chain depth from the resolved walk; a document's *claimed* `depth` and `version` are cross-checked only as warnings, never as rejection conditions. A hard `parent + 1` rule would reject legitimate branching (Section 3.4) and honest authoring mistakes: `depth` derives structurally from the resolved chain, and `version` is author-assigned and advisory.
 
@@ -296,6 +316,10 @@ Prove a block exists in a document without revealing other blocks:
 4. merkleRoot must match document's manifest
 ```
 
+The `+` in the construction (Section 4.3) and in this verification is **raw-digest-byte concatenation**, identical to the aggregated-anchor recomputation (Section 6.5): each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm. Pinning the encoding here keeps a block proof built from Section 5.2 alone interoperable with the aggregated construction rather than diverging between implementations.
+
+**Construction limitations (disclosed, not closed).** The tree construction (Section 4.3) hashes an odd node count by duplicating the last hash, and it applies no domain-separation tag distinguishing a leaf from an internal node. Duplicating the last hash lets two distinct block sets share one root (the CVE-2012-2459 pattern), and the absence of a leaf/internal tag lets an internal node value be presented as a leaf; a hardened construction would tag leaves and internal nodes distinctly and reject rather than duplicate an odd node. Neither is changed in this version, and both are bounded by the fact that the block-level `merkle.root` is itself unverified here (Section 6.7): Section 5's proofs are defined for interoperability but are not yet a trusted redaction/inclusion oracle, and a verifier MUST NOT rely on a block-level Merkle proof as authenticated evidence until the root is bound.
+
 ### 5.3 Exclusion Proofs
 
 Prove a block does NOT exist (useful for redaction verification):
@@ -355,6 +379,8 @@ Each entry's `time` field is **advisory** (Section 6.6): the authoritative time 
 A timestamp is meaningful only if the hash it commits to is **this document's** hash. CDX fixes the binding:
 
 > The hash a timestamp commits to MUST equal the provenance record's `documentId`, and the record's `documentId` MUST equal the manifest `id`.
+
+Because `documentId` is a computed content hash — the `contentHash` grammar excludes the `pending` placeholder — a provenance record exists only once the document's `id` has been computed. A document whose `id` is still `pending` (a draft not yet submitted for review) carries no provenance record; the record is written when the `id` is first computed at the `draft → review` transition (State Machine section 4.2).
 
 The committed hash is named per type:
 
@@ -550,6 +576,18 @@ Location: `provenance/record.json`
 
 The `relationship` field describes how the derived document relates to its source: one of `excerpt`, `quotation`, `translation`, `revision`, or `derivation`.
 
+**Security — the provenance record is unauthenticated.** `provenance/record.json` is
+referenced by path only; the manifest carries no hash for it, and it sits outside every
+signature scope and the manifest projection (section 6.2; Security Extension, section 9.8).
+Its bytes are unsigned even on a `frozen` or `published` document, so every field here is
+forgeable without changing the document ID or breaking a signature. In particular
+`creator.name` and `creator.identifier` are an author's **claim**, not an authenticated
+identity — a `did:web:` value does not become authoritative by being named (Security
+Extension, section 3.10). A consumer MUST NOT surface the provenance `creator` as the
+authenticated author, and MUST NOT trust an in-record `timestamps`, `lineage`, or
+`derivedFrom` entry without the out-of-band verification section 6 requires. To
+authenticate authorship, bind it in signed content or the manifest projection.
+
 ### 8.2 Provenance Queries
 
 The provenance record enables queries like:
@@ -566,7 +604,7 @@ The provenance record enables queries like:
 - **Merkle tree construction**: O(n) where n = number of blocks
 - **Proof generation**: O(log n)
 - **Proof verification**: O(log n)
-- **Chain traversal**: O(depth) — store ancestors to avoid repeated fetches
+- **Chain traversal**: O(resolved nodes) with verified-subtree memoisation — a linear spine is O(depth), a reconverging merge DAG is O(distinct nodes), not O(paths); the walk is capped by the depth and breadth bounds (Section 3.3)
 
 ### 9.2 Storage Efficiency
 

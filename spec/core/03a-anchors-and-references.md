@@ -85,16 +85,19 @@ ContentAnchor objects are used in JSON data files (collaboration, phantoms, anno
 
 A ContentAnchor MUST have either no position fields (block-level), `offset` only (point), or both `start` and `end` (range). An anchor with `offset` alongside `start`/`end` is invalid.
 
+Position fields (`offset`, `start`, `end`) are defined only when `blockId` targets a text-bearing block (section 3). When `blockId` names a named anchor rather than a block, it already denotes a specific position, so `offset`, `start`, and `end` MUST NOT be present; a named-anchor target carrying a position field is invalid. (The schema permits the field combination structurally, so a consumer enforces this as a validation rule.)
+
 ### 2.3 ContentAnchor with Stale Detection
 
 Anchors MAY include an optional `contentHash` field to detect when an offset-based anchor may be stale:
 
+<!-- cdx-schema: anchor.schema.json#/$defs/contentAnchor -->
 ```json
 {
   "blockId": "intro",
   "start": 10,
   "end": 25,
-  "contentHash": "sha256:abc123..."
+  "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 ```
 
@@ -102,12 +105,13 @@ The `contentHash` is the hash of the target block's text content at anchor creat
 
 ## 3. Character Offset Computation
 
-Character offsets address positions within a block's text content. The text content of a block is computed as follows:
+Character offsets address positions within the text content of a **text-bearing block** — a block whose `children` are text nodes (such as `paragraph`, `heading`, `figcaption`, `definitionTerm`, and `codeBlock`). The text content of such a block is computed as follows:
 
-1. Traverse all child nodes of the block in depth-first document order
-2. For each text node, concatenate its `value` string
-3. For each non-text inline child (e.g., `break`), contribute U+000A (line feed)
-4. The result is the block's text content string
+1. Traverse the block's text-node children in document order
+2. Concatenate each text node's `value` string
+3. The result is the block's text content string
+
+A block-level element carries no inline text of its own: a `break` is a void block (Content Blocks section 4.14), not an inline child, and a container block whose children are other blocks (`list`, `listItem`, `blockquote`, `table`, and the like) has no text content of its own — its text lives in its text-bearing descendants. A character-offset anchor therefore MUST target a text-bearing block; to address text inside a container, anchor the leaf text-bearing block that holds it. This makes a block's text content well-defined for `contentHash` and offset purposes in every state.
 
 A **character** is one Unicode scalar value (code point) — not a UTF-16 code unit and not a grapheme cluster. Offsets are zero-based code-point indices into the text content. Ranges use half-open intervals: `start` is inclusive, `end` is exclusive.
 
@@ -226,6 +230,8 @@ Anchors MAY include an optional `contentHash` field (see section 2.3) containing
 
 Implementations SHOULD validate that anchor targets (block IDs, named anchor IDs) resolve to existing content at parse time.
 
+Reference resolution MUST be **byte-exact and case-sensitive**: a target id resolves to a defined id only when the two strings are byte-for-byte identical. A resolver MUST NOT case-fold, Unicode-fold, or otherwise normalize a target before matching — `#Figure1` and `#figure1` are distinct ids, and a case-insensitive resolver would let one reference silently redirect to a different block than the author (and the document hash) committed to.
+
 ### 7.2 State-Dependent Severity
 
 | Condition | DRAFT/REVIEW | FROZEN/PUBLISHED |
@@ -245,7 +251,7 @@ These severities are the WARNING and INTEGRITY-ERROR dispositions of State Machi
 - `start` MUST be less than `end`
 - `start` MUST be non-negative
 - `offset` MUST be non-negative
-- For valid ranges, `end` SHOULD NOT exceed the target block's text content length
+- An `offset`, `start`, or `end` MUST NOT exceed the target block's text content length; a position past the end of the text carries the state-dependent severity of section 7.2 — a warning in DRAFT/REVIEW, an error in FROZEN/PUBLISHED
 
 ## 8. Terminology Glossary
 

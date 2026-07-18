@@ -250,7 +250,8 @@ function validateReference(
   ref: Reference,
   sections: Section[],
   files: string[],
-  sectionNumbers: Map<string, Set<string>>
+  sectionNumbers: Map<string, Set<string>>,
+  allSectionNumbers: Set<string>
 ): boolean {
   const target = ref.target;
 
@@ -293,9 +294,19 @@ function validateReference(
 
   // Handle section number references: section:1.2.3
   if (target.startsWith('section:')) {
-    // Section number references are informational - always valid
-    // (They refer to numbered sections in the document, not anchors)
-    return true;
+    // The bare "see section X.Y" idiom carries no document binding, and section
+    // numbers restart per file, so X.Y cannot be pinned to a single document
+    // without ambiguity. Validate that the number exists as a heading in the SAME
+    // document (the common intra-document idiom) or, failing that, anywhere in the
+    // corpus (the cross-document idiom — e.g. 07-state-machine's "... Security
+    // Extension section 9.8 ... see section 9.7 ..." names a Security Extension
+    // section). A fabricated number present in NO document — e.g. "see section
+    // 999.999" — resolves nowhere and is now reported broken, where previously
+    // every section: target was accepted unconditionally.
+    const num = target.slice('section:'.length);
+    const sameDoc = sectionNumbers.get(ref.file);
+    if (sameDoc && sameDoc.has(num)) return true;
+    return allSectionNumbers.has(num);
   }
 
   // Handle relative paths without .md extension
@@ -329,6 +340,10 @@ function validateCrossRefs(): ValidationReport {
   // "<Document title> section X.Y" reference resolution.
   const titleIndex = buildTitleIndex(markdownFiles);
   const sectionNumbers = buildSectionNumberIndex(markdownFiles);
+  // Global union of every document's heading numbers — the fallback resolution
+  // set for a bare `section:X.Y` reference that names a section in another document.
+  const allSectionNumbers = new Set<string>();
+  for (const set of sectionNumbers.values()) for (const num of set) allSectionNumbers.add(num);
 
   // Extract all references
   const allReferences: Reference[] = [];
@@ -346,7 +361,7 @@ function validateCrossRefs(): ValidationReport {
   const valid: Reference[] = [];
 
   for (const ref of allReferences) {
-    if (validateReference(ref, allSections, markdownFiles, sectionNumbers)) {
+    if (validateReference(ref, allSections, markdownFiles, sectionNumbers, allSectionNumbers)) {
       valid.push(ref);
     } else {
       broken.push(ref);

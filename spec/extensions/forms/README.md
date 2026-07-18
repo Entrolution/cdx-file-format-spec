@@ -274,6 +274,17 @@ The `minDate` and `maxDate` fields accept ISO 8601 date strings (e.g., `"2024-01
 
 The `forms:signature` field captures visual/input signatures (e.g., drawn signatures or typed names) as part of form data. This is distinct from the security extension's cryptographic digital signatures, which provide tamper detection and non-repudiation. For documents requiring both visual and cryptographic signatures, use `forms:signature` for the user-facing input and the security extension for cryptographic verification. The field defines only the capture widget; the captured signature itself is stored in `forms/data.json` (see section 6.5), outside the content hash and bound by no signature, so it is advisory and forgeable and provides no integrity, non-repudiation, or binding on its own.
 
+CDX uses the word "signature" for four distinct, namespaced constructs; do not conflate them:
+
+| Construct | Where it lives | What it is |
+|-----------|----------------|------------|
+| `forms:signature` (this field) | `forms/data.json` (captured value) | An advisory visual/input signature; no cryptographic meaning |
+| core `signature` block | `content/document.json` (in-hash) | A content block that renders a signature image or line in the document body — rendered content, not an attestation |
+| `legal:signatureBlock` (legal extension) | `content/document.json` (in-hash) | A legal signature block modeling a signatory and execution details of a legal instrument — in-hash content, not a cryptographic signature |
+| security-extension digital signature (`cdx.security`) | `security/signatures.json` | The only cryptographic signature — provides tamper detection and non-repudiation |
+
+Only the last authenticates anything; the first three are rendered or captured representations that a verifier MUST NOT treat as tamper-evident or non-repudiable.
+
 ## 4. Validation
 
 ### 4.1 Built-in Validators
@@ -367,7 +378,7 @@ The `when` condition supports the following operators:
 | `isEmpty` | Condition is true when the field is empty (set to `true`) |
 | `isNotEmpty` | Condition is true when the field has a value (set to `true`) |
 
-Only one operator should be used per condition. When the condition evaluates to true, all validation rules in `then` are applied to the field.
+Authoring guidance is to use a single operator per condition. The schema does not enforce this — a `when` object MAY carry more than one operator — so a consumer MUST resolve the multi-operator case deterministically: when a `when` object contains more than one operator, the condition is true only if **every** operator present evaluates true (logical AND). When the condition evaluates to true, all validation rules in `then` are applied to the field.
 
 Example with multiple conditional rules:
 
@@ -391,24 +402,41 @@ Example with multiple conditional rules:
 
 ### 5.1 Storage
 
-Form values are stored in `forms/data.json`:
+Form values are stored in `forms/data.json`, scoped per form:
 
 ```json
 {
   "version": "0.1",
   "values": {
-    "fullName": "Jane Doe",
-    "email": "jane@example.com",
-    "country": "us"
+    "signup-form": {
+      "fullName": "Jane Doe",
+      "email": "jane@example.com",
+      "country": "us"
+    },
+    "newsletter-form": {
+      "email": "jane.work@example.com"
+    }
   },
-  "submitted": false,
+  "submitted": {
+    "signup-form": false,
+    "newsletter-form": true
+  },
+  "submittedAt": {
+    "newsletter-form": "2025-01-15T09:58:00Z"
+  },
   "lastModified": "2025-01-15T10:00:00Z"
 }
 ```
 
+`values` is keyed by the enclosing `forms:form` block's `id`, and each entry is that form's own field-name → value map. Keying by form id is what keeps a field's `name` scoped to its form (section 4.2): two forms in the same document may each define a field named `email` without colliding, because their values live under different form-id keys rather than in one flat, document-global namespace. A field entered outside any `forms:form` container has no enclosing form id and therefore no place in `values`; every fillable field is authored inside a `forms:form`.
+
+Submission state is likewise per form: `submitted` maps each form's id to whether that form has been submitted, and `submittedAt` maps a submitted form's id to its ISO 8601 submission timestamp, so each form tracks its own submission independently. `version` and `lastModified` describe the data file as a whole and stay at the top level.
+
 The `version` field follows the extension version contract in the CDX Extensions overview (Versioning): a higher minor is processed with unrecognized fields ignored; a higher major — or a reader without forms support — follows the manifest `required` flag; and because `forms/data.json` is outside the document hash, a version mismatch degrades rendering (a WARNING), never an integrity error.
 
 ### 5.2 Submission
+
+The submission target is **not** part of the form data layer. A form's `action`, `method`, and `encoding` are properties of the in-hash `forms:form` container block (section 3.0a), stored in `content/document.json` and therefore covered by the content hash. The object below restates those in-hash fields for reference only; `forms/data.json` carries no submission endpoint, and a consumer preparing a submission MUST read `action`/`method`/`encoding` from the `forms:form` block, never from the mutable data file:
 
 ```json
 {
@@ -419,6 +447,8 @@ The `version` field follows the extension version contract in the CDX Extensions
   }
 }
 ```
+
+Because the endpoint lives in signed content, an attacker cannot silently redirect a submission by editing the out-of-hash `forms/data.json`. A renderer MUST also apply the `action` safe-scheme constraint (section 3.0a), and the receiving endpoint MUST re-validate every submitted value.
 
 ## 6. State Behavior
 
@@ -441,9 +471,9 @@ When a document containing forms is frozen or published:
 
 ### 6.3 Form Submission
 
-When a form is submitted (`"submitted": true` in `forms/data.json`):
+When a form is submitted (its form id set to `true` under `submitted` in `forms/data.json`, e.g. `"submitted": { "signup-form": true }`):
 
-- The submission state is recorded in the form data file, with the submission time in `submittedAt`
+- The submission state is recorded in the form data file per form, with that form's submission time under its id in `submittedAt`
 - For archival purposes, implementations MAY create a new document version with form data folded into the content layer, producing a new document ID that captures the filled state
 
 ### 6.4 Hashing Exclusion
@@ -459,7 +489,7 @@ Form structure and form data sit in different integrity tiers (see the extension
 | Field definitions (blocks, labels, validation rules) | `content/document.json` | Yes | Bytes are bound; a `forms:signature` definition is a capture widget, not a cryptographic signature |
 | Captured form data | `forms/data.json` | No | No — advisory and forgeable |
 
-Everything a respondent enters is stored in `forms/data.json`: the per-field entries in the `values` map — including a captured `forms:signature` image and any consent checkbox — and the submission state (`submitted`, `submittedAt`, `lastModified`). This file is outside the content hash and bound by no signature, so it stays mutable even on a `frozen` or `published` document, and an archive writer can alter or fabricate any of it without changing the document ID or invalidating a signature. The entries named here are examples — *no* value in `forms/data.json` is authenticated.
+Everything a respondent enters is stored in `forms/data.json`: the per-form field entries in the `values` map — including a captured `forms:signature` image and any consent checkbox — and the per-form submission state (`submitted`, `submittedAt`), alongside the file-level `lastModified`. This file is outside the content hash and bound by no signature, so it stays mutable even on a `frozen` or `published` document, and an archive writer can alter or fabricate any of it without changing the document ID or invalidating a signature. The entries named here are examples — *no* value in `forms/data.json` is authenticated.
 
 A verifier or relying party MUST NOT treat a captured value, a captured `forms:signature`, a consent flag, or a `submitted` state as a tamper-evident or non-repudiable record. To bind a respondent's input to the document, fold it into signed content — producing a new document version and ID (section 6.3) — or attest it with a security-extension signature; to authenticate the signer's identity, use the security extension rather than `forms:signature`.
 
@@ -482,6 +512,8 @@ For viewers that don't support forms:
 ```
 
 > **Reader dispositions.** A consumer without forms support treats a `forms:*` block as an unknown namespaced block (State Machine section 5.4): it renders the block's `fallback` if present, otherwise IGNOREs the field. A structurally malformed forms block of a known type is a WARNING in draft/review and an INTEGRITY-ERROR on a frozen or published document. Form filling and submission stay permitted on a frozen or published document because `forms/data.json` is an out-of-hash layer (State Machine section 3.4); a missing or malformed `forms/data.json` is a WARNING in all states.
+
+> **A `fallback` is a real content block.** The forms schema binds `fallback` to the core content block model (`content.schema.json#/$defs/block`), so a `fallback` is validated as an ordinary content block — the same shape, and the same closure, as the rest of the document body. A `fallback` lives in `content/document.json` and is covered by the content hash. A non-forms consumer that renders a `fallback` still applies the same renderer-safety allowlists it applies to primary content (Renderer Safety section 6) before rendering.
 
 ## 8. Examples
 

@@ -67,7 +67,8 @@ The `version` field in Dublin Core metadata refers to the Dublin Core Metadata E
 | Term | Type | Description | Required |
 |------|------|-------------|----------|
 | `title` | string | Document title | Yes |
-| `creator` | string\|array | Author(s) | Yes |
+| `creator` | string\|array | Author(s) — simple name strings | Yes |
+| `creators` | array | Structured author data (name, ORCID, affiliation, email) — see 3.3.2 | No |
 | `subject` | string\|array | Topic/keywords | No |
 | `description` | string | Summary/abstract | No |
 | `publisher` | string | Publishing entity | No |
@@ -76,11 +77,11 @@ The `version` field in Dublin Core metadata refers to the Dublin Core Metadata E
 | `type` | string | Nature of content | No |
 | `format` | string | MIME type | No |
 | `identifier` | string | Unique identifier | No |
-| `source` | string | Source reference | No |
-| `language` | string | Language code (BCP 47) | No |
-| `relation` | string | Related resource | No |
+| `source` | string\|null | Source reference | No |
+| `language` | string\|array | Language code (BCP 47) | No |
+| `relation` | string\|null | Related resource | No |
 | `coverage` | string | Scope (temporal/spatial) | No |
-| `rights` | string | Rights statement | No |
+| `rights` | string\|object | Rights statement | No |
 
 ### 3.3 Term Details
 
@@ -117,6 +118,20 @@ Or multiple:
 
 - MUST have at least one value
 - Order indicates primacy
+
+**Structured authors (`creators`).** For author identity beyond a display name — ORCID, institutional affiliation, contact email — a document MAY additionally carry a `creators` array. Each entry is an object with a required `name` and optional `orcid`, `affiliation`, and `email`:
+
+```json
+{
+  "creator": ["Jane Doe", "John Smith"],
+  "creators": [
+    { "name": "Jane Doe", "orcid": "0000-0001-2345-6789", "affiliation": "Acme Research" },
+    { "name": "John Smith", "email": "jsmith@example.org" }
+  ]
+}
+```
+
+`creator` remains the required field; `creators` is an optional enrichment. When both are present their entries SHOULD agree in order and name, with `creator` carrying the canonical primacy order. Only the flat `creator` names enter the document hash (section 6.1); the structured `creators` fields are excluded and therefore unauthenticated (section 6.2).
 
 #### 3.3.3 subject
 
@@ -384,20 +399,35 @@ A term that is absent or wholly empty (`""`/`[]`) is omitted from the projection
 
 ### 6.2 Excluded from Hash
 
-These terms are NOT included (they're administrative):
+These terms are NOT part of the hashed metadata projection (they are administrative):
 
 - `date` (changes frequently)
 - `publisher`
-- `identifier` (circular dependency)
+- `identifier` (avoids the circular dependency of naming a hash-derived id inside the hashed input)
 - `rights` (may be updated)
+- `creators` (the structured author identity — ORCID, affiliation, email — beyond the hashed flat `creator` names)
+
+**Security — these fields are unauthenticated.** They sit outside the document-hash
+projection, and the Dublin Core file itself is referenced by path only (the manifest
+carries no hash for it — Security Extension, section 9.8). So on a `frozen` or
+`published` document an excluded field can be rewritten without changing the document
+ID or breaking any signature: `rights` flipped to defeat a licensing gate, `publisher`
+set to impersonate a source, `identifier` swapped to redirect a DOI or citation, `date`
+backdated, or the structured `creators` rewritten to add a prestigious co-author or swap
+an ORCID to impersonate — none of which touches the hashed flat `creator` names, so
+nothing forces a consumer to cross-check the two. A verifier or consumer MUST NOT treat
+`date`, `publisher`, `identifier`, `rights`, or the structured `creators` identity
+(ORCID/affiliation/email) as authenticated on the strength of a valid signature — this
+is the metadata case of a signature's negative coverage (Security Extension, section 9.8).
 
 ### 6.3 Rationale
 
-Including semantic metadata in the hash ensures that:
+Including the projected semantic terms (section 6.1) in the hash ensures that:
 
 - Document identity reflects what it's about
 - Title changes create new document versions
-- Author attribution is cryptographically bound
+- The projected `creator` attribution is cryptographically bound — but only that
+  projection; the administrative fields in section 6.2 are not (see the caveat there)
 
 ## 7. Metadata Validation
 

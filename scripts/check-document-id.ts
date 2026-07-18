@@ -92,6 +92,24 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
     continue;
   }
 
+  // §3.3: `hashAlgorithm`, when present, MUST equal the id's algorithm prefix.
+  // The id is computed with algorithmOf(manifest.id) below, so a manifest whose
+  // advertised hashAlgorithm disagreed with its id prefix would recompute cleanly
+  // yet mislead any verifier that keys the digest algorithm off hashAlgorithm.
+  if (manifest.hashAlgorithm !== undefined) {
+    let idAlgorithm: string;
+    try {
+      idAlgorithm = algorithmOf(manifest.id);
+    } catch (err) {
+      fail(`${name} — cannot derive id algorithm: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+    if (manifest.hashAlgorithm !== idAlgorithm) {
+      fail(`${name} — manifest.hashAlgorithm (${JSON.stringify(manifest.hashAlgorithm)}) does not equal the id prefix (${idAlgorithm})`);
+      continue;
+    }
+  }
+
   const read = (rel: string): string => fs.readFileSync(path.join(dir, rel), 'utf8');
   let id: string;
   try {

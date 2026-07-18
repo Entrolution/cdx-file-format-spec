@@ -59,6 +59,24 @@ if (!boundSeen.has(true) || !boundSeen.has(false)) fail('vectors must exercise b
 const merkleSeen = new Set(timestampVectors.filter((v) => v.expected.merkleVerified !== undefined).map((v) => v.expected.merkleVerified));
 if (!merkleSeen.has(true) || !merkleSeen.has(false)) fail('vectors must exercise both a verified and a failed Merkle recomputation');
 
+// Defence-in-depth: an over-long Merkle path is a compute-DoS vector — the
+// library must reject it outright rather than fold every element. This backs the
+// `proof.path` maxItems in provenance.schema.json for callers that reach the
+// library without schema validation.
+{
+  const h = 'sha256:' + 'a'.repeat(64);
+  const overLong = Array.from({ length: 257 }, () => ({ position: 'left', hash: h }));
+  const r = checkTimestampBinding(
+    { type: 'aggregated', hash: h, merkleRoot: h, proof: { documentHash: h, path: overLong } },
+    h,
+  );
+  if (r.merkleVerified !== false || !r.problems.some((p) => /exceeds maximum/.test(p))) {
+    fail(`over-long Merkle path (257) must be rejected by the path-length cap (got ${JSON.stringify(r.problems)})`);
+  } else {
+    console.log('  ✓ over-long Merkle path (257) rejected by the path-length cap');
+  }
+}
+
 // --- Part 2: corpus grounding ----------------------------------------------
 console.log('\nCorpus provenance-timestamp grounding:');
 const examplesDir = path.join(__dirname, '..', 'examples');

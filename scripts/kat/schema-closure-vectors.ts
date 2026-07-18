@@ -40,6 +40,8 @@ export const CLOSED_SCHEMAS: string[] = [
   'legal.schema.json',
   'forms.schema.json',
   'phantoms.schema.json',
+  'annotations.schema.json',
+  'anchor.schema.json',
 ];
 
 // A syntactically valid algorithm-prefixed digest for hash-typed fields.
@@ -95,8 +97,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'asset-index.schema.json',
     ref: '#/$defs/imageVariant',
     description: 'imageVariant',
-    validInstance: { path: 'img-2x.png', width: 2, size: 10 },
-    invalidInstance: { path: 'img-2x.png', width: 2, size: 10, bogus: 1 },
+    validInstance: { path: 'img-2x.png', width: 2, size: 10, hash: HASH },
+    invalidInstance: { path: 'img-2x.png', width: 2, size: 10, hash: HASH, bogus: 1 },
   },
   {
     schema: 'asset-index.schema.json',
@@ -173,8 +175,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'precise-layout.schema.json',
     ref: '#/$defs/linePrecision',
     description: 'linePrecision',
-    validInstance: { number: 1, y: '0', height: '1em' },
-    invalidInstance: { number: 1, y: '0', height: '1em', bogus: 1 },
+    validInstance: { number: 1, y: '0', height: '0.2in' },
+    invalidInstance: { number: 1, y: '0', height: '0.2in', bogus: 1 },
   },
   {
     schema: 'precise-layout.schema.json',
@@ -283,6 +285,20 @@ export const closureVectors: ClosureVector[] = [
     description: 'pageElement',
     validInstance: { blockId: 'b1', position: { x: '0', y: '0', width: '1in' } },
     invalidInstance: { blockId: 'b1', position: { x: '0', y: '0', width: '1in' }, bogus: 1 },
+  },
+  {
+    schema: 'presentation.schema.json',
+    ref: '#/$defs/flowElement',
+    description: 'flowElement',
+    validInstance: { type: 'flow', blockIds: ['b1'], regions: [{ page: 1, position: { x: '0', y: '0', width: '1in' } }] },
+    invalidInstance: { type: 'flow', blockIds: ['b1'], regions: [{ page: 1, position: { x: '0', y: '0', width: '1in' } }], bogus: 1 },
+  },
+  {
+    schema: 'presentation.schema.json',
+    ref: '#/$defs/flowElement/properties/regions/items',
+    description: 'flowElement region item',
+    validInstance: { page: 1, position: { x: '0', y: '0', width: '1in' } },
+    invalidInstance: { page: 1, position: { x: '0', y: '0', width: '1in' }, bogus: 1 },
   },
   {
     schema: 'presentation.schema.json',
@@ -533,8 +549,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'presentation.schema.json',
     ref: '#/$defs/indexMark',
     description: 'indexMark',
-    validInstance: { type: 'index', term: 'entropy' },
-    invalidInstance: { type: 'index', term: 'entropy', bogus: 1 },
+    validInstance: { type: 'presentation:index', term: 'entropy' },
+    invalidInstance: { type: 'presentation:index', term: 'entropy', bogus: 1 },
   },
   {
     schema: 'presentation.schema.json',
@@ -621,8 +637,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'manifest.schema.json',
     ref: '#/$defs/assetCategory',
     description: 'assetCategory',
-    validInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json' },
-    invalidInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', bogus: 1 },
+    validInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', hash: HASH },
+    invalidInstance: { count: 1, totalSize: 100, index: 'assets/images/index.json', hash: HASH, bogus: 1 },
   },
   {
     schema: 'manifest.schema.json',
@@ -671,18 +687,11 @@ export const closureVectors: ClosureVector[] = [
     schema: 'manifest.schema.json',
     ref: '#/properties/assets',
     description: 'manifest.assets map (open category key, value constrained)',
-    validInstance: { images: { count: 1, totalSize: 1, index: 'assets/images/index.json' }, customcat: { count: 0, totalSize: 0, index: 'assets/customcat/index.json' } },
+    validInstance: { images: { count: 1, totalSize: 1, index: 'assets/images/index.json', hash: HASH }, customcat: { count: 0, totalSize: 0, index: 'assets/customcat/index.json', hash: HASH } },
     invalidInstance: { images: { count: 1 } },
   },
 
-  // --- security (Phase 3 closed most of this; register + teeth-test, prioritising the no-example encryption/ACL/algorithm shapes) ---
-  {
-    schema: 'security.schema.json',
-    ref: '#/$defs/algorithmStatus',
-    description: 'algorithmStatus + inner per-algorithm objects',
-    validInstance: { ES256: { status: 'required' }, 'ML-DSA-65': { status: 'experimental', note: 'post-quantum' } },
-    invalidInstance: { ES256: { status: 'required', bogus: 1 } },
-  },
+  // --- security (Phase 3 closed most of this; register + teeth-test, prioritising the no-example encryption/ACL shapes) ---
   {
     schema: 'security.schema.json',
     ref: '#/$defs/signaturesFile',
@@ -706,10 +715,17 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'security.schema.json',
+    ref: '#/$defs/accessControlFile',
+    description: 'accessControlFile (versioned access-control policy)',
+    validInstance: { version: '1.0', accessControl: { default: { view: true, print: false }, permissions: [{ principal: 'user:jane@example.com', grants: { view: true, edit: false } }] } },
+    invalidInstance: { version: '1.0', accessControl: { default: { view: true } }, bogus: 1 },
+  },
+  {
+    schema: 'security.schema.json',
     ref: '#/$defs/encryptionFile',
     description: 'encryptionFile (no example coverage)',
-    validInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' } },
-    invalidInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }, bogus: 1 },
+    validInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: [{ iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }] },
+    invalidInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: [{ iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }], bogus: 1 },
   },
   {
     schema: 'security.schema.json',
@@ -720,8 +736,8 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'security.schema.json',
-    ref: '#/$defs/encryptedContent',
-    description: 'encryptedContent (no example coverage)',
+    ref: '#/$defs/encryptedPart',
+    description: 'encryptedPart (no example coverage)',
     validInstance: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc' },
     invalidInstance: { iv: 'aaaa', tag: 'bbbb', path: 'content.enc', bogus: 1 },
   },
@@ -1303,11 +1319,34 @@ export const closureVectors: ClosureVector[] = [
     invalidInstance: 42,
   },
   {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/party',
+    description: 'caption party closed (name/role only)',
+    validInstance: { name: 'Oliver Brown, et al.', role: 'Plaintiff' },
+    invalidInstance: { name: 'Oliver Brown, et al.', role: 'Plaintiff', bogus: 1 },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/signatureBlockSigner',
+    description: 'signatureBlockSigner closed',
+    validInstance: { name: 'Thurgood Marshall', title: 'Counsel for Appellants', barNumber: '12345', firm: 'NAACP Legal Defense Fund' },
+    invalidInstance: { name: 'Thurgood Marshall', title: 'Counsel for Appellants', bogus: 1 },
+  },
+  {
     schema: 'forms.schema.json',
     ref: '#/$defs/validation',
     description: 'forms validation closed',
     validInstance: { required: true, minLength: 1, message: 'required' },
     invalidInstance: { required: true, bogus: 1 },
+  },
+  {
+    schema: 'forms.schema.json',
+    ref: '#/$defs/dataFile',
+    description: 'forms dataFile closed; per-form values map stays open',
+    // values is keyed by form id and each form's value bag carries arbitrary field
+    // names (open) — a form entry MUST accept them; teeth via a stray top-level key.
+    validInstance: { version: '0.1', values: { 'registration-form': { email: 'a@b.c', anyField: 1 } }, submitted: { 'registration-form': false } },
+    invalidInstance: { version: '0.1', values: { 'registration-form': { email: 'a@b.c' } }, bogus: 1 },
   },
   {
     schema: 'semantic.schema.json',
@@ -1614,5 +1653,32 @@ export const closureVectors: ClosureVector[] = [
     description: 'glossary sort is an open vocabulary (a non-enumerated order accepted); a non-string is rejected',
     validInstance: { type: 'semantic:glossary', sort: 'reverse-alphabetical' },
     invalidInstance: { type: 'semantic:glossary', sort: 42 },
+  },
+
+  // --- annotations / anchor (the unauthenticated annotation file and the shared
+  // definition library both close their objects; enrolled so a flipped closure is
+  // teeth-tested) --------------------------------------------------------------
+  {
+    schema: 'annotations.schema.json',
+    description: 'security/annotations.json root rejects unknown top-level keys',
+    validInstance: { version: '0.1', annotations: [] },
+    invalidInstance: { version: '0.1', annotations: [], bogus: 1 },
+  },
+  {
+    schema: 'anchor.schema.json',
+    ref: '#/$defs/contentAnchor',
+    description: 'ContentAnchor rejects unknown keys (a stray key alongside a range anchor)',
+    validInstance: { blockId: 'intro', start: 10, end: 25 },
+    invalidInstance: { blockId: 'intro', start: 10, end: 25, bogus: 1 },
+  },
+  // Phantom content excludes active forms:* blocks — a phantom layer is out-of-hash
+  // and must not carry a credential-phishing surface (Renderer Safety §6). A normal
+  // block passes; an otherwise-valid forms:submit block is rejected by the exclusion.
+  {
+    schema: 'phantoms.schema.json',
+    ref: '#/$defs/phantomContent',
+    description: 'phantom content accepts a normal block but rejects an active forms:* block',
+    validInstance: { blocks: [{ type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'x' }] }] },
+    invalidInstance: { blocks: [{ type: 'forms:submit' }] },
   },
 ];

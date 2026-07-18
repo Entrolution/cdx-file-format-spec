@@ -1,0 +1,32 @@
+{
+  "version": "0.1",
+  "presentationType": "precise",
+  "targetFormat": "letter",
+  "pageSize": {
+    "width": "8.5in",
+    "height": "11in"
+  },
+  "contentHash": "sha256:b4dc0192ce7e82b20cd890c3707ec31bc2ac7274576995c4ee982bc7c403eb82",
+  "generatedAt": "2025-02-01T09:00:00Z",
+  "pages": [
+    {
+      "number": 1,
+      "elements": [
+        {
+          "blockId": "title",
+          "x": "1in",
+          "y": "1in",
+          "width": "6.5in",
+          "height": "0.5in"
+        },
+        {
+          "blockId": "body",
+          "x": "1in",
+          "y": "1.75in",
+          "width": "6.5in",
+          "height": "8in"
+        }
+      ]
+    }
+  ]
+}

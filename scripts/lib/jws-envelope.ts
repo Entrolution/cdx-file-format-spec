@@ -30,7 +30,7 @@
  * stored string via `jwsSigningInput`.
  */
 
-import { jcsOf } from './canonicalize.js';
+import { jcsOf, parseStrictJson } from './canonicalize.js';
 
 /** Thrown for a malformed JWS envelope or protected header. */
 export class JwsEnvelopeError extends Error {
@@ -73,11 +73,18 @@ export function base64url(bytes: Buffer | string): string {
 }
 
 export function base64urlDecode(value: string): Buffer {
-  if (!/^[A-Za-z0-9_-]*$/.test(value)) {
+  // A base64url length of (len % 4 === 1) cannot encode any byte string — it would
+  // truncate silently through Buffer's lenient decode, so reject it explicitly.
+  if (!/^[A-Za-z0-9_-]*$/.test(value) || value.length % 4 === 1) {
     throw new JwsEnvelopeError(`value is not base64url: ${JSON.stringify(value)}`);
   }
   return Buffer.from(value, 'base64url');
 }
+
+/** A base64url-encoded SHA-256 thumbprint: 32 bytes → 43 unpadded base64url chars (jkt, x5t#S256). */
+const BASE64URL_THUMBPRINT = /^[A-Za-z0-9_-]{43}$/;
+/** A well-formed ISO 8601 date-time with a UTC `Z` or numeric offset (JAdES `sigT`). */
+const ISO8601_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
 // ---------------------------------------------------------------------------
 // Protected header
@@ -97,7 +104,9 @@ export function encodeProtectedHeader(header: Record<string, unknown>): string {
 export function decodeProtectedHeader(protectedB64url: string): Record<string, unknown> {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(base64urlDecode(protectedB64url).toString('utf8'));
+    // parseStrictJson (not JSON.parse) so a duplicate header key is rejected, matching
+    // the canonicalizer's duplicate-key MUST rather than silently taking last-wins.
+    parsed = parseStrictJson(base64urlDecode(protectedB64url).toString('utf8'));
   } catch (err) {
     throw new JwsEnvelopeError(`protected header is not valid base64url JSON: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -218,7 +227,7 @@ function validateDidWebPathSegment(seg: string): void {
  * elsewhere (see validateProtectedHeader).
  */
 function validateJkt(jkt: unknown): void {
-  if (typeof jkt !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(jkt)) {
+  if (typeof jkt !== 'string' || !BASE64URL_THUMBPRINT.test(jkt)) {
     throw new JwsEnvelopeError('protected header "jkt" must be a base64url RFC 7638 SHA-256 thumbprint (43 chars)');
   }
 }
@@ -247,9 +256,10 @@ export function validateProtectedHeader(header: Record<string, unknown>): void {
   if (!Array.isArray(header.crit) || header.crit.length !== 1 || header.crit[0] !== 'b64') {
     throw new JwsEnvelopeError('protected header "crit" must be exactly ["b64"]');
   }
-  // Signing time — required on every credential path.
-  if (typeof header.sigT !== 'string' || header.sigT.length === 0) {
-    throw new JwsEnvelopeError('protected header "sigT" (signing time) must be present');
+  // Signing time — required on every credential path, and a well-formed ISO 8601
+  // instant (§3.7 step 3a): a `sigT` of "banana" or "2025" is malformed, not a time.
+  if (typeof header.sigT !== 'string' || !ISO8601_DATETIME.test(header.sigT) || Number.isNaN(Date.parse(header.sigT))) {
+    throw new JwsEnvelopeError('protected header "sigT" (signing time) must be a well-formed ISO 8601 timestamp');
   }
 
   // Exactly one credential path: X.509 (x5c + x5t#S256) XOR keyId (kid) — §3.4.
@@ -284,8 +294,8 @@ export function validateProtectedHeader(header: Record<string, unknown>): void {
     if (!Array.isArray(header.x5c) || header.x5c.length === 0 || !header.x5c.every((c) => typeof c === 'string' && c.length > 0)) {
       throw new JwsEnvelopeError('protected header "x5c" must be a non-empty array of base64 DER certificate strings');
     }
-    if (typeof header['x5t#S256'] !== 'string' || header['x5t#S256'].length === 0) {
-      throw new JwsEnvelopeError('protected header "x5t#S256" (signing-certificate thumbprint) must be present');
+    if (typeof header['x5t#S256'] !== 'string' || !BASE64URL_THUMBPRINT.test(header['x5t#S256'])) {
+      throw new JwsEnvelopeError('protected header "x5t#S256" must be a base64url SHA-256 thumbprint (43 chars)');
     }
   }
 }

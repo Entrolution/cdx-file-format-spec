@@ -9,54 +9,6 @@
       "description": "Supported signature algorithms",
       "enum": ["ES256", "ES384", "EdDSA", "PS256", "ML-DSA-65"]
     },
-    "algorithmStatus": {
-      "type": "object",
-      "description": "Algorithm status metadata for implementation guidance",
-      "properties": {
-        "ES256": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "required" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "ES384": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "recommended" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "EdDSA": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "recommended" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "PS256": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "optional" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "ML-DSA-65": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "experimental" },
-            "note": { "type": "string" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
     "contentEncryptionAlgorithm": {
       "type": "string",
       "description": "Content encryption algorithms",
@@ -165,14 +117,14 @@
         },
         "presentation": {
           "type": "array",
-          "description": "Presentation declaration: each presentation part's type, path and hash, plus the default-selection flag on the default entry",
+          "description": "Presentation declaration: each presentation part's type, path and hash, plus the default-selection flag on the default entry. A `precise` entry binds a precise-layout file's hash, so a declared precise layout is attested by a manifest-covering signature (section 9.7).",
           "items": {
             "type": "object",
             "required": ["type", "path", "hash"],
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["paginated", "continuous", "responsive"]
+                "enum": ["paginated", "continuous", "responsive", "precise"]
               },
               "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
               "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" },
@@ -195,6 +147,42 @@
             },
             "additionalProperties": false
           }
+        },
+        "configFiles": {
+          "type": "array",
+          "description": "Extension-config file references ({path, hash}) declared in the top-level academic/semantic/legal/collaboration config slots, projected verbatim and sorted by JCS with duplicate paths collapsed (section 9.7). Binds auxiliary files that sit outside the document hash (e.g. academic numbering, semantic bibliography/glossary) so their content is attested. Omitted when empty.",
+          "items": {
+            "type": "object",
+            "required": ["path", "hash"],
+            "properties": {
+              "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+              "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "assets": {
+          "type": "array",
+          "description": "Asset-index references ({path, hash}) — the index file of each category declared in manifest.assets, projected as {path: index, hash} and sorted by JCS with duplicate paths collapsed (section 9.7). Each index enumerates every asset's (and image variant's) hash, so hash-pinning the index transitively binds assets that sit outside the document hash — notably fonts (referenced by family name from the presentation) and image variants (selected by display size). Omitted when empty.",
+          "items": {
+            "type": "object",
+            "required": ["path", "hash"],
+            "properties": {
+              "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+              "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "accessControl": {
+          "type": "object",
+          "description": "Access-control policy reference ({path, hash}) projected from manifest.security.accessControl (section 9.9) — the one security-block reference bound into the projection, so a manifest-covering signature attests the access-control policy. Only {path, hash} is bound; advisory storage hints are dropped. Omitted when absent.",
+          "required": ["path", "hash"],
+          "properties": {
+            "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          },
+          "additionalProperties": false
         },
         "lineage": {
           "type": "object",
@@ -244,8 +232,8 @@
         "y": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
       },
       "oneOf": [
-        { "properties": { "kty": { "const": "EC" } }, "required": ["y"] },
-        { "properties": { "kty": { "const": "OKP" } }, "not": { "required": ["y"] } }
+        { "properties": { "kty": { "const": "EC" }, "crv": { "enum": ["P-256", "P-384"] } }, "required": ["y"] },
+        { "properties": { "kty": { "const": "OKP" }, "crv": { "const": "Ed25519" } }, "not": { "required": ["y"] } }
       ],
       "additionalProperties": false
     },
@@ -394,17 +382,27 @@
         "ephemeralPublicKey": {
           "description": "Base64-encoded ephemeral public key (for ECDH)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
+        },
+        "p2s": {
+          "description": "PBES2 salt input (base64url), REQUIRED when keyManagement is PBES2-HS256+A256KW (RFC 7518 section 4.8). At least 8 octets (11 base64url chars) and unique per document; without it, offline password cracking can be precomputed across documents.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64",
+          "minLength": 11
+        },
+        "p2c": {
+          "type": "integer",
+          "description": "PBES2 iteration count, REQUIRED when keyManagement is PBES2-HS256+A256KW. MUST be at least 600000 (OWASP PBKDF2-HMAC-SHA256 guidance) and SHOULD be raised over time; a low count makes brute-force cheap.",
+          "minimum": 600000
         }
       },
       "additionalProperties": false
     },
-    "encryptedContent": {
+    "encryptedPart": {
       "type": "object",
-      "description": "Encrypted content reference",
+      "description": "One encrypted part: its ciphertext file plus the AEAD iv and authentication tag. The iv MUST be unique per encryption under the content-encryption key (Security Extension README section 4.6); reusing an (key, iv) pair is a catastrophic AEAD misuse that breaks both confidentiality and integrity.",
       "required": ["iv", "tag", "path"],
       "properties": {
         "iv": {
-          "description": "Base64-encoded initialization vector",
+          "description": "Base64-encoded AEAD nonce / initialization vector, unique per (key, encryption)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "tag": {
@@ -412,11 +410,18 @@
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/base64"
         },
         "path": {
-          "description": "Path to encrypted file (typically with .enc suffix)",
+          "description": "Path to the encrypted file (typically with a .enc suffix)",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
         }
       },
       "additionalProperties": false
+    },
+    "encryptedContent": {
+      "type": "array",
+      "description": "The encrypted parts — one per encrypted file (the content file, and optionally the Dublin Core metadata, README section 4.4). Each part MUST carry its own unique iv (README section 4.6); the schema does not enforce iv uniqueness.",
+      "items": { "$ref": "#/$defs/encryptedPart" },
+      "minItems": 1,
+      "uniqueItems": true
     },
     "encryptionFile": {
       "type": "object",
@@ -446,7 +451,22 @@
           "$ref": "#/$defs/encryptedContent"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["keyManagement"],
+            "properties": { "keyManagement": { "const": "PBES2-HS256+A256KW" } }
+          },
+          "then": {
+            "properties": {
+              "recipients": {
+                "items": { "required": ["id", "encryptedKey", "p2s", "p2c"] }
+              }
+            }
+          }
+        }
+      ]
     },
     "permission": {
       "type": "object",
@@ -516,10 +536,25 @@
         }
       },
       "additionalProperties": false
+    },
+    "accessControlFile": {
+      "type": "object",
+      "description": "Schema for a security/access-control.json file: a versioned wrapper around an accessControl policy. Referenced from manifest.security.accessControl as a {path, hash}; a manifest-covering signature attests that hash through the manifest projection (security extension section 9.9), so the policy cannot be swapped while a signature verifies. The policy is advisory authorization guidance — CDX binds its integrity, not its enforcement; a consumer applies it at its own discretion.",
+      "required": ["version", "accessControl"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Security extension version",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "accessControl": { "$ref": "#/$defs/accessControl" }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
     { "$ref": "#/$defs/signaturesFile" },
-    { "$ref": "#/$defs/encryptionFile" }
+    { "$ref": "#/$defs/encryptionFile" },
+    { "$ref": "#/$defs/accessControlFile" }
   ]
 }

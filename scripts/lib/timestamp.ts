@@ -31,6 +31,9 @@ const IMPRINT_HASHES: Record<string, string> = {
   'sha512': 'sha512',
 };
 
+/** JOSE base64url alphabet (RFC 7515) — no '.', so it cannot collide with the imprint delimiter. */
+const BASE64URL = /^[A-Za-z0-9_-]*$/;
+
 export class TimestampError extends Error {
   constructor(message: string) {
     super(message);
@@ -45,9 +48,20 @@ export class TimestampError extends Error {
  * A verifier compares this to the token's `messageImprint.hashedMessage`.
  */
 export function signatureTimestampImprint(protectedB64: string, signatureB64: string, hashAlg = 'sha256'): string {
-  const node = IMPRINT_HASHES[hashAlg];
-  if (node === undefined) {
+  // Object.hasOwn, not `IMPRINT_HASHES[hashAlg] === undefined`: a hashAlg of
+  // '__proto__'/'constructor' resolves to an inherited value (truthy), bypassing the
+  // undefined check and reaching crypto.createHash with a non-string → a raw
+  // TypeError instead of the module's TimestampError.
+  if (!Object.hasOwn(IMPRINT_HASHES, hashAlg)) {
     throw new TimestampError(`unsupported imprint hash algorithm "${hashAlg}"`);
+  }
+  const node = IMPRINT_HASHES[hashAlg];
+  // The '.' join is injective ONLY if the members are delimiter-free. JOSE base64url
+  // contains no '.', so enforce it: otherwise imprint('AAA','BBB.CCC') would equal
+  // imprint('AAA.BBB','CCC'), letting one token bind two different (protected,
+  // signature) pairs and defeating the "this record" binding (B4-M8-SEC-03).
+  if (!BASE64URL.test(protectedB64) || !BASE64URL.test(signatureB64)) {
+    throw new TimestampError('protected and signature members must be base64url (the imprint delimiter "." must not appear in a member)');
   }
   const message = `${protectedB64}.${signatureB64}`;
   return crypto.createHash(node).update(message, 'utf8').digest('hex');

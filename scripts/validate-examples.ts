@@ -17,6 +17,8 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
+import { CONFIG_SLOTS } from './lib/config-slots.js';
+import { parseStrictJson, KNOWN_ALGORITHMS } from './lib/canonicalize.js';
 
 const examplesDir = path.join(__dirname, '..', 'examples');
 
@@ -66,7 +68,7 @@ for (const exampleName of exampleDirs) {
 
     let data: unknown;
     try {
-      data = JSON.parse(fs.readFileSync(path.join(examplePath, relPath), 'utf8'));
+      data = parseStrictJson(fs.readFileSync(path.join(examplePath, relPath), 'utf8'));
     } catch (err) {
       console.log(`  ✗ ${relPath} — parse error: ${err instanceof Error ? err.message : String(err)}`);
       hasErrors = true;
@@ -103,8 +105,20 @@ for (const exampleName of exampleDirs) {
   // check:document-id gate (scripts/check-document-id.ts).
   const manifestPath = path.join(examplePath, 'manifest.json');
   if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifest = parseStrictJson(fs.readFileSync(manifestPath, 'utf8')) as any;
     const algo: string = manifest.hashAlgorithm ?? 'sha256';
+
+    // Fail closed on an unrecognized file-hash algorithm: `algo` selects the digest
+    // used for the content/presentation file hashes below, and crypto.createHash
+    // would silently accept host-only names the format forbids (md5, sha1). Constrain
+    // it to the CDX algorithm set (lib/canonicalize / anchor.schema contentHash) up
+    // front, so an out-of-set hashAlgorithm is reported here rather than hashing under
+    // a disallowed algorithm. (blake3 is in-set but Node-unavailable; that remains
+    // caught per-hash below, at the point of use.)
+    if (!KNOWN_ALGORITHMS.includes(algo)) {
+      console.log(`  ✗ manifest hashAlgorithm ${JSON.stringify(manifest.hashAlgorithm)} is not a recognized CDX hash algorithm (allowed: ${KNOWN_ALGORITHMS.join(', ')})`);
+      hasErrors = true;
+    }
 
     // Path-only references that must resolve on disk.
     const pathRefs: Array<[string, unknown]> = [
@@ -133,9 +147,18 @@ for (const exampleName of exampleDirs) {
     // Extension config file references ({path, hash}) — bound by the manifest
     // projection, so a declared hash must match the referenced file, the same
     // invariant content/presentation hold.
-    for (const slot of ['academic', 'semantic', 'legal', 'collaboration']) {
+    for (const slot of Object.keys(CONFIG_SLOTS)) {
       const collectRefs = (v: unknown, label: string): void => {
-        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+        // Recurse into array elements too: a {path, hash} reference nested inside an
+        // array (e.g. a slot holding a list of referenced files) is bound by the
+        // manifest projection exactly like one nested inside an object, and the
+        // projector (lib/canonicalize.ts canon) already recurses arrays — mirror it
+        // so an array-nested reference cannot go hash-unverified.
+        if (Array.isArray(v)) {
+          v.forEach((el, i) => collectRefs(el, `${label}[${i}]`));
+          return;
+        }
+        if (!v || typeof v !== 'object') return;
         const o = v as Record<string, unknown>;
         if (typeof o.path === 'string' && typeof o.hash === 'string') {
           hashRefs.push([`${label}.hash`, o.path, o.hash]);
@@ -169,11 +192,15 @@ for (const exampleName of exampleDirs) {
       }
     }
 
-    // Asset-index hashes: each registered asset's declared hash must equal the
-    // raw hash of its on-disk bytes (archive path = assets/<category>/<entry path>,
-    // matching the canonicalizer). The document id binds these hashes (Document
-    // Hashing §4.3.1), so a wrong asset hash would silently change the id.
-    for (const [category, cat] of Object.entries<{ index?: string }>(manifest.assets ?? {})) {
+    // Asset-index hashes. Two bindings are checked. (1) The manifest's
+    // assets.<category>.hash MUST equal the raw hash of the index file: hash-pinning
+    // the index is what lets the signed manifest projection transitively attest the
+    // whole category, fonts and image variants included (Security Extension §9.7).
+    // (2) Each registered asset's — and each image variant's — declared hash MUST
+    // equal the raw hash of its on-disk bytes (archive path = assets/<category>/<entry
+    // path>, matching the canonicalizer). A displayed image variant carries its own
+    // binding because a renderer shows the variant, not the parent (§4.3).
+    for (const [category, cat] of Object.entries<{ index?: string; hash?: string }>(manifest.assets ?? {})) {
       const indexRel = cat?.index;
       if (typeof indexRel !== 'string') continue;
       if (!fs.existsSync(path.join(examplePath, indexRel))) {
@@ -181,38 +208,66 @@ for (const exampleName of exampleDirs) {
         hasErrors = true;
         continue;
       }
-      let index: { assets?: Array<{ path?: string; hash?: string }> };
+      const indexBytes = fs.readFileSync(path.join(examplePath, indexRel));
+
+      // (1) Index hash-pin.
+      if (typeof cat.hash === 'string') {
+        const indexAlgo = cat.hash.split(':')[0];
+        try {
+          const actual = `${indexAlgo}:${crypto.createHash(indexAlgo).update(indexBytes).digest('hex')}`;
+          if (actual === cat.hash) {
+            console.log(`  ✓ manifest assets.${category}.hash (${indexRel})`);
+          } else {
+            console.log(`  ✗ manifest assets.${category}.hash (${indexRel}) — hash mismatch`);
+            console.log(`      declared ${cat.hash}`);
+            console.log(`      actual   ${actual}`);
+            hasErrors = true;
+          }
+        } catch (err) {
+          console.log(`  ✗ manifest assets.${category}.hash (${indexRel}) — cannot hash with '${indexAlgo}': ${err instanceof Error ? err.message : String(err)}`);
+          hasErrors = true;
+        }
+      }
+
+      // (2) Each asset entry's own file, then each of its image variants.
+      let index: { assets?: Array<{ path?: string; hash?: string; variants?: Array<{ path?: string; hash?: string }> }> };
       try {
-        index = JSON.parse(fs.readFileSync(path.join(examplePath, indexRel), 'utf8'));
+        index = parseStrictJson(indexBytes.toString('utf8')) as typeof index;
       } catch (err) {
         console.log(`  ✗ ${indexRel} — parse error: ${err instanceof Error ? err.message : String(err)}`);
         hasErrors = true;
         continue;
       }
       for (const entry of index.assets ?? []) {
-        if (typeof entry?.path !== 'string' || typeof entry?.hash !== 'string') continue;
-        const assetRel = `assets/${category}/${entry.path}`;
-        if (!fs.existsSync(path.join(examplePath, assetRel))) {
-          console.log(`  ✗ asset ${assetRel} (file missing)`);
-          hasErrors = true;
-          continue;
-        }
-        const assetAlgo = entry.hash.split(':')[0];
-        let actual: string;
-        try {
-          actual = `${assetAlgo}:${crypto.createHash(assetAlgo).update(fs.readFileSync(path.join(examplePath, assetRel))).digest('hex')}`;
-        } catch (err) {
-          console.log(`  ✗ asset ${assetRel} — cannot hash with '${assetAlgo}': ${err instanceof Error ? err.message : String(err)}`);
-          hasErrors = true;
-          continue;
-        }
-        if (actual === entry.hash) {
-          console.log(`  ✓ asset ${assetRel}`);
-        } else {
-          console.log(`  ✗ asset ${assetRel} — hash mismatch`);
-          console.log(`      declared ${entry.hash}`);
-          console.log(`      actual   ${actual}`);
-          hasErrors = true;
+        const files: Array<[string, string | undefined, string | undefined]> = [
+          ['asset', entry?.path, entry?.hash],
+          ...(entry?.variants ?? []).map((v): [string, string | undefined, string | undefined] => ['asset variant', v?.path, v?.hash]),
+        ];
+        for (const [kind, entryPath, entryHash] of files) {
+          if (typeof entryPath !== 'string' || typeof entryHash !== 'string') continue;
+          const assetRel = `assets/${category}/${entryPath}`;
+          if (!fs.existsSync(path.join(examplePath, assetRel))) {
+            console.log(`  ✗ ${kind} ${assetRel} (file missing)`);
+            hasErrors = true;
+            continue;
+          }
+          const assetAlgo = entryHash.split(':')[0];
+          let actual: string;
+          try {
+            actual = `${assetAlgo}:${crypto.createHash(assetAlgo).update(fs.readFileSync(path.join(examplePath, assetRel))).digest('hex')}`;
+          } catch (err) {
+            console.log(`  ✗ ${kind} ${assetRel} — cannot hash with '${assetAlgo}': ${err instanceof Error ? err.message : String(err)}`);
+            hasErrors = true;
+            continue;
+          }
+          if (actual === entryHash) {
+            console.log(`  ✓ ${kind} ${assetRel}`);
+          } else {
+            console.log(`  ✗ ${kind} ${assetRel} — hash mismatch`);
+            console.log(`      declared ${entryHash}`);
+            console.log(`      actual   ${actual}`);
+            hasErrors = true;
+          }
         }
       }
     }

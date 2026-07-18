@@ -60,7 +60,10 @@ Every block has the following base structure:
 | `type` | string | Yes | Block type identifier |
 | `id` | string | No | Unique block identifier within document |
 | `children` | array | Varies | Child nodes (blocks or text) |
-| `attributes` | object | No | Type-specific attributes |
+| `attributes` | object | No | Standard block attributes (closed set — see below) |
+| `crdt` | object | No | Transient CRDT synchronization state for the collaboration extension. Library-specific and intentionally open; stripped before the document hash is computed (Document Hashing section 4.3.1), so it never affects the document ID or any signature. |
+
+The `attributes` object is a closed set. It accepts only `dir`, `lang`, and `writingMode` (Internationalization, section 6.1), `style` (a named style resolved by the presentation layer), and `semantic` (a JSON-LD annotation for the block, per the Semantic extension). No other keys are permitted; `attributes` is not an open container for arbitrary type-specific fields.
 
 ### 3.2 Block Identifiers
 
@@ -73,7 +76,7 @@ Block IDs:
 - SHOULD be stable across edits in DRAFT state (for collaboration)
 - SHOULD use URL-safe characters
 
-Block IDs share the document-wide ID namespace with named anchor IDs (see Anchors and References specification). Block IDs and anchor IDs MUST be unique across both sets.
+Block IDs share one document-wide identifier namespace with named anchor IDs and with in-content sub-block IDs — academic equation-line IDs and subfigure IDs (see Anchors and References specification). Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line IDs, and subfigure IDs.
 
 ## 4. Core Block Types
 
@@ -106,7 +109,6 @@ Text nodes are the leaf nodes that contain actual text content.
 | `code` | Inline code (monospace) |
 | `superscript` | Superscript text |
 | `subscript` | Subscript text |
-| `anchor` | Named anchor point (see below and Anchors and References spec) |
 
 #### 4.1.1a Anchor Mark
 
@@ -363,10 +365,9 @@ For documents requiring stable, portable syntax highlighting, code blocks can in
 | `plain` | Plain text (default/fallback) |
 
 **Behavior:**
-- If `highlighting` is absent or `"none"`, renderers use the `children` text node (current behavior)
-- If `highlighting` is `"tokens"`, renderers use the `tokens` array for colored output
-- Renderers MAY re-highlight from `children` if they don't support the tokens format
-- The `children` field MUST always contain the complete source code for fallback and accessibility
+- The `children` text node is the **authoritative** source code: it is the only code content inside the document hash (a signature attests it), and MUST always contain the complete source code for rendering, fallback, and accessibility.
+- `tokens` is an out-of-hash presentation hint — regenerable syntax highlighting, stripped before hashing (Document Hashing section 4.3.1) and attested by no signature. A renderer MUST NOT take the displayed characters from `tokens`. When `highlighting` is `"tokens"`, a renderer MAY apply the tokens as a *styling overlay* on the `children` text only after verifying that the concatenation of the tokens' `value`s equals the `children` text (the single text node's `value`); on any mismatch — or when it does not support the tokens format — it MUST render `children`, regenerating highlighting from `children` + `language` or showing it unhighlighted. This prevents a tampered out-of-hash `tokens` array from displaying code that is absent from the signed `children` (for example an injected `curl … | sh`); see Renderer Safety section 6.
+- If `highlighting` is absent or `"none"`, renderers render the `children` text node directly.
 
 ### 4.8 Horizontal Rule
 
@@ -404,6 +405,7 @@ Embedded or referenced image.
 | `height` | integer | No | Intrinsic height in pixels |
 | `external` | boolean | No | When true, `src` is an external URL resolved at render time (left verbatim in the document ID) |
 | `fallback` | string | No | Archive-relative path to a packaged fallback image for an unavailable external `src` (left verbatim) |
+| `float` | object | No | Float positioning for this image (presentation extension) |
 
 Children: None (void element)
 
@@ -551,13 +553,13 @@ Line break within a block.
 
 Children: None (void element)
 
-Used for hard/forced line breaks within paragraphs.
+A `break` is a **block-level** element — a void block placed among other blocks to force a break in the block flow. A line break *within* a paragraph is a soft break (`\n` in a text value), not a `break` block: a paragraph's children are text nodes only (it cannot contain a `break`), as are the children of `heading`, `figcaption`, and `definitionTerm`.
 
 #### 4.14.1 Inline Breaks vs Block Breaks
 
 Text nodes MAY contain newline characters (`\n`) for soft line breaks. These represent inline breaks where the text flow continues but a line break is rendered. Soft breaks are typically used for poetry, addresses, or other content where line breaks are semantically meaningful but not paragraph separators.
 
-The `break` block represents a hard break — a forced line break that interrupts text flow. This is equivalent to HTML's `<br>` element.
+The `break` block represents a hard, block-level break — a standalone void block that forces a break in the block flow (for example between stanzas, or among the block children of a list item). It is not an inline element and does not appear inside a paragraph's text; an inline `<br>`-style line break within a paragraph is a soft break (`\n` in a text value).
 
 | Type | Representation | Use Case |
 |------|---------------|----------|
@@ -667,7 +669,7 @@ Semantic representation of a measurement with optional uncertainty and units. Us
 | `range` | Range format | 7.668–7.686 |
 | `percent` | Percentage | 7.677 ± 0.12% |
 
-The `display` field is REQUIRED for accessibility and fallback rendering. It SHOULD accurately represent the measurement as intended for human readers.
+The `display` field is REQUIRED for accessibility and fallback rendering, and SHOULD accurately represent the measurement as intended for human readers. It is, however, a **presentational convenience, not the authoritative value**: `display` is stripped before hashing (Document Hashing section 4.3.1) and attested by no signature, whereas the numeric `value` (with `unit`, `exponent`, `uncertainty`, and `uncertaintyNotation`) is hashed. A renderer MUST treat the hashed fields as the authoritative measurement and MUST NOT present a stored `display` as authoritative: it SHOULD regenerate the display from the hashed fields, and where it does show the stored string it MUST confirm the string is consistent with the hashed `value` and MUST NOT display a `display` that contradicts it. Otherwise a tampered out-of-hash `display` (e.g. `"9999 mm"` over a hashed `value` of `7.677`) would state a different quantity than the signed value; see Renderer Safety section 6.
 
 Children: None (void element)
 
@@ -702,6 +704,7 @@ Semantic representation of a signature with optional image, signer information, 
 | `timestamp` | string | No | ISO 8601 timestamp |
 | `purpose` | string | No | Purpose of the signature |
 | `digitalSignatureRef` | string | No | Reference to cryptographic signature |
+| `external` | boolean | No | When true, `image` is an external reference resolved at render time (left verbatim in the document ID) |
 
 #### 4.17.1 Signature Types
 
@@ -764,10 +767,11 @@ Alternative inline form:
 | `title` | string | No | Title/caption |
 | `width` | integer | No | Display width in pixels |
 | `height` | integer | No | Display height in pixels |
+| `external` | boolean | No | When true, `src` is an external reference resolved at render time (left verbatim in the document ID) |
 
 *Either `src` or `content` MUST be provided, but not both.
 
-For `src`, the path MUST be a relative path within the archive (e.g., `assets/graphics/chart.svg`) or a URL.
+For `src`, the path MUST be a relative path within the archive (e.g., `assets/graphics/chart.svg`) or a URL. When `external` is `true`, `src` is resolved at render time and left verbatim in the document ID. Unlike `image`, `svg` provides no `fallback` field, so an unavailable external SVG has no packaged backup.
 
 For `content`, the value MUST be a complete SVG element including the `xmlns` attribute.
 
@@ -856,6 +860,8 @@ Container for figures with optional captions. Figures group visual content (imag
 |-----------|------|----------|-------------|
 | `numbering` | string or integer | No | Figure numbering mode |
 | `subfigures` | array | No | Array of subfigure objects (alternative to children) |
+| `float` | object | No | Float positioning for this figure (presentation extension) |
+| `numberingConfig` | object | No | Extended figure numbering configuration (presentation extension) |
 
 #### 4.20.1 Numbering Values
 

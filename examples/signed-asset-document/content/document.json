@@ -1,0 +1,32 @@
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "title",
+      "level": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Brand Guidelines"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "id": "intro",
+      "children": [
+        {
+          "type": "text",
+          "value": "The approved brand logo and typeface are embedded with this document."
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "id": "logo",
+      "src": "assets/images/logo.png",
+      "alt": "Approved brand logo"
+    }
+  ]
+}

@@ -30,7 +30,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Unique block identifier"
+          "description": "Unique block identifier",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "attributes": {
           "$ref": "#/$defs/blockAttributes"
@@ -398,7 +399,7 @@
       "enum": [
         "bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript",
         "link", "anchor", "math", "citation", "footnote", "entity", "glossary",
-        "academic:theorem-ref", "academic:equation-ref", "academic:algorithm-ref", "index", "presentation:footnote", "legal:cite"
+        "academic:theorem-ref", "academic:equation-ref", "academic:algorithm-ref", "presentation:index", "presentation:footnote", "legal:cite"
       ]
     },
     "linkMark": {
@@ -509,6 +510,14 @@
               "items": { "$ref": "#/$defs/listItem" }
             }
           }
+        },
+        {
+          "$comment": "`start` (a starting ordinal) is meaningful only for ordered lists, so its presence requires ordered:true.",
+          "if": { "required": ["start"] },
+          "then": {
+            "required": ["ordered"],
+            "properties": { "ordered": { "const": true } }
+          }
         }
       ],
       "unevaluatedProperties": false
@@ -570,12 +579,19 @@
             },
             "tokens": {
               "type": "array",
-              "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens')",
+              "description": "Pre-tokenized syntax highlighting tokens (used when highlighting='tokens'). Out-of-hash and non-authoritative: stripped before hashing (Document Hashing 4.3.1) and attested by no signature, whereas the children text is the hashed, authoritative code. A renderer MUST take displayed characters from children and use tokens only as a styling overlay after confirming they reconstruct children (Renderer Safety 6).",
               "items": { "$ref": "#/$defs/highlightToken" }
             },
             "children": {
               "type": "array",
-              "items": { "$ref": "#/$defs/textNode" },
+              "description": "Exactly one marks-free text node carrying the complete, authoritative source (per Content Blocks: a code block's content is a single plain text node). marks are forbidden here; styling is supplied out-of-hash via `tokens`.",
+              "items": {
+                "allOf": [
+                  { "$ref": "#/$defs/textNode" },
+                  { "not": { "required": ["marks"] } }
+                ]
+              },
+              "minItems": 1,
               "maxItems": 1
             }
           }
@@ -646,8 +662,8 @@
               "description": "When true, `src` is an external reference (e.g. an absolute URL) resolved at render time and left verbatim in the canonical content; the image is not packaged in the archive (Document Hashing section 4.3.1)"
             },
             "fallback": {
-              "type": "string",
-              "description": "Archive-relative path to a packaged fallback image shown when an external `src` is unavailable; left verbatim in the canonical content, not resolved into the document ID (Document Hashing section 4.3.1)"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath",
+              "description": "Archive-relative path to a packaged fallback image shown when an external `src` is unavailable; constrained to the Zip-Slip-safe relativePath form (no absolute path, no '..' traversal, no URL). Left verbatim in the canonical content, not resolved into the document ID (Document Hashing section 4.3.1)"
             }
           }
         }
@@ -885,7 +901,7 @@
             },
             "display": {
               "type": "string",
-              "description": "Human-readable display string"
+              "description": "Human-readable display string. Presentational and out-of-hash: stripped before hashing (Document Hashing 4.3.1) and attested by no signature, so a renderer MUST NOT present it as authoritative — the hashed value/unit are the authoritative quantity and the display SHOULD be regenerated from them (Renderer Safety 6)."
             }
           }
         }
@@ -906,8 +922,8 @@
               "description": "Type of signature"
             },
             "image": {
-              "type": "string",
-              "description": "Path to signature image"
+              "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+              "description": "Signature image source — an archive-relative path, or an external reference resolved at render time when `external` is true. Constrained to safe image schemes (see the Renderer Safety core specification, section 2.2): https/relative or a data:image raster payload, excluding data:image/svg+xml (active content) and javascript:/data:text."
             },
             "signer": {
               "type": "object",

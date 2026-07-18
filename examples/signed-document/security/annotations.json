@@ -5,7 +5,7 @@
       "id": "ann-001",
       "type": "comment",
       "anchor": {
-        "blockId": "para-1",
+        "blockId": "parties",
         "start": 0,
         "end": 45
       },
@@ -17,7 +17,7 @@
       "id": "ann-002",
       "type": "highlight",
       "anchor": {
-        "blockId": "para-3"
+        "blockId": "signature-note"
       },
       "author": "John Editor",
       "created": "2025-01-13T11:30:00Z",
@@ -27,7 +27,7 @@
       "id": "ann-003",
       "type": "note",
       "anchor": {
-        "blockId": "heading-2",
+        "blockId": "scope-heading",
         "offset": 0
       },
       "author": "Jane Reviewer",

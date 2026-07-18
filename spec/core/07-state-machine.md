@@ -53,6 +53,8 @@ The document state is a contract between author and reader:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+The diagram is illustrative; the transition table (section 4.1) is authoritative for the complete set of transitions, including `revertToDraft()` (REVIEW → DRAFT) and `fork()` from any state carrying a computed `id`.
+
 ### 3.2 DRAFT
 
 The initial state for new documents.
@@ -137,10 +139,14 @@ Documents officially released for distribution.
 | DRAFT | REVIEW | `submitForReview()` | None |
 | REVIEW | DRAFT | `revertToDraft()` | No signatures; `id` reset to `pending` |
 | REVIEW | FROZEN | `sign()` | Valid signature |
-| FROZEN | PUBLISHED | `publish()` | None |
-| Any | DRAFT (new) | `fork()` | Creates new document |
+| FROZEN | PUBLISHED | `publish()` | Re-sign over the published projection (see note) |
+| REVIEW / FROZEN / PUBLISHED | DRAFT (new) | `fork()` | Parent `id` MUST be a computed content hash (not `pending`); creates new document |
+
+> **Note**: `fork()` records the parent's document ID as `lineage.parent`, which MUST be a computed content hash resolvable by `resolve()` (Provenance and Lineage, section 3). A document whose `id` is still `pending` — every `draft`, and any `review` document reverted by `revertToDraft()` before its next `draft → review` transition — therefore MUST NOT be forked; compute its ID first (via `draft → review`, section 4.2). This is why the DRAFT state (section 3.2) does not list `fork()` among its permitted operations while REVIEW, FROZEN, and PUBLISHED do.
 
 > **Note**: `revertToDraft()` MUST reset `id` to `pending`. A reverted draft is fully editable, so any previously computed ID is stale and MUST be recomputed on the next `draft → review` transition (see Document Hashing, section 7.2) — this prevents a stale ID from surviving edits into a signed, frozen document.
+
+> **Note**: `publish()` changes `state` from `frozen` to `published`. Because the manifest projection binds `state` and every `frozen`/`published` signature MUST cover the projection (Security Extension section 9.8), the pre-existing frozen signatures no longer match the published projection and MUST be regenerated over it — otherwise their stored `scope.manifest` no longer equals the recomputed projection, each such signature is `invalid`, and a conformant verifier does not accept the published document as valid (INTEGRITY-ERROR, section 5.4.2). The document ID is unchanged (content is unchanged), so this is a re-signature over the new projection, not a re-hash.
 
 ### 4.2 Submit for Review
 
@@ -189,7 +195,7 @@ Becomes:
 
 Actions:
 1. Verify document ID matches current content
-2. Create signature over document ID
+2. Create signature over the scope — the document ID plus the manifest projection, since the target state `frozen` requires manifest coverage (Security Extension section 9.8)
 3. Store signature in security layer
 4. Update state to "frozen"
 
@@ -261,7 +267,7 @@ When loading a frozen/published document:
 
 ### 5.4 Failure Dispositions
 
-Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
+Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.5, 9.1 and 9.3, Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
 
 #### 5.4.1 Disposition Vocabulary
 
@@ -278,13 +284,16 @@ The line between INTEGRITY-ERROR and REJECT is whether the document can be meani
 
 The disposition depends on document state because state is a contract (section 2.2): `draft` and `review` documents are works in progress whose content is expected to change, so most defects are warnings; `frozen` and `published` documents assert fixed, integrity-checked content, so the same defect is an integrity failure.
 
-A second axis is **integrity-binding**. A defect in material bound to the document's identity or integrity — the content tree, a hash-pinned part (`content`, a `presentation` layer), or the Dublin Core metadata whose projection enters the document ID — escalates to INTEGRITY-ERROR on a frozen or published document, because the document asserts that material is fixed. A defect confined to an **out-of-hash layer** — core annotations, collaboration data, phantom clusters, form data, and other tier-three extension data bound by neither the document hash nor the manifest projection (see the extensions overview, Integrity Status of Extension Data) — is a WARNING in *every* state: its bytes are not part of the authenticated document, so its failure cannot signal tampering, exactly as a dangling presentation reference does not (below). This axis also separates two kinds of reference. A **core anchor reference** — a `link` mark `href` beginning `#`, an `anchor` mark, or a structured Content Anchor — is part of the document's addressing layer, so a dangling one in hashed content is an internal-consistency failure of signed content. An **extension cross-reference** — a citation, footnote, glossary, or academic/legal reference mark — is resolved at render time to inject a label, number, or definition; a dangling one degrades rendering only (the signed bytes remain intact and hash-verified) and is a WARNING in every state.
+A second axis is **integrity-binding**. A defect in material bound to the document's identity or integrity — the content tree, a hash-pinned part (`content`, a `presentation` layer), or the Dublin Core metadata whose projection enters the document ID — escalates to INTEGRITY-ERROR on a frozen or published document, because the document asserts that material is fixed. A defect confined to an **out-of-hash layer** — core annotations, collaboration data, phantom clusters, form data, and other tier-three extension data bound by neither the document hash nor the manifest projection (see the extensions overview, Integrity Status of Extension Data) — is a WARNING in *every* state: its bytes are not part of the authenticated document, so its failure cannot signal tampering, exactly as a dangling presentation reference does not (below). This out-of-hash WARNING covers the *internal validity* of those mutable annotation layers; it does not license rendering an **undeclared** presentation or precise-layout file as authoritative appearance. Such a file is bound by neither the hash nor the projection, so on a frozen or published document it is unauthenticated and MUST NOT be presented as the document's appearance (Presentation Layers section 12) — an injected layout is an attempt to alter signed content, not a benign out-of-hash annotation. This axis also separates two kinds of reference. A **core anchor reference** — a `link` mark `href` beginning `#`, an `anchor` mark, or a structured Content Anchor — is part of the document's addressing layer, so a dangling one in hashed content is an internal-consistency failure of signed content. An **extension cross-reference** — a citation, footnote, glossary, or academic/legal reference mark — is resolved at render time to inject a label, number, or definition; a dangling one degrades rendering only (the signed bytes remain intact and hash-verified) and is a WARNING in every state.
 
 | Failure class | DRAFT / REVIEW | FROZEN / PUBLISHED |
 |---------------|----------------|--------------------|
-| Archive unreadable, or an unsafe path — `..` or an escaping symlink (Container Format) | REJECT | REJECT |
+| Archive unreadable, or an unsafe entry name or symlink — see the full rejection set in Container Format sections 9.1 and 9.3 (`..`, an absolute or drive/UNC/colon-bearing name, a backslash, a reserved device name, or a symlink or path component whose resolved target escapes the extraction root) | REJECT | REJECT |
 | Duplicate JSON keys in any part (Document Hashing section 4.3.2) | REJECT | REJECT |
+| Duplicate archive entry path (including a case-only collision), or local-header/central-directory entry-set disagreement (Container Format section 3.5) | REJECT | REJECT |
+| A hashed number that is non-finite, or an integer of magnitude > 2^53 - 1 (Document Hashing section 4.3.2) | REJECT | REJECT |
 | Manifest absent, unparseable, or missing or mistyping a required field | REJECT | REJECT |
+| A `state` value outside the defined lifecycle enum — `draft`/`review`/`frozen`/`published` (section 3.1; Manifest section 4.3) — so the mutability-and-signature contract cannot be established | REJECT | REJECT |
 | Unsupported **major** version (Manifest) | REJECT | REJECT |
 | Unsupported **minor** version (Manifest section 4.1) | WARNING — process known fields, IGNORE unknown additions | WARNING |
 | Unsupported **required** extension (`required: true`) | REJECT | REJECT |
@@ -305,37 +314,49 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 | Missing or unparseable **out-of-hash extension data** part — a collaboration, phantom, or form data file, or a path-only semantic/academic side file (bibliography, glossary, numbering) | WARNING | WARNING |
 | File `hash` or document-ID mismatch (Document Hashing section 6.3) | WARNING | INTEGRITY-ERROR |
 | Asset hash mismatch (Asset Embedding section 8) | WARNING | INTEGRITY-ERROR |
+| Declared MIME type of a content-referenced asset does not match its actual content bytes (Asset Embedding section 11.1) | WARNING (see note 4) | WARNING (see note 4) |
 | Invalid or missing required signature on a frozen or published document (Security Extension section 3.7) | see note 1 | INTEGRITY-ERROR |
 | Stripped or downgraded signature set, or a signature that does not cover the manifest projection (Security Extension sections 3.7, 3.12) | — | REJECT (see note 2) |
 | Unverifiable **timestamp** (Provenance and Lineage section 6.7; Security Extension section 3.6) | the timestamp is reported *unverified*; the document is unaffected | same |
-| INCOMPLETE or REJECTED **lineage**, or a divergent claimed `depth` or `version` (Provenance and Lineage section 3.3) | WARNING — ancestry is not authenticated, but the document is never blocked | WARNING |
+| **INCOMPLETE** lineage — a link unresolvable, or the traversal bound reached (Provenance and Lineage section 3.3) | WARNING — the chain is not contradicted but cannot be fully walked; no ancestor beyond the break is presented as verified | WARNING |
+| A **divergent claimed `depth` or `version`** (Provenance and Lineage sections 3.3–3.4) | WARNING — advisory: the verifier recomputes depth from the resolved walk and cross-checks the claim, never enforcing it (legitimate branching diverges); it does not affect the VERIFIED/INCOMPLETE/REJECTED outcome | WARNING |
+| **REJECTED** lineage — a *proven* inconsistency: a cycle, a forged `ancestors` tail, or a root declaring ancestors (Provenance and Lineage section 3.3) | WARNING (forged-lineage) — the lineage MUST be treated as forged: a verifier MUST NOT present *any* of the claimed ancestry as authenticated and MUST surface the proven inconsistency, distinct from a merely unverifiable chain. The document's content identity is unaffected, so it is not blocked on lineage grounds | same |
 
 *Note 1*: a `draft` requires no signature and a `review` document's signature is optional (section 6.2), so a missing signature is not a failure below `frozen`. A signature that is *present* in any state still receives a per-signature state (Security Extension section 3.8).
 
 *Note 2*: a stripped or downgraded signature set is an actively detected attack on an author-declared policy, which the Security Extension requires rejecting (sections 3.7, 3.12) — stricter than the INTEGRITY-ERROR baseline because the author named exactly who must sign. The required-signer policy is carried only in a frozen or published document's signed manifest projection, so it does not apply below `frozen` (—). An individual invalid or missing signature, by contrast, leaves the document viewable-but-untrusted (INTEGRITY-ERROR).
 
+*Note 3 (lifecycle downgrade)*: the projection-coverage and required-signer rows above key off the document's *own* `state`, and a `draft`/`review` document has no mandatory projection (`—`). An attacker can therefore take a `frozen`/`published` document, rewrite `manifest.state` to `draft`/`review`, and present only a content-only signature over the unchanged content — escaping frozen-load validation and required-signer enforcement. This is the lifecycle-downgrade limitation disclosed in Security Extension section 9.8: a verifier MUST NOT represent a document's `state`, or any manifest field, as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. Authenticating the state against a content-only downgrade is out of scope for this version.
+
+*Note 4 (declared type is advisory)*: the declared MIME type of a content-referenced asset is not part of the document ID — Document Hashing section 4.3.1 resolves the reference to its bytes only — so two documents with the same ID may declare different types for the same bytes. A reader that dispatches a decoder on the declared type can be steered into a decoder the author never chose; a reader SHOULD therefore determine an asset's handling from its verified content, treat the declared type as advisory, and flag a declared-versus-actual mismatch. On a frozen or published document the type still rides in the hash-pinned asset index (Asset Embedding section 3.1), so a post-signature edit of the declared type is separately caught as an index-hash mismatch.
+
 #### 5.4.3 State-Invariant Rules
 
-Two rules do **not** vary by state and override the table above:
+The following rules do **not** vary by state and override the table above:
 
 - **Duplicate keys always REJECT.** Any part containing an object with duplicate keys MUST be rejected before hashing or verification, in *every* state (Document Hashing section 4.3.2); an unrejected duplicate permits a split-view substitution.
-- **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document.
+- **Duplicate archive entries always REJECT.** An archive with a duplicate entry path (including a case-only collision), or whose local-file-header and central-directory views disagree on the entry set, MUST be rejected in *every* state (Container Format section 3.5); like a duplicate JSON key, an unrejected duplicate permits a split-view substitution.
+- **An unsafe archive path or symlink always REJECTs.** An entry name that fails the section 9.1 safety checks, or a symbolic-link entry in an untrusted archive (section 9.3), MUST cause the archive to be rejected in *every* state — a zip-slip is a security defect regardless of lifecycle.
+- **A non-representable hashed number always REJECTs.** A hashed number that is non-finite, or an integer whose magnitude exceeds 2^53 - 1, MUST be rejected in *every* state (Document Hashing section 4.3.2); the IEEE-754 double the canonicalizer hashes would differ from the value the author wrote, so it is not a value a signature can attest.
+- **An unverifiable proof never rejects the document.** A verifier that cannot complete a timestamp or lineage proof (an INCOMPLETE outcome) MUST report *that proof* as unverified and MUST NOT, on those grounds, reject or downgrade the document itself (Provenance and Lineage sections 3.3 and 6.7). The disposition attaches to the proof, not to the document. This covers the *unverifiable* case: a *proven-false* lineage (REJECTED — a cycle, forged tail, or root with ancestors) is not merely unverified but repudiated — the verifier MUST NOT present the claimed ancestry as authenticated (the row above) — though the document's content identity is still unaffected, so it too is not blocked on lineage grounds.
 - **An out-of-hash layer's internal validity is a load disposition, not an integrity failure.** A defect confined to the internal graph of an out-of-hash layer — for example a broken phantom-to-phantom `connection` target, or a duplicate phantom id (Phantoms section 4.7) — MAY stop that layer from loading or rendering coherently, but because the layer is bound by neither the document hash nor the manifest projection it MUST NOT escalate to an INTEGRITY-ERROR or downgrade the document, in *any* state. Such load "errors" are layer-validity dispositions distinct from this table's integrity axis.
 
 ## 6. Signatures and State
 
 ### 6.1 Signature Binding
 
-Signatures bind to the document ID, which is computed from content:
+A signature covers an explicit, signed **scope** — always the document ID (the content hash), and on a `frozen` or `published` document the **manifest projection** as well, which binds `state`, the presentation and asset-index hashes, the required-extension set, the required-signer policy, and the lineage (Security Extension sections 9.5–9.8). The signature is computed over the canonical bytes of that scope, not over the document ID alone:
 
 ```
-Signature = Sign(PrivateKey, DocumentID)
+Signature = Sign(PrivateKey, JCS(scope))     // scope = { documentId, [manifest], [layouts] }
 ```
+
+(Simplified: the detached-JWS signing input is `BASE64URL(protected) + "." + JCS(scope)`, so the protected header — `alg`, `b64:false`, `crit` — is bound too; see Security Extension section 9.5.)
 
 This means:
-- Any content change invalidates all signatures
-- Signature verification proves content unchanged
-- Multiple parties can sign the same content
+- Any content change invalidates all signatures (the document ID changes)
+- On a `frozen` or `published` document a manifest change also invalidates every manifest-covering signature (the projection changes); such coverage is REQUIRED there, so a signature that omits the projection is rejected (section 5.4.2, note 2; Security Extension section 9.8)
+- Multiple parties can sign the same scope
 
 ### 6.2 Signature Requirements by State
 
@@ -357,19 +378,25 @@ Frozen documents can accumulate signatures without changing content:
       "id": "sig-1",
       "protected": "eyJhbGci...",
       "signature": "MEUCIQ...",
-      "scope": { "documentId": "sha256:abc123..." }
+      "scope": {
+        "documentId": "sha256:abc123...",
+        "manifest": { "cdx": "0.1", "state": "frozen", "content": { "path": "content/document.json", "hash": "sha256:def456..." } }
+      }
     },
     {
       "id": "sig-2",
       "protected": "eyJhbGci...",
       "signature": "MGQCMA...",
-      "scope": { "documentId": "sha256:abc123..." }
+      "scope": {
+        "documentId": "sha256:abc123...",
+        "manifest": { "cdx": "0.1", "state": "frozen", "content": { "path": "content/document.json", "hash": "sha256:def456..." } }
+      }
     }
   ]
 }
 ```
 
-All signatures reference the same document ID. See the Security Extension §3.3 for the signature envelope.
+All signatures cover the same scope — the shared document ID plus, on this frozen document, the manifest projection (Security Extension section 9.8; the projection is abbreviated here — see section 9.7 for its full form). See the Security Extension §3.3 for the signature envelope.
 
 ## 7. Annotation Layer
 
@@ -555,7 +582,7 @@ For frozen documents:
   "modified": "2025-01-14T16:30:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:..."
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
@@ -574,7 +601,7 @@ For frozen documents:
   "modified": "2025-01-15T10:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:abc123..."
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "security": {
     "signatures": "security/signatures.json"
@@ -603,7 +630,7 @@ For frozen documents:
   "modified": "2025-01-16T09:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:def456..."
+    "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

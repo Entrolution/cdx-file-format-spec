@@ -197,6 +197,8 @@ Array of presentation layer references.
 | `path` | string | Yes | Relative path within archive |
 | `hash` | string | Yes | Hash of file contents |
 | `default` | boolean | No | Whether this is the default presentation |
+| `contentHash` | string | No | Document content hash when this presentation was generated |
+| `generated` | string | No | ISO 8601 timestamp when this presentation was generated |
 
 Standard presentation types:
 - `"paginated"` - Fixed page layout for print
@@ -277,6 +279,7 @@ Array of active extensions beyond the core specification.
 | `id` | string | Yes | Extension identifier |
 | `version` | string | Yes | Extension version |
 | `required` | boolean | Yes | Whether extension is required for correct rendering |
+| `config` | object | No | Extension-specific configuration paths or inline settings |
 
 If `required` is `true`, implementations that do not support the extension MUST refuse to process the document. If `required` is `false`, an implementation that does not support the extension MUST still process the document, ignoring that extension's data and degrading gracefully (State Machine section 5.4).
 
@@ -288,7 +291,9 @@ References to metadata files.
 {
   "metadata": {
     "dublinCore": "metadata/dublin-core.json",
-    "custom": "metadata/custom.json"
+    "custom": {
+      "legal": "metadata/legal.json"
+    }
   }
 }
 ```
@@ -296,7 +301,8 @@ References to metadata files.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `dublinCore` | string | Yes | Path to Dublin Core metadata |
-| `custom` | string | No | Path to custom metadata |
+| `jsonld` | string | No | Path to a document-level JSON-LD metadata file (Semantic Extension); out-of-hash advisory data, referenced by path only |
+| `custom` | object | No | Map of custom metadata references (name → path) |
 
 ### 4.12 `phantoms` (Optional)
 
@@ -318,13 +324,15 @@ Phantom data is explicitly outside the content hash boundary. No `hash` field is
 
 ### 4.13 `lineage` (Optional)
 
-Version history and document relationships. The manifest lineage provides a summary of the document's version context. The full provenance record (`provenance/record.json`) extends this with the complete ancestor chain, depth, merge history, and timestamps. See the Provenance and Lineage specification for the extended model.
+Version history and document relationships. The manifest's `lineage` is the **authoritative, signable** ancestor chain: on a frozen or published document the manifest projection binds it (Security Extension section 9.7), so the chain it declares is tamper-evident. It carries the immediate `parent`, the nearest-first `ancestors` chain, `depth`, `branch`, merge parents (`mergedFrom`), `version`, and a `note`. The provenance record (`provenance/record.json`) restates the same chain with additional auditing detail (derivation history and timestamps) but is path-only and **unsigned** — never the authoritative copy. See the Provenance and Lineage specification for the verification model.
 
 ```json
 {
   "lineage": {
     "parent": "sha256:previousdochash...",
+    "ancestors": ["sha256:previousdochash...", "sha256:rootdochash..."],
     "version": 3,
+    "depth": 3,
     "branch": "main",
     "note": "Updated section 3 per review feedback"
   }
@@ -333,9 +341,12 @@ Version history and document relationships. The manifest lineage provides a summ
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `parent` | string | No | Document ID of parent version |
-| `version` | integer | No | Sequential version number |
+| `parent` | string | No | Document ID of parent version (`null` for a root) |
+| `ancestors` | array | No | Nearest-first ancestor chain; `ancestors[0]` equals `parent`. Placing it here binds the signed chain (Provenance and Lineage section 3.3) |
+| `version` | integer | No | Sequential version number (advisory) |
+| `depth` | integer | No | Generation number: 1 for the root, +1 per generation (advisory; recomputed on verification) |
 | `branch` | string | No | Branch identifier for parallel versions |
+| `mergedFrom` | array | No | Additional merge-parent document IDs (Provenance and Lineage section 3.4) |
 | `note` | string | No | Description of changes from parent |
 
 ### 4.14 `hashAlgorithm` (Optional)
@@ -352,7 +363,7 @@ When present, this value MUST match the algorithm prefix of the `id`. See the Do
 
 ### 4.15 `provenance` (Optional)
 
-Path to the provenance record file, which carries the document's extended lineage chain, derivation history, and timestamps beyond the summary in `lineage`.
+Path to the provenance record file, which carries the document's derivation history and timestamps. Its lineage restates the authoritative chain in `manifest.lineage` (section 4.13) with additional auditing detail; because the provenance record is path-only and unsigned, it is never the authoritative copy.
 
 ```json
 {
@@ -500,14 +511,14 @@ When modifying a document:
   "modified": "2025-01-15T14:22:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:abc123...",
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "compression": "zstd"
   },
   "presentation": [
     {
       "type": "paginated",
       "path": "presentation/paginated.json",
-      "hash": "sha256:def456...",
+      "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "default": true
     }
   ],
@@ -515,7 +526,8 @@ When modifying a document:
     "images": {
       "count": 3,
       "totalSize": 524288,
-      "index": "assets/images/index.json"
+      "index": "assets/images/index.json",
+      "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
   },
   "security": {
@@ -533,7 +545,7 @@ When modifying a document:
     "dublinCore": "metadata/dublin-core.json"
   },
   "lineage": {
-    "parent": "sha256:previousversion...",
+    "parent": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "version": 2,
     "note": "Final version after legal review"
   }

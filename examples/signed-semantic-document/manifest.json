@@ -1,0 +1,45 @@
+{
+  "cdx": "0.1",
+  "id": "sha256:c2fd3c181474e1925b99ccacf2a56024eaef5d0b0fc5d44262fff3dbbc5ff6e2",
+  "state": "frozen",
+  "created": "2025-01-28T14:00:00Z",
+  "modified": "2025-01-28T14:00:00Z",
+  "extensions": [
+    {
+      "id": "cdx.semantic",
+      "version": "0.1",
+      "required": false
+    },
+    {
+      "id": "cdx.security",
+      "version": "0.1",
+      "required": true
+    }
+  ],
+  "content": {
+    "path": "content/document.json",
+    "hash": "sha256:92500a7583caa81dbf668930afc74c01550a6903458360c6ef030518c5e65adb"
+  },
+  "metadata": {
+    "dublinCore": "metadata/dublin-core.json",
+    "jsonld": "metadata/jsonld.json"
+  },
+  "semantic": {
+    "bibliography": {
+      "path": "semantic/bibliography.json",
+      "hash": "sha256:c0084002ee9e0bffb0f18a390f2835d276babb38f5dd54d8015b581015a167c7"
+    },
+    "glossary": {
+      "path": "semantic/glossary.json",
+      "hash": "sha256:7c4062638487ec008f3c0ab686fc1cf91481f0fdb0f173c52d82c29b0640f9e6"
+    }
+  },
+  "security": {
+    "signatures": "security/signatures.json",
+    "encryption": null
+  },
+  "lineage": {
+    "parent": null,
+    "version": 1
+  }
+}

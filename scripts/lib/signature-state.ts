@@ -150,7 +150,12 @@ export interface SignatureStateInputs {
  *  5. credential revoked                                             → revoked
  *  6. revocation indeterminate                                       → unknown
  *  7. credential expired at verification time                        → expired
- *  8. otherwise                                                      → valid
+ *  8. anchored AND good AND within validity                          → valid
+ *
+ * The trust path (rules 3–6) is an ALLOWLIST: `valid` is reached only when the chain
+ * is `anchored` AND revocation is `good`. Any out-of-enum axis value — a future
+ * state, a casing/whitespace slip, an unmapped code path — is non-acceptance, never
+ * `valid` (§3.8: unknown MUST NOT be acceptance; the machine MUST NOT fail open).
  */
 export function evaluateSignatureState(i: SignatureStateInputs): SignatureState {
   // The signature itself must be a real, well-formed signature before anything
@@ -163,14 +168,23 @@ export function evaluateSignatureState(i: SignatureStateInputs): SignatureState 
   // validated-timestamp path exists, since reference time is otherwise untrusted.)
   if (i.referenceTimeTrusted && !i.signingTimeWithinValidity) return 'invalid';
 
-  // Trust path. Revocation is only meaningful relative to an anchored credential,
-  // so an unevaluable or unanchored credential is decided here, before revocation.
-  if (i.chainResult === 'unknown') return 'unknown';
-  if (i.chainResult === 'untrusted') return 'untrusted';
+  // Trust path — an ALLOWLIST, not a denylist: `valid` is reached only when the chain
+  // is `anchored` AND revocation is `good`. Every other value on either axis — the
+  // in-enum negatives handled below AND any out-of-enum value (a future state, a
+  // casing/whitespace slip, an unmapped code path) — is non-acceptance, never a
+  // fall-through to `valid` (§3.8: unknown MUST NOT be acceptance; the machine MUST NOT
+  // fail open). The runtime `!==` comparisons enforce this regardless of the declared
+  // TS union — narrowing is compile-time only and never removes the check; keeping the
+  // union also preserves the compiler's typo guard on the sentinel literals. Revocation
+  // is only meaningful for an anchored credential, so the chain axis is decided first.
 
-  // Revocation (credential is anchored). `unknown` MUST NOT be reported as `valid`.
-  if (i.revocationStatus === 'revoked') return 'revoked';
-  if (i.revocationStatus === 'unknown') return 'unknown';
+  // Require an anchored credential. `unknown` (unevaluable) reports as such; every
+  // other non-`anchored` value is non-acceptance, floored to `untrusted`.
+  if (i.chainResult !== 'anchored') return i.chainResult === 'unknown' ? 'unknown' : 'untrusted';
+
+  // Require good revocation. `revoked` reports as such; `unknown` and every other
+  // non-`good` value are non-acceptance (MUST NOT be reported `valid`), floored to `unknown`.
+  if (i.revocationStatus !== 'good') return i.revocationStatus === 'revoked' ? 'revoked' : 'unknown';
 
   // Validity window. A currently-expired (but legitimately-signed) credential is
   // `expired`; a validated timestamp — specified later — is what would let a

@@ -1,0 +1,29 @@
+{
+  "version": "0.1",
+  "families": [
+    {
+      "name": "Brand Sans",
+      "fonts": [
+        {
+          "id": "brand-sans-regular",
+          "weight": 400,
+          "style": "normal"
+        }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "brand-sans-regular",
+      "path": "brand-sans-regular.woff2",
+      "type": "font/woff2",
+      "size": 42,
+      "hash": "sha256:545b54abe52dd8b74732e5ea4546abd840dd05b7813bedbc1a8f19013efc3087",
+      "metadata": {
+        "family": "Brand Sans",
+        "weight": 400,
+        "style": "normal"
+      }
+    }
+  ]
+}

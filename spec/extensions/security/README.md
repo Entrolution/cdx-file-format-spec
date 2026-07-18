@@ -57,7 +57,7 @@ The document ID binds the document's semantic content only. It does **not** bind
 | ECDSA P-384 | `ES384` | 384-bit | Recommended |
 | Ed25519 | `EdDSA` | 256-bit | Recommended |
 | RSA-PSS | `PS256` | 2048+ bit | Optional |
-| ML-DSA-65 | `ML-DSA-65` | PQC | Optional (future) |
+| ML-DSA-65 | `ML-DSA-65` | PQC | Experimental |
 
 Implementations MUST support ES256. Support for other algorithms is RECOMMENDED.
 
@@ -69,6 +69,7 @@ Each signature is a **detached JWS** ([RFC 7515](https://www.rfc-editor.org/rfc/
 
 This is a JWS profiled toward **JAdES** ([ETSI TS 119 182-1](https://www.etsi.org/standards)); it does not claim a JAdES baseline conformance level. It omits the JAdES `sigD` descriptor: the detached payload is reconstructed as `JCS(scope)` per this section.
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",
@@ -180,11 +181,11 @@ To verify a signature and assign it a state (section 3.8):
 3. For each signature, compute the inputs to the state rules (a WebAuthn signature computes them per section 6.3 instead of steps a–e):
    a. **Header consistency.** Decode the `protected` header and check (section 3.4): `alg` supported; `b64` false; `crit` exactly `["b64"]`; `sigT` well-formed and not after the reference time; and exactly one credential path that is internally consistent — for X.509, `x5c` present, the signed `x5t#S256` equals the leaf-certificate thumbprint (section 3.10), and the leaf public key's type and curve are consistent with `alg` (an `alg`-versus-key mismatch — e.g. `ES256` over a non-P-256 key — is `invalid`, the X.509 analogue of the keyId and WebAuthn rules); for keyId, `kid` present and well-formed, the self-certifying methods' encoded key usable with `alg`, and a well-formed `jkt` for `did:web` (section 3.11). This is a header-shape check: for `did:web` it does **not** depend on resolution — an unresolvable key is decided at the trust path (step d), not here. A failure makes the state `invalid`
    b. **Signature.** Reconstruct the detached payload as `JCS(scope)` from the `scope` member and the signing input as `protected + "." + JCS(scope)`; verify the JWS signature under the credential's public key — the leaf certificate `x5c[0]` (X.509), the key encoded in `kid` (self-certifying), or, for `did:web`, the resolved verification method whose thumbprint matches the signed `jkt` (section 3.11). A failure makes the state `invalid`. For `did:web`, if no matching key can be resolved the signature is not evaluated here — the credential is key-unavailable and decided at the trust path (step d)
-   c. **Scope.** Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`, step 1) — the signed scope is the authoritative binding of what the signature covers. The top-level `signatures.documentId` is an **unsigned, advisory** convenience copy that MUST also equal it, but a verifier MUST NOT treat it as authenticated (Section 9.4). When `scope.manifest`/`scope.layouts` are present, perform the scoped checks (section 9.5). A `scope.documentId` that does not equal the recomputed `manifest.id` makes the state `invalid`
+   c. **Scope.** Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`, step 1) — the signed scope is the authoritative binding of what the signature covers. The top-level `signatures.documentId` is an **unsigned, advisory** convenience copy that MUST also equal it, but a verifier MUST NOT treat it as authenticated (Section 9.4). When `scope.manifest`/`scope.layouts` are present, perform the scoped checks (section 9.5). A `scope.documentId` that does not equal the recomputed `manifest.id` makes the state `invalid`; likewise, a present `scope.manifest` that does not equal the recomputed manifest projection, or a `scope.layouts` entry whose declared hash does not match the referenced layout file, makes the state `invalid` (section 9.5) — the signature attests the stored scope, so a document that no longer matches its own signed scope is tampered
    d. **Trust path.** Anchor the credential to verifier-configured trust, yielding `anchored`, `untrusted`, or `unknown`: validate the `x5c` chain against the trust store (section 3.9), or anchor the resolved `kid` against the verifier's pin (section 3.11). For `did:web` this step performs the HTTPS resolution and the `jkt` key-match; an unresolvable or unmatched key is `unknown` (key-unavailable)
    e. **Revocation and validity.** Determine the credential's revocation status and validity window relative to the reference time — a validated signature-timestamp's time T when present (sections 3.6, 7.5), else the untrusted `sigT` (section 7.4)
 4. Combine these inputs into a state using the production rules of section 3.8, and report it
-5. **Signature-set integrity (document-level).** After every signature has a state, evaluate the completeness of the signature *set* (section 3.12): if the signed manifest projection declares `signaturePolicy.requiredSigners`, every required signer MUST be satisfied by a present signature whose state is `valid`, and a document with any unsatisfied required signer MUST be rejected as stripped or downgraded. For a `frozen` or `published` document that declares no policy, a verifier MUST warn that the signature set is unprotected against stripping
+5. **Signature-set integrity (document-level).** After every signature has a state, evaluate the completeness of the signature *set* (section 3.12): if the signed manifest projection declares `signaturePolicy.requiredSigners`, every required signer MUST be satisfied by a present signature whose state is `valid`. For a `frozen` or `published` document, any unsatisfied required signer means the set is stripped or downgraded and the verifier MUST reject the document; for a `draft` or `review` document the set is not yet final (section 3.12 binds the set only for `frozen`/`published`), so an unsatisfied required signer is a WARNING, not a rejection. For a `frozen` or `published` document that declares no policy, a verifier MUST warn that the signature set is unprotected against stripping
 
 A single signature's state (steps 3–4) is **per-signature**: it carries no meaning about the completeness of the signature *set*. Set integrity is the separate, document-level verdict of step 5 (section 3.12), not a signature state.
 
@@ -235,7 +236,7 @@ A signature MAY carry a **keyId** (`kid`) in its protected header instead of an 
 
 **Resolution (self-certifying).** A verifier resolves a `did:key`/`did:jwk` `kid` by decoding the public key directly from the identifier — no network fetch: for `did:key`, the multibase-encoded key; for `did:jwk`, the base64url-encoded JWK. The decoded key MUST be usable with the header's `alg`; a mismatch makes the header inconsistent (`invalid`, section 3.8 rule 1). A `kid` SHOULD be a DID URL whose fragment selects a single verification method; for `did:key`/`did:jwk` the bare DID already resolves to exactly one key.
 
-**Key binding (self-certifying).** The `kid` is part of the signed protected header, so substituting it changes the signing input and breaks verification (section 3.8 rule 1) — the identifier is bound to the signature exactly as `x5c` is. For these self-certifying methods the key *is* the identifier, so the signed `kid` also binds the key bytes themselves; no separate thumbprint is required, and a `jkt` MUST NOT be present (section 3.4). (The out-of-band `did:web` method returns a key that is **not** covered by the signature; it therefore binds the key with a signed `jkt` thumbprint — the keyId-path analogue of `x5t#S256` (section 3.10) — and checks the resolved key against it before acceptance, below.)
+**Key binding (self-certifying).** The `kid` is part of the signed protected header, so substituting it changes the signing input and breaks verification (section 3.7 step 3c) — the identifier is bound to the signature exactly as `x5c` is. For these self-certifying methods the key *is* the identifier, so the signed `kid` also binds the key bytes themselves; no separate thumbprint is required, and a `jkt` MUST NOT be present (section 3.4). (The out-of-band `did:web` method returns a key that is **not** covered by the signature; it therefore binds the key with a signed `jkt` thumbprint — the keyId-path analogue of `x5t#S256` (section 3.10) — and checks the resolved key against it before acceptance, below.)
 
 **Trust anchoring — derivation rule (normative).** A resolved key is `anchored` (section 3.8) **iff the specific `kid` is pinned in the verifier's configuration**: an allowlist of trusted DIDs (or trusted controllers/issuers) supplied by the verifier's deployment, never derived from the document. A verifier MUST NOT trust a DID *method* wholesale — anyone can mint a `did:key`/`did:jwk`, so trusting the method trusts everyone and is a fail-open. A self-certifying key that is not pinned is `untrusted`: the in-`kid` key material is self-asserted and, like in-archive certificate material (section 3.9), is never self-authorizing — otherwise an attacker mints a DID, signs the genuine content, and a verifier reports `valid`. If the `kid` cannot be parsed or decoded into a usable key, `chainResult` is `unknown`.
 
@@ -331,29 +332,48 @@ Location: `security/encryption.json`
       "ephemeralPublicKey": "base64..."
     }
   ],
-  "encryptedContent": {
-    "iv": "base64...",
-    "tag": "base64...",
-    "path": "content/document.json.enc"
-  }
+  "encryptedContent": [
+    {
+      "iv": "base64-iv-content...",
+      "tag": "base64-tag-content...",
+      "path": "content/document.json.enc"
+    },
+    {
+      "iv": "base64-iv-dublincore...",
+      "tag": "base64-tag-dublincore...",
+      "path": "metadata/dublin-core.json.enc"
+    }
+  ]
 }
 ```
+
+`encryptedContent` is an array — one entry per encrypted file — so the content part and the optionally-encrypted Dublin Core part (Section 4.4) each carry their own unique `iv` and `tag`. Each `iv` MUST be unique under the content-encryption key (Section 4.6).
 
 ### 4.4 Encrypted Files
 
 When encryption is enabled:
 
-- Content files are encrypted in place (`.enc` suffix)
+- Content files are encrypted in place (`.enc` suffix), one `encryptedContent` entry per file
 - The manifest remains unencrypted (for metadata access)
-- Dublin Core metadata can optionally be encrypted
+- Dublin Core metadata can optionally be encrypted (as its own `encryptedContent` entry)
+
+Each encrypted file carries its own unique `iv` and authentication `tag` (Section 4.6).
 
 ### 4.5 Decryption Process
 
-1. Parse encryption metadata
-2. Identify recipient (by key ID or try each)
-3. Unwrap content encryption key using recipient's private key
-4. Decrypt content files using CEK
-5. Verify authentication tags
+1. Parse the encryption metadata
+2. Identify the recipient (by key ID, or try each)
+3. Unwrap the content-encryption key (CEK):
+   - for the asymmetric wraps (`ECDH-ES+A256KW`, `RSA-OAEP-256`), use the recipient's private key;
+   - for `PBES2-HS256+A256KW`, derive the key-wrapping key with PBKDF2-HMAC-SHA256 over the password using the recipient's `p2s` (salt) and `p2c` (iteration count) per RFC 7518 section 4.8, then AES-KW-unwrap the CEK.
+4. For each `encryptedContent` entry, **decrypt-and-verify** the part with the CEK and the entry's `iv`. AEAD decryption verifies the authentication `tag` as an integral step: a reader MUST verify the tag **before** releasing or acting on any plaintext, and MUST discard the plaintext entirely if verification fails. A conforming implementation never exposes or processes unverified plaintext (Section 8.7).
+
+### 4.6 Nonce and Key Management
+
+AES-256-GCM and ChaCha20-Poly1305 are AEAD ciphers that fail catastrophically on nonce reuse: two messages encrypted under the same (key, `iv`) pair let an attacker recover the authentication key — forging valid ciphertext — and leak plaintext. Therefore:
+
+- A distinct `iv` MUST be used for every encryption operation under a given content-encryption key. An implementation MUST NOT reuse a (CEK, `iv`) pair across parts, across documents, or when re-encrypting an edited part. Derive each `iv` from a cryptographically secure source (a random 96-bit nonce, or a counter that never repeats under one key).
+- With password-based key wrapping (`PBES2-HS256+A256KW`), each recipient MUST carry a unique per-document salt `p2s` (at least 8 octets) and an iteration count `p2c` of at least 600000, raised over time. Omitting the salt enables cross-document precomputation; a low iteration count makes offline password cracking cheap (RFC 7518 section 4.8).
 
 ## 5. Access Control
 
@@ -369,8 +389,11 @@ Access control defines what actions different users can perform:
 
 ### 5.2 Access Control Structure
 
+The access-control policy lives in its own file, `security/access-control.json` — a versioned wrapper (`version` plus the `accessControl` object). The manifest references it from `manifest.security.accessControl` as a `{path, hash}`, and that hash is bound into the manifest projection (Section 9.9), so a manifest-covering signature attests the policy.
+
 ```json
 {
+  "version": "1.0",
   "accessControl": {
     "default": {
       "view": true,
@@ -593,6 +616,14 @@ A production document MUST do what the placeholders cannot:
 - **A keyId is a real, resolvable key.** The example's `did:key` decodes to an actual Ed25519 public key; an undecodable identifier resolves to `unknown`, not a valid signer (section 3.11).
 - **Trust is verifier-side.** None of the in-archive material — the certificate chain, a DID document, the `signer` fields, or annotations (section 3.10) — is self-authorizing; a verifier validates against its own configured trust, or reports a non-`valid` state.
 
+### 8.7 Encryption Misuse Resistance
+
+The encryption model (Section 4) uses AEAD ciphers (AES-256-GCM, ChaCha20-Poly1305) whose security collapses under misuse; a conforming implementation MUST defend all three of the following:
+
+- **Nonce reuse is catastrophic.** Two ciphertexts sharing a (key, `iv`) pair leak plaintext and let an attacker forge authenticated ciphertext. An implementation MUST enforce a unique `iv` per encryption under each content-encryption key (Section 4.6).
+- **No release of unverified plaintext.** A reader MUST verify the authentication tag before releasing or acting on any decrypted bytes; the decryption procedure (Section 4.5) is defined so verification gates plaintext use, and a failed tag MUST discard the plaintext.
+- **Weak password KDF.** Password-based wrapping (`PBES2-HS256+A256KW`) MUST use a unique per-document salt (`p2s`) and a high iteration count (`p2c` ≥ 600000) (Section 4.6); otherwise the encrypted archive is open to offline password cracking and cross-document precomputation.
+
 ## 9. Scoped Signatures
 
 ### 9.1 Overview
@@ -614,7 +645,9 @@ A content-only signature has a `scope` that binds just the document ID:
 
 ### 9.3 Scoped Signature (Content + Layout Attestation)
 
-A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes:
+A scoped signature's `scope` additionally binds the manifest projection and/or precise-layout hashes.
+
+A precise layout declared in `manifest.presentation[]` (type `precise`) is already bound by the manifest projection — its file hash rides `scope.manifest.presentation[]` (Section 9.7), which is mandatory on a `frozen` or `published` document. `scope.layouts` is therefore **supplementary**: it lets a signer explicitly attest specific layout files independent of the manifest declaration — for example a layout in a `draft`/`review` document (where `scope.manifest` is optional), or a signer asserting they visually reviewed a named subset. On a frozen or published document with declared precise layouts, `scope.layouts` is redundant with the mandatory projection and MAY be omitted.
 
 ```json
 {
@@ -646,9 +679,9 @@ The `scope` object is **closed**: it is validated with `additionalProperties: fa
 
 With `scope` always present, the scoped checks extend section 3.7 step 3:
 
-   a. Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`); the unsigned top-level `signatures.documentId` MUST also match but is advisory, never authenticated (Section 9.4)
-   b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`
-   c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash
+   a. Verify the signed `scope.documentId` equals the recomputed document ID (`manifest.id`); the unsigned top-level `signatures.documentId` MUST also match but is advisory, never authenticated (Section 9.4). A mismatch makes the signature `invalid` (section 3.7 step 3c)
+   b. If `scope.manifest` is present, recompute the manifest projection from `manifest.json` (Section 9.7) and verify it equals `scope.manifest`. A `scope.manifest` that does not equal the recomputed projection makes the signature `invalid` (section 3.7 step 3c) — symmetric with the `scope.documentId` rule of (a). Without this consequence the JWS would still verify over the *stored* `scope.manifest` bytes while the current manifest no longer matches them, so a manifest tamper (state, lineage, extensions, presentation declaration, `signaturePolicy`) would pass on a cryptographically valid signature
+   c. If `scope.layouts` is present, verify each layout path exists and its file hash matches the declared hash. A `scope.layouts` entry whose file hash does not match the declared hash makes the signature `invalid` (section 3.7 step 3c)
    d. The JWS signature is over the signing input `BASE64URL(protected) + "." + JCS(scope)` (section 3.4); the signature's trust evaluation is deferred per section 3.7
 
 ### 9.6 Use Case
@@ -668,11 +701,13 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 | `cdx` | `manifest.cdx` | Specification version (prevents a silent version downgrade) |
 | `state` | `manifest.state` | Lifecycle state |
 | `content` | `manifest.content` | Projected to `{path, hash}` |
-| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds the presentation *declaration* (which parts, which is default), not visual rendering — visual attestation remains `scope.layouts` (Section 9.3) |
+| `presentation` | `manifest.presentation[]` | Each entry projected to `{type, path, hash}`; the default entry additionally carries `default: true`. Binds each declared presentation part's file hash. For a reactive type (`paginated`/`continuous`/`responsive`) this binds the *declaration* (which parts, which is default), not the interpreted rendering; for a `precise` layout the bound file hash **is** the exact coordinates, so a declared precise layout's appearance is attested here. Finer per-layout attestation independent of the manifest declaration remains available via `scope.layouts` (Section 9.3) |
 | `extensions` | `manifest.extensions[]` | Each entry projected to `{id, version, required}`; a required extension additionally carries its `config` |
 | `lineage` | `manifest.lineage` | Bound verbatim |
 | `signaturePolicy` | `manifest.signaturePolicy` | The required-signer set (Section 3.12). Each `requiredSigners` entry carries its single identity kind (`did`, `x5tS256` or `jkt`) verbatim; entries are sorted by JCS |
 | `configFiles` | `{path, hash}` references in the `manifest.academic` / `semantic` / `legal` / `collaboration` config slots | Each declared file reference projected to `{path, hash}`; entries are sorted by JCS and deduplicated, and a path declared twice with conflicting hashes is rejected. Binds auxiliary files outside the document hash (academic numbering, semantic bibliography/glossary) so their content is attested |
+| `assets` | The index file of each category in `manifest.assets` | Each declared category's index reference projected to `{path, hash}` (from `assets.<category>.{index, hash}`); entries sorted by JCS, duplicate paths collapsed, conflicting hashes rejected. The index enumerates every asset's and image variant's own hash, so binding the one index hash transitively attests assets outside the document hash — fonts (referenced by presentation family name) and image variants (selected by display size) |
+| `accessControl` | `manifest.security.accessControl` | Projected to `{path, hash}` (Section 9.9). The one security-block reference bound into the projection, so a manifest-covering signature attests the access-control policy file; the path-only `security.signatures`/`encryption` references stay unbound |
 
 **Construction rules** (mirroring the document-ID canonical form, 06 §4.3):
 
@@ -681,7 +716,9 @@ The projection is a deterministic transform of `manifest.json`, serialized with 
 - A non-default presentation carries no `default` member; the flag marks only the default entry (`default: false` is never materialized).
 - A non-required extension's `config` is omitted; a required extension's `config` is bound, because a required extension's configuration can change how the document is interpreted.
 - `configFiles` binds every `{path, hash}` reference declared in a top-level extension config slot (`academic`, `semantic`, `legal`, `collaboration`), keyed on the `{path, hash}` *shape* rather than on a field name, so a newly defined hashed config file is covered without a projection change. It binds such a reference regardless of the extension's `required` flag. Advisory configuration that is not a `{path, hash}` reference (for example a citation style, or a path-only declaration) is not bound, and a reference placed inside a non-required `extensions[].config` rather than a top-level slot is not bound. The array is omitted when empty.
-- Arrays of declarations (`presentation`, `extensions`, `signaturePolicy.requiredSigners`) are sorted by the JCS serialization of each element, so authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
+- `assets` binds the `{path, hash}` index reference of every category declared in `manifest.assets` (from `assets.<category>.{index, hash}`). Because the index enumerates every asset's and image variant's own hash, binding the one index hash attests the whole category — including assets outside the document hash such as embedded fonts and image variants — without projecting each asset hash individually. The advisory `count`/`totalSize` are subordinate to the index and are not bound. A category declared without a well-formed index hash is rejected (fail-closed, so a category cannot silently escape the binding), as is a category that declares an index path already declared with a conflicting hash. The array is omitted when empty.
+- `accessControl` binds the single `{path, hash}` reference at `manifest.security.accessControl` (Section 9.9) so a manifest-covering signature attests the access-control policy file. Only `{path, hash}` is projected; any advisory storage hints on the reference (`compression`, `merkleRoot`, `blockCount`) are dropped. The path-only `security.signatures`/`security.encryption` references remain unbound. A reference whose hash is not a well-formed content hash, or whose path escapes the archive root, is rejected (fail-closed). Omitted when absent.
+- Arrays of declarations (`presentation`, `extensions`, `signaturePolicy.requiredSigners`, `configFiles`, `assets`) are sorted by comparing the JCS serialization of each element by **UTF-16 code unit** — the same code-unit comparison JCS mandates for object keys (06 §4.3.2) — so the ordering, and therefore the signed bytes, are identical across implementations even for supplementary-plane (astral) characters, where UTF-16 code-unit order differs from Unicode code-point order (`extensions[].id`/`version` are the only unconstrained sort keys, so an astral `U+10000` id sorts before a BMP `U+E000` id). Authored order is not significant; the `lineage.ancestors` order (nearest-first) is significant and preserved.
 - `signaturePolicy.requiredSigners` entries MUST be unique by identity, and the set MUST be non-empty — an empty set is forbidden so an *absent* policy and an *empty* policy are not both expressible. An absent `signaturePolicy` is omitted (a document with no policy has no set integrity; section 3.12).
 - Keys and values obey the stored-byte invariants of 06 §4.3.2 (NFC, well-formed Unicode, safe integers).
 
@@ -692,15 +729,16 @@ The document ID is **not** part of the projection — it is carried separately b
 A signature's coverage is exactly:
 
 - The **document ID** (semantic content) — always.
-- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present.
-- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3).
+- The **manifest projection** (Section 9.7) — if and only if `scope.manifest` is present. This binds each *declared* `presentation[]` file hash, including a `precise` layout's, so a declared precise layout is covered wherever `scope.manifest` is (mandatory on a `frozen`/`published` document).
+- The listed **precise layouts** — if and only if `scope.layouts` is present (Section 9.3). This is additional, finer-grained per-layout attestation, independent of the manifest declaration.
 
 A signature does **not** cover, in this version of the extension:
 
-- Embedded **fonts** and other non-content assets (excluded from the document ID by design).
-- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and of the `security` block. The manifest hashes the projection binds are `content`, `presentation[]`, and the `{path, hash}` file references in the extension config slots (`configFiles`, Section 9.7); a part the manifest references by path only carries no hash and is not bound.
-- **Presentation files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares*; a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation file present in the archive but undeclared. Only declared presentations are tamper-evident against a presentation-swap.
-- **Layout files outside `scope.layouts`.** A `scope.layouts` attestation (Section 9.3) binds only the layouts it lists; an unlisted layout file is unbound even on a frozen document.
+- The raw **asset files** directly, and any asset in a category the manifest does not declare in `assets`. Embedded fonts and image variants sit outside the document ID by design and are attested only *transitively*, through the hash-pinned index of a declared category (`assets`, Section 9.7): a content-only signature (no `scope.manifest`) attests no asset, and a font, variant, or whole category not carried by a declared, hash-pinned index is unbound even under a manifest-covering signature.
+- The **bytes** of parts the manifest references by path only — metadata, provenance, phantoms, annotations — and the path-only `security` references (`signatures`, `encryption`). The manifest hashes the projection binds are `content`, `presentation[]`, the `{path, hash}` file references in the extension config slots (`configFiles`), the asset-index references (`assets`), and the `security.accessControl` policy reference (`accessControl`) — all Section 9.7 (and 9.9); a part the manifest references by path only carries no hash and is not bound.
+- **Authoritative-looking fields inside those path-only parts.** Because the whole part is unbound (above), a field that reads as an identity, licensing, or provenance claim is forgeable and MUST NOT be presented as authenticated: the Dublin Core `rights`, `publisher`, `identifier`, and `date` (Core Metadata, Section 6.2); the provenance record's `creator` (name and `did:web` identifier), `timestamps`, `lineage`, and `derivedFrom` (Core Provenance, Section 8.1); and the editorial, collaboration, and phantom `author`/`content`/`status` fields (Section 3.10). A `did:web` value is not authenticated by being named.
+- **Presentation and precise-layout files the manifest does not declare.** The projection binds the hash of each `presentation[]` entry the manifest *declares* (including a `precise` layout); a document whose manifest omits `presentation` (or a particular entry) binds nothing about a presentation or layout file present in the archive but undeclared. Only declared presentations and layouts are tamper-evident against a swap — which is why a frozen or published document that asserts page-precise fidelity MUST declare its precise layouts (Presentation Layers section 3.4).
+- **Layout files bound by neither path.** A precise layout is bound when declared in `presentation[]` (via the manifest projection) or when listed in `scope.layouts` (Section 9.3); a layout file that is neither declared nor listed is unbound even on a frozen document.
 - The **complete set of signatures**, beyond the declared required set: a `signaturePolicy` (Section 3.12) binds the *declared required* signers against stripping and downgrade, but a signature still cannot attest that an *optional* signature was not removed, that signers signed in a particular order, or — where no policy is declared — anything about set completeness.
 - Administrative fields with no integrity meaning: `created`, `modified`, and `hashAlgorithm` (redundant with the document-ID prefix).
 - Auxiliary `content` integrity fields (`compression`, `merkleRoot`, `blockCount`) and the advisory `presentation[]` fields (`contentHash`, `generated`): the bound `content.hash` and `presentation[].hash` are authoritative, so these subordinate fields are not separately attested.
@@ -717,10 +755,23 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 
 > **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. A declared required-signer set (Section 3.12) binds the signature set against stripping and downgrade, but only through *manifest-covering* signatures: an attacker who rewrites `state` to `draft`/`review` and presents only a content-only signature escapes the policy exactly as it escapes lifecycle binding, because a content-only signature attests no manifest field, the policy included. A signature-timestamp (Section 3.6) binds a signature's existence, not the manifest state, so it does not close this gap; closing it requires authenticating the manifest state against a content-only downgrade, which this version does not provide.
 
+### 9.9 Access-Control Policy Binding
+
+The access-control policy (Section 5) is a declarative, advisory set of principal permissions. It lives in its own file — `security/access-control.json`, an `accessControlFile`: a `version` plus the `accessControl` object — and the manifest references it from `manifest.security.accessControl`.
+
+Unlike the path-only `security.signatures` and `security.encryption` references, `manifest.security.accessControl` is a `{path, hash}` reference, and its hash is bound into the manifest projection as the `accessControl` field (Section 9.7). A manifest-covering signature therefore attests the access-control policy: a repackager cannot widen the permissions or swap the policy file while a signature still verifies, because the edit either changes the referenced hash — breaking every `scope.manifest` — or leaves the manifest referencing a file whose content no longer matches.
+
+This binds the policy's **integrity**, not its **enforcement**. The ACL remains declarative and advisory (Section 5.2, Enforcement Model): binding the policy hash guarantees only that the permissions a compliant consumer reads are the ones the signer attested, not that a non-compliant consumer is prevented from reading the content. Cryptographic access control still requires encryption (Section 4).
+
+Only `{path, hash}` is projected; any advisory storage hints on the reference (`compression`, `merkleRoot`, `blockCount`) are dropped, exactly as for `content` and the other file references. A `manifest.security.accessControl` that is not a well-formed `{path, hash}` reference, or whose path escapes the archive root, is rejected (fail-closed) rather than bound.
+
+An access-control file present in the archive but **not** referenced from `manifest.security.accessControl` is unbound — the same limitation as any undeclared part (Section 9.8). A consumer MUST treat only the declared, bound policy as attested, and MUST NOT honor an undeclared access-control file as authoritative.
+
 ## 10. Examples
 
 ### 10.1 Single Signature
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",
@@ -739,6 +790,7 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 
 ### 10.2 Multiple Signers
 
+<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "version": "0.1",

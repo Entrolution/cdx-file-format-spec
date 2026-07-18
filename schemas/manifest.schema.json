@@ -28,8 +28,7 @@
     "hashAlgorithm": {
       "type": "string",
       "description": "Hash algorithm used for document ID",
-      "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"],
-      "default": "sha256"
+      "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"]
     },
     "created": {
       "type": "string",
@@ -77,6 +76,13 @@
           "description": "Path to encryption metadata",
           "anyOf": [
             { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            { "type": "null" }
+          ]
+        },
+        "accessControl": {
+          "description": "Reference to the access-control policy file as a {path, hash}. Unlike the path-only signatures/encryption references, the policy's content hash is bound into the manifest projection, so a manifest-covering signature attests the policy (security extension section 9.9).",
+          "anyOf": [
+            { "$ref": "#/$defs/fileReference" },
             { "type": "null" }
           ]
         }
@@ -148,7 +154,7 @@
         "depth": {
           "type": "integer",
           "minimum": 1,
-          "description": "Distance from root document"
+          "description": "Generation number: 1 for the root document, incremented by 1 each generation (one more than the number of ancestor links). Advisory; recomputed on verification."
         },
         "branch": {
           "type": "string",
@@ -197,6 +203,18 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "A `pending` id (deferred document-id computation) is valid only in the `draft` state; once the document is frozen or published its id is the computed content hash (State Machine §5.3).",
+      "if": {
+        "required": ["id"],
+        "properties": { "id": { "const": "pending" } }
+      },
+      "then": {
+        "properties": { "state": { "const": "draft" } }
+      }
+    }
+  ],
   "$defs": {
     "fileReference": {
       "type": "object",
@@ -233,8 +251,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Presentation type identifier",
-          "enum": ["paginated", "continuous", "responsive"]
+          "description": "Presentation type identifier. `precise` references a precise-layout file (presentation/layouts/*.json, precise-layout.schema.json, whose own discriminator is `presentationType`); the reactive types reference a presentation.schema.json file. Declaring a precise layout here binds its file `hash` into the manifest projection (Security Extension section 9.7), so a frozen or published document's precise layout is tamper-evident under a manifest-covering signature.",
+          "enum": ["paginated", "continuous", "responsive", "precise"]
         },
         "path": {
           "description": "Relative path within archive",
@@ -262,7 +280,7 @@
     },
     "assetCategory": {
       "type": "object",
-      "required": ["count", "totalSize", "index"],
+      "required": ["count", "totalSize", "index", "hash"],
       "properties": {
         "count": {
           "type": "integer",
@@ -277,6 +295,10 @@
         "index": {
           "description": "Path to index file",
           "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath"
+        },
+        "hash": {
+          "description": "Content hash of the index file. Hash-pins the category's asset index — which carries every asset's (and variant's) hash — so that binding this one hash into the signed manifest projection (Security Extension §9.7) transitively attests the whole category, including out-of-content assets such as fonts and image variants.",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
         }
       },
       "additionalProperties": false

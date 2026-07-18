@@ -80,12 +80,26 @@ export interface LineageResult {
  */
 export const MIN_TRAVERSAL_BOUND = 64;
 
+/**
+ * Default breadth bound: the maximum number of node resolutions across the whole
+ * walk. `maxDepth` caps only DEPTH; a reconverging merge DAG can have
+ * exponentially many *paths* at bounded depth, so an independent breadth bound is
+ * required to keep verification safe against a wide DAG (core 09 §3.4; Container
+ * Format §5.3). Verified subtrees are memoised, so a legitimate history resolves
+ * each ancestor about once and stays far below this; only a pathological re-walk
+ * approaches it, and reaching it yields `incomplete` (not `rejected` — a large
+ * honest history is not an inconsistency). A verifier MAY configure a larger bound.
+ */
+export const DEFAULT_MAX_NODES = 4096;
+
 /** Resolve a document by id from the verifier's content-addressed store. */
 export type LineageResolver = (id: string) => LineageDoc | undefined;
 
 export interface LineageOptions {
-  /** Traversal bound; defaults to MIN_TRAVERSAL_BOUND. */
+  /** Depth bound; defaults to MIN_TRAVERSAL_BOUND. */
   maxDepth?: number;
+  /** Breadth bound (total distinct-node resolutions); defaults to DEFAULT_MAX_NODES. */
+  maxNodes?: number;
 }
 
 interface VisitResult {
@@ -103,26 +117,44 @@ interface VisitResult {
  * `resolve` returns `undefined` for an id the verifier cannot retrieve
  * (→ `incomplete`). The walk is a DAG: a node re-reached by a different path (a
  * merge diamond) is memoised — not mistaken for a cycle — while a node re-reached
- * on the CURRENT path is a cycle (→ `rejected`).
+ * on the CURRENT path is a cycle (→ `rejected`). Two bounds keep the walk safe on
+ * an untrusted store: `maxDepth` caps depth, and `maxNodes` caps the total number
+ * of resolutions (breadth), so a wide reconverging DAG cannot force an exponential
+ * or quadratic walk (both yield `incomplete`).
  */
 export function verifyLineageChain(subjectId: string, resolve: LineageResolver, options: LineageOptions = {}): LineageResult {
   const maxDepth = options.maxDepth ?? MIN_TRAVERSAL_BOUND;
   if (!Number.isInteger(maxDepth) || maxDepth < 1) {
     throw new LineageError('maxDepth must be a positive integer');
   }
+  const maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES;
+  if (!Number.isInteger(maxNodes) || maxNodes < 1) {
+    throw new LineageError('maxNodes must be a positive integer');
+  }
   const warnings: string[] = [];
   const memo = new Map<string, number>(); // id -> subtree depth, VERIFIED subtrees only
+  const onPath = new Set<string>(); // ids on the current DFS path (cycle detection)
+  let resolveCount = 0; // node resolutions performed (breadth meter; ≥ distinct nodes)
 
-  // `path` is the current ancestor path (cycle detection); `d` is the 1-based
-  // depth of `id` from the subject.
-  function visit(id: string, path: Set<string>, d: number): VisitResult {
-    if (path.has(id)) {
+  // `d` is the 1-based depth of `id` from the subject. `onPath` is the current
+  // ancestor path (mutated in place: added before recursing, removed on exit —
+  // an O(1)-per-level recursion stack, not an O(depth) per-branch copy).
+  function visit(id: string, d: number): VisitResult {
+    if (onPath.has(id)) {
       // A content-addressed chain cannot revisit an id on one path — a document
       // cannot be its own ancestor — so this is a proven inconsistency.
       return { outcome: 'rejected', depth: d - 1, reason: `cycle detected at ${id}` };
     }
     const cached = memo.get(id);
     if (cached !== undefined) return { outcome: 'verified', depth: cached };
+
+    // Breadth bound: a memo miss is about to do real resolution work, so meter it
+    // here (memo hits and cycle hits above are free and do not count). A wide DAG
+    // whose nodes never verify (an unresolvable base, or every node at the depth
+    // bound) is not memoised, so its re-walk is what this cap stops.
+    if (++resolveCount > maxNodes) {
+      return { outcome: 'incomplete', depth: d - 1, reason: `traversal node bound (${maxNodes}) reached`, brokenAt: id };
+    }
 
     const doc = resolve(id);
     if (doc === undefined) {
@@ -132,7 +164,13 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
 
     const parents: string[] = [];
     if (doc.parent !== null && doc.parent !== undefined) parents.push(doc.parent);
-    if (Array.isArray(doc.mergedFrom)) parents.push(...doc.mergedFrom);
+    // Append merge parents one at a time, not via spread: a document with a huge
+    // `mergedFrom` fan-out would overflow the argument count of `push(...array)`
+    // and throw an untyped RangeError before the breadth meter runs (§5.3 bounds
+    // array cardinality upstream, but the walk must fail closed, not crash).
+    if (Array.isArray(doc.mergedFrom)) {
+      for (const m of doc.mergedFrom) parents.push(m);
+    }
 
     if (parents.length === 0) {
       // Root. (The root test precedes the bound test, so a root sitting exactly
@@ -173,19 +211,24 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
 
     // Verify every parent (primary + merge). A rejection anywhere wins; failing
     // that, any incomplete; otherwise verified with depth = max(parents)+1.
-    const nextPath = new Set(path);
-    nextPath.add(id);
+    onPath.add(id);
     let firstIncomplete: VisitResult | undefined;
+    let rejected: VisitResult | undefined;
     let maxParentDepth = 0;
     for (const p of parents) {
-      const r = visit(p, nextPath, d + 1);
-      if (r.outcome === 'rejected') return r;
+      const r = visit(p, d + 1);
+      if (r.outcome === 'rejected') {
+        rejected = r;
+        break;
+      }
       if (r.outcome === 'incomplete') {
         if (firstIncomplete === undefined) firstIncomplete = r;
         continue;
       }
       if (r.depth > maxParentDepth) maxParentDepth = r.depth;
     }
+    onPath.delete(id); // leave the current path (restore the recursion stack)
+    if (rejected !== undefined) return rejected;
     if (firstIncomplete !== undefined) return firstIncomplete;
 
     // Advisory monotonicity (warnings only — never fatal; §3.4 branching). depth
@@ -205,6 +248,6 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
     return { outcome: 'verified', depth: maxParentDepth + 1 };
   }
 
-  const r = visit(subjectId, new Set(), 1);
+  const r = visit(subjectId, 1);
   return { outcome: r.outcome, resolvedDepth: r.depth, reason: r.reason, brokenAt: r.brokenAt, warnings };
 }

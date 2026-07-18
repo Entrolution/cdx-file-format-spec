@@ -27,7 +27,7 @@ import * as crypto from 'crypto';
 import { evaluateSignatureState, type SignatureStateInputs } from './lib/signature-state.js';
 import { trustStateVectors } from './kat/trust-state-vectors.js';
 import { encodeProtectedHeader, jwsSigningInput } from './lib/jws-envelope.js';
-import { signatureTimestampImprint } from './lib/timestamp.js';
+import { signatureTimestampImprint, TimestampError } from './lib/timestamp.js';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -126,6 +126,24 @@ if (signatureTimestampImprint(P, S1) === signatureTimestampImprint(P, S2)) {
   fail('imprint did not change when the signature changed — a token could be transplanted');
 } else {
   console.log('  ✓ a different signature yields a different imprint (no cross-record transplant)');
+}
+
+// Imprint robustness: a prototype-polluting hashAlg and a non-base64url member
+// (which would break the '.'-delimiter injectivity) both yield the typed
+// TimestampError, never a raw TypeError or a forgeable collision.
+try {
+  signatureTimestampImprint(P, S1, '__proto__');
+  fail('imprint hashAlg "__proto__" — accepted (should reject)');
+} catch (err) {
+  if (err instanceof TimestampError) console.log('  ✓ imprint hashAlg "__proto__" → TimestampError (not a raw TypeError)');
+  else fail(`imprint hashAlg "__proto__" — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
+}
+try {
+  signatureTimestampImprint('AA.BB', 'CC'); // a '.' in a member defeats delimiter injectivity
+  fail('non-base64url imprint member — accepted (should reject)');
+} catch (err) {
+  if (err instanceof TimestampError) console.log('  ✓ non-base64url imprint member → TimestampError (delimiter injectivity enforced)');
+  else fail(`non-base64url imprint member — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
 }
 
 if (failures > 0) {

@@ -105,6 +105,14 @@ All file and directory names within the archive:
 - SHOULD use lowercase for standard paths
 - SHOULD use URL-safe characters for asset names
 
+### 3.5 Unique Entry Paths
+
+Each path MUST appear at most once in the archive, in every document state. An archive MUST NOT contain two entries that resolve to the same path (compared after the section 3.4 normalization: UTF-8 and forward-slash separators). A reader MUST reject such an archive rather than pick a view. The comparison is case-sensitive, but a reader MUST **additionally** reject two entries whose paths differ only in case: they collide when extracted onto a case-insensitive filesystem (the default on macOS and Windows), reintroducing the ambiguity this rule removes.
+
+The **central directory is the authoritative index**: a reader MAY resolve every part directly from it by byte-exact name, and to keep the hashed view and the rendered view identical it SHOULD do so rather than extract-then-read through a case-folding filesystem lookup. A reader that also performs a sequential/local scan MUST find, for every local file header, exactly one central-directory record with the same name, and MUST reject an archive whose local-header and central-directory views disagree on the entry set or that places file data outside the entries the central directory enumerates.
+
+ZIP permits duplicate entry names, and permits the local file headers to disagree with the central directory; libraries resolve the ambiguity differently (first-wins, last-wins, or central-directory-wins). This is the container-level counterpart of the duplicate-JSON-key rejection in Document Hashing (section 4.3.2): both close a **split-view substitution**, in which a signer's tooling hashes one set of bytes for `content/document.json` into the document ID while a victim's reader materializes a different entry of the same name — under one still-valid signature.
+
 ## 4. Archive-Level Metadata
 
 ### 4.1 ZIP Comment
@@ -146,6 +154,17 @@ Conforming implementations MUST support:
 - Individual files up to 50 MB
 - At least 1,000 files
 - Paths up to 200 characters
+
+### 5.3 Mandatory Bounds
+
+The section 5.1 figures are RECOMMENDED baselines, and section 5.2 is a support *floor*, not a cap. Neither obliges an implementation to enforce any *upper* limit — so a conformant reader could omit every bound and be driven to exhaust memory, CPU, or the native stack by a small crafted document.
+
+A conforming implementation MUST therefore enforce a finite upper bound on every attacker-controlled dimension of a document, and MUST fail closed when a bound is exceeded — rejecting the document, or (for an out-of-hash layer) declining to load that layer, with a catchable error, never crashing, hanging, or overflowing the stack. The specific values are implementation-defined (the section 5.1 figures are a reasonable default); the *existence and enforcement* of a bound is the requirement. The dimensions that MUST be bounded include at least:
+
+- **Container:** total archive size, entry count, per-entry compressed and decompressed size, the decompression ratio (section 9.2), and path length.
+- **Content tree:** block-tree nesting depth, total node count, and the size of any single string field. Because document-ID computation is itself a depth-first recursion over the content (Document Hashing section 4.3), an unbounded tree can stop a reader from even computing the ID needed to reject the document; the bound MUST make canonicalization fail with a catchable error rather than a native stack overflow.
+- **Out-of-hash collections:** the cardinality and nesting of every out-of-hash, path-only collection — core annotations; collaboration comments, changes, and replies; phantom clusters, phantoms, connections, and embedded phantom content; form values; and the provenance record's `timestamps`, `derivedFrom`, and proof arrays with each embedded token. These sit outside the document hash and every signature scope, so a **valid signature does not bound them** (Security Extension section 9.8): a party — not necessarily the author — can inflate them without changing the document ID or invalidating any signature, so a reader that trusts the signature and then loads the layer unboundedly is DoS-able beneath a "signature valid" indicator. A reader MUST bound these independently of signature status and fail the affected layer closed (a layer-load disposition, State Machine section 5.4.3).
+- **Per-entry work:** where validating an entry does real work — a timestamp obliges CMS/ASN.1 parsing, TSA-chain or blockchain validation, and possibly a network fetch (Provenance and Lineage section 6) — the bound MUST cap the *total* such work, not merely each entry's size, so an uncapped array cannot amplify CPU or steer network requests.
 
 ## 6. Integrity
 
@@ -224,16 +243,31 @@ For large documents, implementations SHOULD support:
 
 ### 9.1 Path Traversal
 
-Implementations MUST validate that extracted paths do not traverse outside the intended directory (zip slip vulnerability). Paths containing `..` segments MUST be rejected.
+A ZIP entry name is attacker-controlled, so an implementation that extracts entries to disk MUST validate every **actual archive entry name** — not merely the paths declared inside JSON parts — and MUST reject the archive, in every document state, if any entry name:
+
+- contains a `..` path segment (`../`, `..\`, a trailing `/..`, or a bare `..`),
+- begins with `/` or `\` (a POSIX or UNC-style absolute path),
+- contains a backslash (`\`) — forbidden as a separator by section 3.4, and treated as a path separator on Windows,
+- contains a colon (`:`) — this subsumes a leading Windows drive letter (`C:…`) and blocks an NTFS alternate-data-stream suffix (`file:stream`); no CDX path defined in section 3.3 contains one,
+- has a segment that is a reserved Windows device name (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, compared case-insensitively and ignoring any extension), or a segment with a trailing dot or space (which Windows strips, folding it onto another entry), or
+- is not well-formed, shortest-form UTF-8 (an overlong encoding can smuggle a `..` past a byte comparison).
+
+Rejecting `..` alone is insufficient: on Windows `..\..\evil` and an absolute `/etc/cron.d/x` both escape an extraction directory that screens only for `..`, and a colon, a device name, or a trailing-dot fold redirects a write *within* the tree without ever traversing out of it. Beyond the per-segment checks above — which are a fast-fail layer — an implementation MUST resolve each entry's target against the extraction root and MUST confirm the **canonicalized real path** (resolving any symbolic-link components as they exist at write time) remains inside that root before writing; a purely lexical containment check can be defeated by a symlink component (section 9.3). This resolved-containment check is the authoritative defence.
+
+These are **consumer** obligations, evaluated over the *entire* entry set, and they take precedence over the ignore-unrecognized rule (section 7.2): an entry in an unknown namespace directory is still subject to name-safety and uniqueness. The section 3.4 rules constrain a well-behaved writer, but a malicious archive ignores them, so a reader MUST NOT rely on producer-side path form having been enforced.
 
 ### 9.2 Decompression Bombs
 
-Implementations SHOULD impose limits on:
+Implementations MUST impose a finite limit on each of the following, and MUST fail closed (reject the archive) when one is exceeded rather than decompress unboundedly (section 5.3):
 
 - Compression ratio (reject suspiciously high ratios)
-- Decompressed size relative to compressed size
+- Decompressed size, absolute and relative to compressed size
 - Total extraction size
+
+The specific thresholds are implementation-defined (section 5.1 gives reasonable defaults); a reader MUST NOT decompress a Deflate or Zstandard stream — including the mandatory-supported Deflate method — without such a bound in force.
 
 ### 9.3 Symbolic Links
 
-ZIP archives MAY contain symbolic links. Implementations MUST NOT follow symbolic links that point outside the archive or extraction directory.
+ZIP archives MAY carry entries that encode symbolic links (a Unix mode with the symlink bit set). CDX defines no legitimate use for one (section 3.3), and a symlink is a second path-traversal vector: a link entry whose target is absolute or contains `..` can redirect a later write — or a read — outside the extraction directory even when every entry *name* passed section 9.1, and a link left in place can defeat a purely lexical containment check on a subsequent entry.
+
+An implementation MUST NOT follow a symbolic link that points outside the extraction directory, and when extracting an untrusted archive to disk it MUST NOT materialize a symbolic-link entry at all. The section 9.1 resolved-containment check is therefore evaluated against a real path that contains no archive-created links.

@@ -44,9 +44,27 @@ independently.
 
 Fields whose value is rendered as a hyperlink, a navigation target, or a
 submitted action — core `link` mark `href`, the forms extension's form
-`action`, the semantic extension's entity `uri` and cross-reference `target`,
-and the presentation extension's cross-reference `target` — are constrained by
-the shared `safeUri` definition (`anchor.schema.json#/$defs/safeUri`).
+`action`, the semantic extension's entity `uri`, cross-reference `target`, and
+bibliography entry `URL` and `DOI`, and the presentation extension's
+cross-reference `target` — are constrained by the shared `safeUri` definition
+(`anchor.schema.json#/$defs/safeUri`).
+
+The allowlist is also a **render-time** obligation. A person `identifier` (an
+author's ORCID, DID, or URL — academic extension section 12) is one value the
+schema cannot pin to `safeUri`, because it legitimately holds a `did:` value,
+which is not a `safeUri` scheme; a renderer MUST NOT emit such an identifier as a
+raw link `href`, and any identifier it does turn into a hyperlink MUST pass the
+`safeUri` allowlist first. A renderer MUST apply the same allowlist to a `DOI` it
+linkifies even though the schema already constrains it — the renderer is the
+security boundary (Section 2.3). A `javascript:` identifier MUST be shown as inert
+text, never promoted to a navigation target.
+
+The same render-time allowlist governs the out-of-hash metadata URLs the schema leaves
+unconstrained — a Dublin Core `source`, `relation`, or `identifier`, a `rights` object's
+`licenseUrl`, and an asset `license.url`: these are advisory strings a renderer often
+turns into a hyperlink, so a renderer MUST pass any such value through the `safeUri`
+allowlist before linkifying it, and a `javascript:` licence or source link is shown as
+inert text rather than a navigation target.
 
 `safeUri` is an **allowlist**. It permits:
 
@@ -73,8 +91,9 @@ resulting navigation; the default-deny posture is the conformant baseline.
 ### 2.2 Image sources
 
 Fields whose value is rendered as an image source — the collaboration
-extension's author `avatar`, and any extension image reference that mirrors the
-core image block — are constrained by the shared `safeImageUri` definition
+extension's author `avatar`, the presentation extension's style
+`backgroundImage`, and any extension image reference that mirrors the core image
+block — are constrained by the shared `safeImageUri` definition
 (`anchor.schema.json#/$defs/safeImageUri`).
 
 `safeImageUri` permits the `https:`/`http:` URLs and relative references (no
@@ -116,10 +135,16 @@ embedded in the document.
 
 ### 3.2 Mathematical notation
 
-The academic extension carries mathematical and algorithmic source as LaTeX
-(equation lines, algorithm lines) rendered by a typesetting engine such as
-KaTeX, MathJax, or a full TeX system. Untrusted LaTeX is a code-execution and
-denial-of-service surface. A renderer MUST:
+Mathematical source is untrusted author data wherever it appears, and the core
+content model carries the largest surface: the core `math` mark and `math` block
+(`content.schema.json`, `format: latex | mathml`). The academic extension adds
+equation lines, algorithm lines, and an equation-line `tag` or reference `format`
+template a renderer may route through the math engine (Section 3.5). This section
+governs all of them; it is **not** scoped to the academic extension.
+
+**LaTeX** (`format: latex`, core or academic) is rendered by a typesetting engine
+such as KaTeX, MathJax, or a full TeX system, and untrusted LaTeX is a
+code-execution and denial-of-service surface. A renderer MUST:
 
 - disable file-access and shell-escape constructs (`\input`, `\include`,
   `\write18`, `\openin`, and equivalents) — a full-TeX engine MUST NOT be
@@ -133,6 +158,18 @@ denial-of-service surface. A renderer MUST:
 A renderer SHOULD prefer a restricted, non-Turing-complete math renderer
 (KaTeX-class) over a full TeX system for untrusted input.
 
+**MathML** (`format: mathml`, core `math` mark or block) is not LaTeX but
+untrusted **markup**, and is a historical XSS surface (`<maction>`, event-handler
+attributes, `href`/`xlink:href` values, and markup-reentering elements). A renderer
+MUST sanitize author-supplied MathML — removing script elements and event-handler
+attributes, rejecting `href`/`xlink:href` values that fall outside the Section 2.1
+`safeUri` allowlist, and removing or neutralizing active or markup-reentering
+elements such as `<maction>` and `<annotation-xml encoding="text/html">` (which
+re-parses its contents as HTML, like SVG's `<foreignObject>`) — or render it in a
+sandbox that cannot execute script or reach the network, with the same rigor it
+applies to SVG (Section 3.1). MathML is never exempt from sanitization by virtue of
+a valid signature.
+
 ### 3.3 Style and color values
 
 The collaboration extension carries a CSS `color` value for cursor and
@@ -141,7 +178,11 @@ inject an author-supplied style or color string into a stylesheet or a `style`
 attribute without validating it against the expected grammar (for `color`, a CSS
 color value) or escaping it. An unvalidated value can break out of the intended
 property and inject additional declarations, including `url()`, `expression()`,
-or `@import` constructs that fetch remote resources or alter layout.
+or `@import` constructs that fetch remote resources or alter layout. This applies to
+every author-supplied style value across the extensions, including a phantom
+cluster's `metadata.color` and any other extension-chrome color or style string; a
+phantom cluster's `label` (rendered as its display chrome) is author text and MUST be
+escaped as inert text (Section 3.4), never injected as markup.
 
 ### 3.4 Contact and identity strings
 
@@ -152,6 +193,43 @@ renderer MUST render them as inert text, escaping any markup, and MUST NOT
 auto-linkify or otherwise promote them to a navigation target except through the
 safe-URI allowlist of Section 2. (Their *authority* status is governed
 separately by the Security Extension section 3.10.)
+
+### 3.5 Pre-rendered and interpolated markup
+
+Some fields carry author-controlled markup, or template text a renderer
+interpolates into a markup context:
+
+- **Pre-rendered citations.** The semantic extension's bibliography entry
+  `renderedText` carries pre-rendered citation markup — its purpose is to display
+  a formatted reference without running a CSL processor — so a renderer that
+  honours it interprets it as HTML, and it is author-controlled (an inline entry,
+  or a path-only external `bibliography.json`). A renderer MUST sanitize
+  `renderedText` against an allowlist of inline formatting elements (emphasis,
+  superscript/subscript, and equivalents), removing script, event-handler
+  attributes, and any active or external-fetching content, with the same rigor it
+  applies to SVG (Section 3.1). A signature over the citation bytes attests who
+  wrote them, never that they are safe to inject.
+
+- **Interpolated labels and templates.** Author strings interpolated into
+  rendered output — an academic equation-line `tag` (`*`, `\dagger`) or `number`,
+  and a reference mark's display `format` template (`Theorem {number}`) or `line`
+  label — MUST be escaped as inert text (Section 3.4) before they are emitted into
+  a markup context, so a template carrying `<…>` cannot inject markup. A `tag` a
+  renderer instead routes through the math engine (a `\dagger` typeset as a
+  symbol) is untrusted math source and is subject to the Section 3.2 hardening.
+
+### 3.6 Bidirectional and invisible control characters
+
+Rendered author text may carry Unicode bidirectional-override controls (`U+202A`–
+`U+202E`, `U+2066`–`U+2069`) or zero-width and invisible characters that reorder or
+hide displayed glyphs without changing the hashed bytes — a "Trojan Source" attack,
+in which code, a citation, or a licence string reads differently to a human than the
+bytes that were signed. Because these characters are inside the content hash, a
+signature attests them faithfully; the risk is that the *human* is shown a different
+string than the one that was signed. A renderer SHOULD detect and visibly flag (or
+strip) bidirectional-control and invisible characters in text it displays, and MUST
+NOT let them silently reorder a security-relevant string (a URL, a signer name, a
+code span) into something other than its logical byte order.
 
 ## 4. Client-side validation patterns
 
@@ -191,12 +269,60 @@ phantom extension, whose clusters carry an embedded content model and whose
 assets are an unverified channel (Phantom Extension section 5.1). A renderer
 MUST render embedded and phantom content with the *same* safe-URI allowlist and
 sanitization rules it applies to primary content: embedded link targets, image
-sources, SVG, math, and style values are no more trustworthy than their
-top-level counterparts, and an embedded or out-of-hash channel is frequently
+sources, SVG, math, pre-rendered markup, and style values are no more trustworthy
+than their top-level counterparts, and an embedded or out-of-hash channel is frequently
 *less* trustworthy. A renderer MUST treat such content as untrusted regardless
 of the integrity status of the surrounding document, and MUST NOT grant it any
 capability (script execution, navigation, network access) it would deny to
 primary content.
+
+**Active content is forbidden in the out-of-hash annotation layers.** A phantom
+cluster's content and a collaboration change snapshot are out-of-hash — outside
+every signature scope and the manifest projection (Security Extension section 9.8) —
+yet they render adjacent to the anchored block (Phantom Extension section 4.9).
+Interactive/active content there is a credential-phishing surface presented inside
+a validly-signed frame, so the phantom content model **excludes `forms:*` blocks**
+(Phantom Extension schema), and a renderer MUST NOT present — or grant submit or
+credential-input capability to — a form or active control that originates from a
+phantom cluster, a collaboration change snapshot, or any other out-of-hash channel,
+*even though* it grants that capability to primary content. This is a case where an
+out-of-hash channel gets *less* capability than primary content, not the same.
+
+**The unauthenticated layer MUST be visually demarcated.** Because phantom and
+annotation content is unauthenticated and forgeable yet is shown adjacent to signed
+content, a renderer that displays it MUST visually distinguish it from the document's
+authenticated (signed) content, so a reader cannot mistake an out-of-hash overlay — a
+"corrected figure", a revised liability amount — for signed content carrying the same
+valid-signature indicator. Machine-trust disclosure (integrity status) does not
+discharge this obligation on its own: the masquerade defense the human relies on is
+visual distinguishability.
+
+**External and out-of-hash asset content is not integrity-bound.** An image whose
+`src` is `external`, an `image.fallback`, and any asset a signature does not
+transitively bind (an asset outside a declared, hash-pinned category index —
+Security Extension section 9.8) is fetched or resolved at render time and is not
+covered by the document hash. A renderer MUST NOT present such content as
+integrity-bound: on a signed document it MUST either omit it, or visually
+distinguish it from the hash-covered content so a reader cannot mistake an
+attacker-substitutable external image for signed content carrying the same
+valid-signature indicator.
+
+**Out-of-hash derived fields MUST be regenerated, not trusted.** Some content blocks
+carry a derived, out-of-hash convenience copy of hashed data: a `measurement`'s
+human-readable `display` string, whose authoritative quantity is the hashed
+`value`/`unit`; and a `codeBlock`'s pre-tokenized `tokens`, whose authoritative code
+is the hashed `children` text. Both are stripped before hashing (Document Hashing
+section 4.3.1), so no signature attests them, and a tampered copy can present a
+different quantity or different code than the signed source *under a still-valid
+signature* — a hashed `value` of `7.677` beneath an out-of-hash `display` of
+`"9999 mm"`, or benign `children` beneath a `tokens` array that reads `curl … | sh`
+for the sighted reader. A renderer MUST derive what it presents from the hashed
+source: it MUST regenerate the measurement display from the hashed fields, and MUST
+take the displayed code characters from `children` (using `tokens` only as a styling
+overlay, and only after confirming the tokens reconstruct `children`). It MUST NOT
+present a stored `display` or `tokens` as authoritative — the same principle as the
+out-of-hash annotation layers above: an out-of-hash channel is never presented as
+signed content (Content Blocks sections 4.7 and 4.16).
 
 ## 7. Relationship to identity authority
 

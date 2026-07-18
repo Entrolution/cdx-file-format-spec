@@ -40,6 +40,14 @@ export class ProvenanceTimestampError extends Error {
   }
 }
 
+/** Upper bound on Merkle inclusion-path length. A path of depth d authenticates a
+ * tree of up to 2^d leaves, so 256 is astronomically generous while bounding the
+ * per-timestamp hashing work an untrusted proof can force. Mirrors the
+ * `proof.path` maxItems in provenance.schema.json; a proof that passes the schema
+ * cannot exceed this, and this guard also protects callers that reach the library
+ * without schema validation. */
+const MAX_MERKLE_PATH = 256;
+
 /** Node `crypto` hash names for the algorithms a Merkle path may use. blake3 has
  * no Node binding and is rejected (the same posture as canonicalize.ts). */
 const MERKLE_HASHES: Record<string, string> = {
@@ -92,6 +100,9 @@ function hashConcat(algorithm: string, left: Buffer, right: Buffer): Buffer {
 export function verifyMerkleInclusion(leaf: string, path: MerklePathElement[], root: string): boolean {
   if (!Array.isArray(path)) {
     throw new ProvenanceTimestampError('Merkle proof path must be an array');
+  }
+  if (path.length > MAX_MERKLE_PATH) {
+    throw new ProvenanceTimestampError(`Merkle proof path length ${path.length} exceeds maximum ${MAX_MERKLE_PATH}`);
   }
   const { algorithm, bytes } = decodeContentHash(leaf);
   let acc = bytes;

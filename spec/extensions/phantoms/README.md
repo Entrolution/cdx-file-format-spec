@@ -206,9 +206,9 @@ Connections between phantoms MUST satisfy the following rules:
 |------|-------------|--------------------|
 | Target exists | `target` MUST reference an existing phantom ID within the same cluster | Warning in DRAFT/REVIEW; Error in FROZEN/PUBLISHED |
 | No cycles | Connections SHOULD NOT form cycles (A→B→A) | Warning in all states |
-| Same cluster | Connections MUST NOT reference phantoms in other clusters | Error in all states |
+| Same cluster | `target` is resolved only within the connection's own cluster; because phantom IDs are unique only within a cluster (section 4.3), a `target` naming a phantom in another cluster is unresolvable here and is treated as a broken target | Warning in DRAFT/REVIEW; Error in FROZEN/PUBLISHED |
 
-Implementations MUST validate connection targets when loading phantom data. Broken connection targets (referencing non-existent phantom IDs) indicate data corruption in frozen documents and partial construction in mutable documents.
+Implementations MUST validate connection targets when loading phantom data. A `target` that does not resolve to a phantom in the same cluster — whether the ID exists nowhere or exists only in a different cluster — is a broken target: this indicates data corruption in frozen documents and partial construction in mutable documents.
 
 This `Error` is a layer-load disposition — the phantom graph will not render coherently — not the INTEGRITY-ERROR of the State Machine's integrity axis. Because the phantom layer is outside the document hash (section 5) and bound by no signature, a broken connection never changes the document ID, invalidates a signature, or downgrades the document itself; it is a validity disposition local to the out-of-hash layer (State Machine section 5.4.3).
 
@@ -248,7 +248,11 @@ Each cluster has a scope controlling its visibility:
 | `"private"` | Visible only to the cluster author |
 | `"role:{name}"` | Visible to users with the specified role |
 
+In `"role:{name}"`, `{name}` is restricted to the characters `A–Z`, `a–z`, `0–9`, `.`, `_`, and `-` (a role name containing a space or other character does not match the `scope` grammar and is rejected). Applications that map document roles to their own identifiers MUST use names drawn from this character set.
+
 Scope enforcement is an application concern. The specification defines the scope values; implementations decide how to enforce visibility.
+
+> **`private` is not confidentiality.** `scope` controls application-level *visibility*, not cryptographic confidentiality. A `private` cluster's content sits in cleartext inside `phantoms/clusters.json` and is readable by any holder of the archive, independent of any application — so a note written as `private` in the belief that it is hidden is in fact visible to every recipient of the shared archive. Do not place genuinely sensitive material in a phantom expecting `private` to protect it; the fork carry-over rule (section 8) is a data-hygiene convenience, not a data-layer access control. For confidential notes, encrypt the payload with the security extension (`cdx.security`, Encryption) so the plaintext never travels in the archive.
 
 ## 7. State Permissions
 

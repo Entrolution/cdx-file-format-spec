@@ -53,7 +53,8 @@
       "items": {
         "$ref": "#/$defs/page"
       },
-      "minItems": 1
+      "minItems": 1,
+      "maxItems": 10000
     },
     "fonts": {
       "type": "object",
@@ -78,7 +79,8 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/preciseElement"
-          }
+          },
+          "maxItems": 4096
         }
       },
       "additionalProperties": false
@@ -89,23 +91,28 @@
       "properties": {
         "blockId": {
           "type": "string",
-          "description": "Reference to content block ID"
+          "description": "Reference to content block ID",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "x": {
           "type": "string",
-          "description": "Horizontal position from left edge"
+          "description": "Horizontal position from left edge. Absolute units only (px, pt, in, cm, mm); a precise layout is pixel-perfect, so relative units (%, em, rem, vw, vh) are rejected.",
+          "pattern": "^-?\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         },
         "y": {
           "type": "string",
-          "description": "Vertical position from top edge"
+          "description": "Vertical position from top edge. Absolute units only (px, pt, in, cm, mm); relative units are rejected.",
+          "pattern": "^-?\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         },
         "width": {
           "type": "string",
-          "description": "Element width"
+          "description": "Element width. Absolute units only (px, pt, in, cm, mm); relative units are rejected.",
+          "pattern": "^\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         },
         "height": {
           "type": "string",
-          "description": "Element height"
+          "description": "Element height. Absolute units only (px, pt, in, cm, mm); relative units are rejected.",
+          "pattern": "^\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         },
         "continues": {
           "type": "boolean",
@@ -127,7 +134,8 @@
           "description": "Line-level coordinates for legal/court documents",
           "items": {
             "$ref": "#/$defs/linePrecision"
-          }
+          },
+          "maxItems": 4096
         }
       },
       "additionalProperties": false
@@ -205,11 +213,13 @@
         },
         "y": {
           "type": "string",
-          "description": "Vertical position of line"
+          "description": "Vertical position of line. Absolute units only (px, pt, in, cm, mm); relative units are rejected.",
+          "pattern": "^-?\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         },
         "height": {
           "type": "string",
-          "description": "Line height"
+          "description": "Line height. Absolute units only (px, pt, in, cm, mm); relative units are rejected.",
+          "pattern": "^\\d+(\\.\\d+)?(px|pt|in|cm|mm)?$"
         }
       },
       "additionalProperties": false

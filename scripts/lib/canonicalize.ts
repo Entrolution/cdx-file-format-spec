@@ -32,6 +32,20 @@ export class CanonicalizationError extends Error {
   }
 }
 
+/**
+ * Maximum nesting depth of canonical content. Canonicalization walks the content
+ * tree with native recursion (canon, id-relabel, reference-rewrite, byte-invariant
+ * validation, JCS serialization), so an unbounded depth is a stack-overflow DoS on
+ * document open/sign/verify. This bound is checked iteratively up front, before any
+ * recursive walk runs, so a deep input is rejected with a typed CanonicalizationError
+ * — never an untyped RangeError a verifier catching only the typed error would miss.
+ * Real documents nest a few tens deep at most; this leaves ample headroom while
+ * staying well below the native stack limit. This bounds the recursion-overflow
+ * (depth) axis; total node count and single-string size are bounded upstream by the
+ * container size limits (Container Format §5.2/§5.3 resource bounds).
+ */
+export const MAX_CANONICALIZATION_DEPTH = 256;
+
 // ---------------------------------------------------------------------------
 // Hash algorithm handling (§3)
 // ---------------------------------------------------------------------------
@@ -46,7 +60,10 @@ const HEX_DIGEST_LENGTH: Readonly<Record<string, number>> = {
   blake3: 64,
 };
 
-const KNOWN_ALGORITHMS = Object.keys(HEX_DIGEST_LENGTH);
+/** The CDX-permitted hash algorithms (§3.2). The single allowlist tooling picks
+ *  a file-hash algorithm from; a name outside this set is not a valid CDX digest
+ *  algorithm even when the host runtime's crypto library would accept it (md5, …). */
+export const KNOWN_ALGORITHMS = Object.keys(HEX_DIGEST_LENGTH);
 
 /**
  * Extract the algorithm from an `algorithm:hexdigest` value (e.g. the manifest
@@ -76,7 +93,9 @@ export function isValidContentHash(h: unknown): h is string {
   if (idx <= 0) return false;
   const algorithm = h.slice(0, idx);
   const digest = h.slice(idx + 1);
-  const expected = HEX_DIGEST_LENGTH[algorithm];
+  // Object.hasOwn, not a bare index: a hash prefix of '__proto__'/'constructor' must
+  // not resolve to an inherited value (the unguarded-lookup class hardened elsewhere).
+  const expected = Object.hasOwn(HEX_DIGEST_LENGTH, algorithm) ? HEX_DIGEST_LENGTH[algorithm] : undefined;
   return expected !== undefined && digest.length === expected && /^[0-9a-f]+$/.test(digest);
 }
 
@@ -107,7 +126,19 @@ function nodeHashName(algorithm: string): string {
  * collapse last-wins.
  */
 export function parseStrictJson(text: string): unknown {
-  const value = JSON.parse(text); // syntax validation + canonical value semantics
+  let value: unknown;
+  try {
+    value = JSON.parse(text); // syntax validation + canonical value semantics
+  } catch (err) {
+    // JSON.parse can throw an untyped RangeError when an input exhausts a parser
+    // resource limit (an over-long string, or — on a runtime with a recursive parser
+    // — deep nesting); convert it to the module's typed error so a verifier catching
+    // only CanonicalizationError does not crash (Container Format §5.3 resource bounds).
+    if (err instanceof RangeError) {
+      throw new CanonicalizationError('input exceeds a parser resource limit');
+    }
+    throw err;
+  }
   detectDuplicateKeys(text); // structural duplicate-key scan over the (now valid) text
   return value;
 }
@@ -221,6 +252,26 @@ export interface CanonicalizeOptions {
 }
 
 /**
+ * Reject content nested deeper than `maxDepth` with a typed CanonicalizationError.
+ * Traverses iteratively with an explicit stack, so the check itself never recurses
+ * and cannot overflow while measuring depth. `depth` counts nested containers
+ * (objects/arrays); scalars are leaves. A structure exactly `maxDepth` containers
+ * deep is accepted; one level deeper is rejected.
+ */
+export function assertBoundedDepth(root: unknown, maxDepth: number): void {
+  const stack: Array<{ node: unknown; depth: number }> = [{ node: root, depth: 1 }];
+  while (stack.length > 0) {
+    const { node, depth } = stack.pop()!;
+    if (node === null || typeof node !== 'object') continue;
+    if (depth > maxDepth) {
+      throw new CanonicalizationError(`content nesting exceeds the maximum depth of ${maxDepth}`);
+    }
+    const children = Array.isArray(node) ? node : Object.values(node as Record<string, unknown>);
+    for (const child of children) stack.push({ node: child, depth: depth + 1 });
+  }
+}
+
+/**
  * Build the two-slot canonical content `{ content, metadata }` (§4.2) from the
  * raw document parts. Always returns both slots; `metadata` may be `{}`.
  */
@@ -230,6 +281,16 @@ export function canonicalContent(parts: DocumentParts, options: CanonicalizeOpti
   const manifest = parseStrictJson(parts.manifest);
   const content = parseStrictJson(parts.content);
   const dublinCore = parseStrictJson(parts.dublinCore);
+
+  // Bound nesting depth *before* any recursive walk (canon, id-relabel,
+  // reference-rewrite, byte-invariant validation, JCS) so a deep input is rejected
+  // with a typed error instead of overflowing the native stack (Container Format
+  // §5.3 resource bounds). Both deep-walked inputs are guarded: `content`, and
+  // `dublinCore` — projectMetadata copies its term arrays by reference, so a deeply
+  // nested Dublin Core term reaches validateStoredByteInvariants and jcsOf verbatim.
+  // (manifest and asset indexes only yield scalar path/hash strings, never deep.)
+  assertBoundedDepth(content, MAX_CANONICALIZATION_DEPTH);
+  assertBoundedDepth(dublinCore, MAX_CANONICALIZATION_DEPTH);
 
   const assetMap = buildAssetMap(manifest, parts.assetIndexes);
   const metadata = projectMetadata(dublinCore);
@@ -269,22 +330,43 @@ const ARRAY_TERMS = ['creator', 'subject', 'language'] as const;
 
 function projectMetadata(dublinCore: unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const terms = isPlainObject(dublinCore) ? dublinCore.terms : undefined;
-  if (!isPlainObject(terms)) return out;
+  if (!isPlainObject(dublinCore)) {
+    throw new CanonicalizationError('Dublin Core part must be a JSON object');
+  }
+  const terms = dublinCore.terms;
+  if (terms === undefined) return out; // absent terms → no projected metadata
+  // A malformed term (a non-object `terms`, or a term of the wrong type) is rejected,
+  // not silently dropped: dropping would let a malformed value and an absent one
+  // project to the same bytes and thus the same document ID (a malleability seam).
+  if (!isPlainObject(terms)) {
+    throw new CanonicalizationError('Dublin Core `terms` must be an object');
+  }
 
   for (const term of STRING_TERMS) {
     const v = terms[term];
-    if (typeof v === 'string' && v !== '') out[term] = v; // omit absent / ""
+    if (v === undefined) continue;
+    if (typeof v !== 'string') {
+      throw new CanonicalizationError(`Dublin Core term "${term}" must be a string`);
+    }
+    if (v !== '') out[term] = v; // omit ""
   }
   for (const term of ARRAY_TERMS) {
     const v = terms[term];
-    if (v === undefined || v === null) continue;
+    if (v === undefined) continue; // absent → omit; a present null is malformed (rejected below)
     if (typeof v === 'string') {
       if (v === '') continue; // wholly empty
       out[term] = [v]; // coerce scalar to a one-element array
     } else if (Array.isArray(v)) {
-      if (v.length === 0) continue; // wholly empty
-      out[term] = v.slice(); // preserve elements verbatim, in authored order
+      if (!v.every((e) => typeof e === 'string')) {
+        throw new CanonicalizationError(`Dublin Core term "${term}" array must contain only strings`);
+      }
+      // Drop empty ("") elements; a term left with no elements is omitted, like a
+      // wholly-empty array (§4.3.1: non-empty array elements are preserved verbatim).
+      const nonEmpty = v.filter((e) => e !== '');
+      if (nonEmpty.length === 0) continue; // wholly empty (before or after dropping)
+      out[term] = nonEmpty; // non-empty elements, in authored order
+    } else {
+      throw new CanonicalizationError(`Dublin Core term "${term}" must be a string or array of strings`);
     }
     // any other shape is left out (schema constrains these to string|string[])
   }
@@ -514,9 +596,13 @@ function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
  * array), the `id` of every `anchor` mark, and the `id` of every in-content
  * sub-block element reached as an array item — an academic equation line (in
  * `lines`) and a `subfigure` (in `subfigures`), which carry no block `type`. These
- * share one uniqueness-checked identifier namespace (Anchors & References §4). A
- * singular named sub-object such as a signature block's `signer` (a Person
- * identifier, not a content-anchor target) is not an array item and is excluded.
+ * share one uniqueness-checked identifier namespace (Anchors & References §4).
+ * Membership is keyed on WHERE a node sits, not merely its shape (see `definedId`):
+ * an id in a SEPARATE namespace is left as authored — a `semantic:bibliography`
+ * entry's CSL citation key (in `entries`; referenced by a `citation` mark), any
+ * id-bearing item an extension block carries in its own data array, and a singular
+ * named sub-object such as a signature block's `signer` (a Person identifier, not a
+ * content-anchor target) — are not relabeled.
  *
  * References rewritten: Content Anchor URIs (`#id[/offset]`) in an enumerated set
  * of reference fields. Identifiers that address OTHER namespaces — footnote /
@@ -534,13 +620,13 @@ function alphaRenameIds(content: unknown): unknown {
   // descendants), so alpha-equivalent inputs build identical maps regardless of
   // the original labels. Reject a duplicate id (Anchors & References §4 requires
   // uniqueness across the shared namespace).
-  const collect = (value: unknown, inMarks: boolean, inArray: boolean): void => {
+  const collect = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined): void => {
     if (Array.isArray(value)) {
-      for (const el of value) collect(el, inMarks, true);
+      for (const el of value) collect(el, inMarks, true, parentKey); // items inherit the array's field name
       return;
     }
     if (!isPlainObject(value)) return;
-    const id = definedId(value, inMarks, inArray);
+    const id = definedId(value, inMarks, inArray, parentKey);
     if (id !== undefined) {
       if (map.has(id)) {
         throw new CanonicalizationError(`duplicate id "${id}" in the shared identifier namespace`);
@@ -548,31 +634,65 @@ function alphaRenameIds(content: unknown): unknown {
       map.set(id, `b${counter++}`);
     }
     for (const key of Object.keys(value).sort()) {
-      collect(value[key], key === 'marks', false);
+      collect(value[key], key === 'marks', false, key);
     }
   };
-  collect(content, false, false);
+  collect(content, false, false, undefined);
 
   if (map.size === 0) return content; // no ids to canonicalize
 
-  return rewriteIds(content, map, false, false);
+  return rewriteIds(content, map, false, false, undefined);
 }
 
 /**
- * The in-namespace id this node defines, if any. Inside a `marks` array only an
- * `anchor` mark contributes an id (other marks address separate namespaces).
- * Outside `marks`: a typed object (every block) contributes its `id`, and so does
- * an untyped in-content sub-block reached as an array item — an academic equation
- * line (in `lines`) or a `subfigure` (in `subfigures`). A singular named sub-object
- * such as a signature block's `signer` (a Person identifier, not a content-anchor
- * target) carries no `type` and is not an array item, so it is excluded.
+ * Field keys whose ARRAY items are relabeled sub-block ids even though they carry
+ * no block `type`: an equation group's `lines` (equation lines) and a figure's
+ * `subfigures` (§4.3.1 item 5). This is the EXHAUSTIVE set of untyped sub-block id
+ * arrays — an untyped id-bearing array item reached through any other key (an id an
+ * extension block carries in its own data array) addresses a separate namespace and
+ * is left as authored.
  */
-function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: boolean): string | undefined {
+const SUB_BLOCK_ID_ARRAYS = new Set(['lines', 'subfigures']);
+
+/**
+ * Field keys carrying a block's opaque DATA payload of id-bearing objects whose ids
+ * belong to a SEPARATE identifier namespace, not the content-anchor namespace: a
+ * `semantic:bibliography` block's CSL `entries`, whose `id` is a citation key
+ * (referenced by a `citation` mark's `refs`, left as authored — §4.3.1 item 5). A
+ * bibliography entry carries a CSL `type` (`article-journal`, …) so it is shaped
+ * like a block; the enclosing key is what distinguishes it from one.
+ */
+const DATA_PAYLOAD_ID_ARRAYS = new Set(['entries']);
+
+/**
+ * The in-namespace id this node defines, if any — restricted to the EXHAUSTIVE
+ * shared identifier namespace of §4.3.1 item 5 (blocks, `anchor` marks, equation
+ * `lines`, and `subfigures`), keyed on WHERE the node sits (`parentKey`, the field
+ * it was reached through), not merely its shape.
+ *
+ * Inside a `marks` array only an `anchor` mark contributes an id (other marks
+ * address separate namespaces). Outside `marks`: a typed object contributes its
+ * `id` as a block, UNLESS it is a data-payload entry (a CSL `bibliographyEntry` in
+ * an `entries` array — a citation key, not a content-anchor target); and an untyped
+ * object contributes its `id` only as a sub-block array item of `lines` or
+ * `subfigures`. A structural heuristic (`has a type` OR `is any array item`) would
+ * instead admit a bibliography entry (or any id-bearing item an extension carries in
+ * a data array), relabeling a citation key into the block namespace — a wrong
+ * document ID and a hash collision.
+ */
+function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: boolean, parentKey: string | undefined): string | undefined {
   if (inMarks) {
     return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
   }
   if (typeof obj.id !== 'string') return undefined;
-  return typeof obj.type === 'string' || inArray ? obj.id : undefined;
+  const namedArrayItem = inArray && parentKey !== undefined;
+  if (typeof obj.type === 'string') {
+    // A typed object is a content block unless it is an item of a data-payload array.
+    return namedArrayItem && DATA_PAYLOAD_ID_ARRAYS.has(parentKey) ? undefined : obj.id;
+  }
+  // An untyped id-bearing object is in the namespace only as a `lines`/`subfigures`
+  // sub-block array item; any other untyped array item addresses a separate namespace.
+  return namedArrayItem && SUB_BLOCK_ID_ARRAYS.has(parentKey) ? obj.id : undefined;
 }
 
 /** Academic inline reference marks whose `target` is a Content Anchor URI. */
@@ -587,9 +707,9 @@ function isAnchorRefMark(type: unknown): boolean {
  * `target`; `academic:theorem` `uses[]`; `academic:proof` `of`; `semantic:ref`
  * and `presentation:reference` block `target`.
  */
-function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean): unknown {
+function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean, parentKey: string | undefined): unknown {
   if (Array.isArray(value)) {
-    return value.map((v) => rewriteIds(v, map, inMarks, true));
+    return value.map((v) => rewriteIds(v, map, inMarks, true, parentKey));
   }
   if (!isPlainObject(value)) return value;
 
@@ -602,9 +722,9 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
   // re-sort is always safe.
   for (const key of Object.keys(obj)) {
     if (key === 'marks' && Array.isArray(obj[key])) {
-      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true)));
+      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true, 'marks')));
     } else {
-      obj[key] = rewriteIds(obj[key], map, false, false);
+      obj[key] = rewriteIds(obj[key], map, false, false, key);
     }
   }
 
@@ -618,8 +738,13 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
       obj.target = rewriteContentAnchor(obj.target, map);
     }
   } else {
-    if ((typeof obj.type === 'string' || inArray) && typeof obj.id === 'string') {
-      obj.id = renameId(obj.id, map);
+    // Gate the id rewrite by the SAME namespace test used to build the map, so a
+    // data-payload id (a bibliography entry key) that happens to equal a relabeled
+    // block's original id is left as authored rather than rewritten to that block's
+    // canonical name.
+    const defined = definedId(obj, false, inArray, parentKey);
+    if (defined !== undefined) {
+      obj.id = renameId(defined, map);
     }
     if (type === 'academic:proof' && typeof obj.of === 'string') {
       obj.of = rewriteContentAnchor(obj.of, map);
@@ -680,7 +805,31 @@ export function validateStoredByteInvariants(value: unknown): void {
       throw new CanonicalizationError(`integer ${value} exceeds the safe-integer range (magnitude > 2^53-1)`);
     }
   } else if (Array.isArray(value)) {
-    for (const v of value) validateStoredByteInvariants(v);
+    // Block-level NFC (§4.3.2 item 2): NFC applies to the *concatenated* text
+    // content of a block, not merely to each text-node value — an NFC-combining
+    // sequence MUST NOT be split across text-node boundaries. Consecutive text
+    // nodes at this point differ in marks or carry an id (mergeAdjacentText already
+    // merged same-mark runs), so a per-string check misses a combining mark that
+    // begins one node and completes a base at the end of the previous. Check the
+    // concatenation of each run of two-or-more consecutive text nodes (a single
+    // node is already covered by its own checkString). A valid text-bearing block
+    // has text-node-only children (Content Blocks §4.13–4.14), so a maximal run
+    // equals the block's full text content; resetting the run on any non-text
+    // element is a defensive path (a break or a nested block severs adjacency).
+    let run = '';
+    let runNodes = 0;
+    for (const v of value) {
+      if (isPlainObject(v) && v.type === 'text' && typeof v.value === 'string') {
+        run += v.value;
+        runNodes++;
+      } else {
+        if (runNodes >= 2) checkConcatenatedNfc(run);
+        run = '';
+        runNodes = 0;
+      }
+      validateStoredByteInvariants(v);
+    }
+    if (runNodes >= 2) checkConcatenatedNfc(run);
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
       checkString(key);
@@ -695,6 +844,15 @@ function checkString(s: string): void {
   }
   if (s.normalize('NFC') !== s) {
     throw new CanonicalizationError(`string is not in Normalization Form C (NFC): ${JSON.stringify(s)}`);
+  }
+}
+
+/** Reject a run of concatenated text-node values whose NFC form differs (§4.3.2 item 2). */
+function checkConcatenatedNfc(run: string): void {
+  if (run.normalize('NFC') !== run) {
+    throw new CanonicalizationError(
+      `concatenated block text is not in NFC — a combining sequence is split across text-node boundaries: ${JSON.stringify(run)}`,
+    );
   }
 }
 

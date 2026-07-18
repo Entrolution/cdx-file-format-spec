@@ -1,19 +1,19 @@
 {
   "version": "0.1",
-  "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+  "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
   "signatures": [
     {
       "id": "sig-provider",
       "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDEwOjAwOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19wcm92aWRlcl9zaWduYXR1cmU",
       "scope": {
-        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
           "content": {
             "path": "content/document.json",
-            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
           },
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
@@ -52,13 +52,13 @@
       "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDE0OjIyOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19jbGllbnRfc2lnbmF0dXJl",
       "scope": {
-        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
           "content": {
             "path": "content/document.json",
-            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
           },
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
@@ -87,13 +87,13 @@
       "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa2ZzYWRNQ1NkMzdWeTF2ZGlqQ3Z2Qnc5dlZYQUpyUnZrUDREYnJteDRrQTNnIiwic2lnVCI6IjIwMjUtMDEtMTVUMTY6NDU6MDBaIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19kaWRfa2V5X3NpZ25hdHVyZQ",
       "scope": {
-        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
           "content": {
             "path": "content/document.json",
-            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
           },
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
@@ -116,13 +116,13 @@
       "protected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImprdCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJraWQiOiJkaWQ6d2ViOmFjbWUuZXhhbXBsZS5jb206bm90YXJ5Iiwic2lnVCI6IjIwMjUtMDEtMTVUMTc6MzA6MDBaIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19kaWRfd2ViX3NpZ25hdHVyZQ",
       "scope": {
-        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
           "content": {
             "path": "content/document.json",
-            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
           },
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }
@@ -146,23 +146,23 @@
         "algorithm": "ES256",
         "credentialId": "-btRhpY94UG2pYrf8Ajj3A",
         "authenticatorData": "RLl_Z0ZqxOU4Nj9R6wQVdIVxJnNdRIKOUS-3jAZDfv0FAAAAAA",
-        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWWRual9nc2RVbnJEZURMaDEyMzM2dDJPQTUyNFB3MGFVZHVtVmxTSHJ5VSIsIm9yaWdpbiI6Imh0dHBzOi8vY2R4LmRldiJ9",
-        "signature": "MEUCIBJANmG59EausyI-bV9s47cWlUO05Vg7wqgcNNlGKnVeAiEAr0jM-zR_O5lq3pUAlY4HthR9JCQzFC2mfZE7Iv3J3mA",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiVmktblhMZmhQODQyckVhS01DSmp5SE9tS1VKOWVtb1RhU3dwelRabXdaQSIsIm9yaWdpbiI6Imh0dHBzOi8vY2R4LmRldiJ9",
+        "signature": "MEYCIQChlU9zyBILyZ9YRLuKLfWx7KnnZcbkBuyGgCgIBlOhxwIhALpYD7mC5ohybzEuUniAkig6_MKan29svGsxaoZZWpXl",
         "publicKey": {
           "kty": "EC",
           "crv": "P-256",
-          "x": "Kp2F9OFZp6SMV8Aurv48VxBVv-GgQq8suJe-PxdGJUM",
-          "y": "EBb7-n5b0zFgHmPfqwSel-Jl0uLkz_ldkjMY3LGqTBc"
+          "x": "yW2cRP_YdOXSZlwGwQIfx9YXuNlINh8HmHEY1a8_QC8",
+          "y": "3Fg5z0XGwAipPL9IfMIqzNXiet2rCYXo_1QfyWVnXoM"
         }
       },
       "scope": {
-        "documentId": "sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86",
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
           "content": {
             "path": "content/document.json",
-            "hash": "sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7"
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
           },
           "extensions": [
             { "id": "cdx.security", "version": "0.1", "required": true }

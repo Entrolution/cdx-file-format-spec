@@ -2,7 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdx.dev/schemas/semantic.schema.json",
   "title": "CDX Semantic Extension",
-  "description": "Schema for semantic extension blocks and marks in a CDX document",
   "$defs": {
     "citationMark": {
       "type": "object",
@@ -213,13 +212,12 @@
           "description": "Page range"
         },
         "DOI": {
-          "type": "string",
-          "description": "Digital Object Identifier"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+          "description": "Digital Object Identifier (e.g. '10.1234/joss.00123'). Constrained to safe schemes so a renderer that turns it into a link cannot emit a javascript:/data: target (see the Renderer Safety core specification, section 2.1); a bare DOI is a scheme-less relative reference and is accepted, as is an 'https://doi.org/…' form. A 'doi:'-prefixed value is rejected as an unrecognized scheme — normalize it to the bare or https form."
         },
         "URL": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the work"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeUri",
+          "description": "URL of the work. Constrained to safe schemes (see the Renderer Safety core specification, section 2.1); javascript:/data:/file: and other dangerous schemes are rejected."
         },
         "ISBN": {
           "type": "string",
@@ -239,7 +237,7 @@
         },
         "renderedText": {
           "type": "string",
-          "description": "Pre-rendered citation text from citeproc"
+          "description": "Pre-rendered citation markup from citeproc, for display without a CSL processor. This is author-controlled markup: a renderer MUST sanitize it against an inline-formatting allowlist before rendering (see the Renderer Safety core specification, section 3.5). Schema validation does not sanitize it."
         }
       },
       "additionalProperties": true
@@ -255,7 +253,7 @@
             "type": { "const": "semantic:bibliography" },
             "style": {
               "type": "string",
-              "description": "Citation style (e.g., 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver')"
+              "description": "Citation style (open vocabulary; the Semantic Extension README lists recommended styles, e.g. 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver'). An unrecognized value degrades gracefully — a consumer that does not recognize it applies its default style rather than rejecting the document."
             },
             "title": {
               "type": "string",
@@ -412,7 +410,8 @@
         "@context": {
           "oneOf": [
             { "type": "string", "format": "uri" },
-            { "type": "object" }
+            { "type": "object" },
+            { "type": "array" }
           ],
           "description": "JSON-LD context"
         },

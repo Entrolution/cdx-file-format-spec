@@ -2,7 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdx.dev/schemas/academic.schema.json",
   "title": "CDX Academic Extension",
-  "description": "Schema for academic extension blocks and marks in a CDX document",
   "$defs": {
     "abstractBlock": {
       "allOf": [
@@ -309,7 +308,7 @@
         },
         "tag": {
           "type": "string",
-          "description": "Custom tag (e.g., '*', '\\dagger') instead of number"
+          "description": "Custom tag (e.g., '*', '\\dagger') instead of number. Author-controlled: a renderer escapes it as inert text, or hardens it as math source if routed through the math engine (see the Renderer Safety core specification, sections 3.2 and 3.5)."
         },
         "id": {
           "type": "string",
@@ -449,7 +448,7 @@
         },
         "format": {
           "type": "string",
-          "description": "Display format (e.g., 'Theorem {number}')"
+          "description": "Display format (e.g., 'Theorem {number}'). Author template interpolated into rendered output; a renderer escapes it as inert text before emission (Renderer Safety core specification, section 3.5)."
         }
       },
       "additionalProperties": false
@@ -466,7 +465,7 @@
         },
         "format": {
           "type": "string",
-          "description": "Display format (e.g., '({number})')"
+          "description": "Display format (e.g., '({number})'). Author template interpolated into rendered output; a renderer escapes it as inert text before emission (Renderer Safety core specification, section 3.5)."
         }
       },
       "additionalProperties": false
@@ -483,11 +482,11 @@
         },
         "line": {
           "type": "string",
-          "description": "Line label for line-specific references"
+          "description": "Line label for line-specific references. Author-controlled; escaped as inert text before emission (Renderer Safety core specification, section 3.5)."
         },
         "format": {
           "type": "string",
-          "description": "Display format"
+          "description": "Display format. Author template interpolated into rendered output; a renderer escapes it as inert text before emission (Renderer Safety core specification, section 3.5)."
         }
       },
       "additionalProperties": false
@@ -526,7 +525,8 @@
       "properties": {
         "version": {
           "type": "string",
-          "description": "Configuration version"
+          "description": "Configuration version",
+          "pattern": "^\\d+\\.\\d+$"
         },
         "equations": {
           "type": "object",

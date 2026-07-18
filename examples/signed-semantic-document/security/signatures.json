@@ -1,0 +1,52 @@
+{
+  "version": "0.1",
+  "documentId": "sha256:c2fd3c181474e1925b99ccacf2a56024eaef5d0b0fc5d44262fff3dbbc5ff6e2",
+  "signatures": [
+    {
+      "id": "sig-author",
+      "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDEwOjAwOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
+      "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19hdXRob3Jfc2lnbmF0dXJl",
+      "scope": {
+        "documentId": "sha256:c2fd3c181474e1925b99ccacf2a56024eaef5d0b0fc5d44262fff3dbbc5ff6e2",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:92500a7583caa81dbf668930afc74c01550a6903458360c6ef030518c5e65adb"
+          },
+          "extensions": [
+            {
+              "id": "cdx.security",
+              "version": "0.1",
+              "required": true
+            },
+            {
+              "id": "cdx.semantic",
+              "version": "0.1",
+              "required": false
+            }
+          ],
+          "lineage": {
+            "parent": null,
+            "version": 1
+          },
+          "configFiles": [
+            {
+              "path": "semantic/glossary.json",
+              "hash": "sha256:7c4062638487ec008f3c0ab686fc1cf91481f0fdb0f173c52d82c29b0640f9e6"
+            },
+            {
+              "path": "semantic/bibliography.json",
+              "hash": "sha256:c0084002ee9e0bffb0f18a390f2835d276babb38f5dd54d8015b581015a167c7"
+            }
+          ]
+        }
+      },
+      "signer": {
+        "name": "Ada Lovelace",
+        "email": "ada@example.com"
+      }
+    }
+  ]
+}

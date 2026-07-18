@@ -72,7 +72,22 @@ function exampleUsesExtension(exampleDir: string, extensionId: string): boolean 
   }
 }
 
-// Check if an example uses a specific schema (by having a matching file)
+// A mapped instance file counts as coverage only if it parses as JSON. An empty
+// or malformed file is not a real exercised instance, so its mere presence on disk
+// (all the previous `fs.existsSync` check required) must not silently satisfy a
+// schema's coverage. This is a minimal check — it confirms the instance is valid
+// JSON, not that it is schema-valid (validate-examples enforces that) or that it
+// exercises the schema's security branches.
+function isParseableJsonFile(filePath: string): boolean {
+  try {
+    JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Check if an example uses a specific schema (by having a matching, parseable file)
 function exampleUsesSchema(exampleDir: string, schemaName: string): boolean {
   const examplePath = path.join(examplesDir, exampleDir);
 
@@ -97,7 +112,8 @@ function exampleUsesSchema(exampleDir: string, schemaName: string): boolean {
   const expectedFiles = schemaFileMap[schemaName] || [];
 
   for (const file of expectedFiles) {
-    if (fs.existsSync(path.join(examplePath, file))) {
+    const filePath = path.join(examplePath, file);
+    if (fs.existsSync(filePath) && isParseableJsonFile(filePath)) {
       return true;
     }
   }
@@ -154,9 +170,6 @@ console.log('\nSchema Coverage:');
 console.log('='.repeat(50));
 
 const schemaResults: CoverageResult[] = [];
-
-// Schemas that are always used (core schemas)
-const coreSchemas = ['manifest.schema.json', 'content.schema.json', 'dublin-core.schema.json'];
 
 // Schemas that don't need direct examples (they define shared types)
 const sharedSchemas = ['anchor.schema.json'];

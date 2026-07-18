@@ -14,13 +14,19 @@
       "path": "presentation/paginated.json",
       "hash": "sha256:8e226eff3953676f23ed06c630cc6fe7ad6d96e305f1913bc688699685d86b3e",
       "default": true
+    },
+    {
+      "type": "precise",
+      "path": "presentation/layouts/letter.json",
+      "hash": "sha256:d4b5cbde135734b0df56516811b0cbead72acdbfb5137ac05a436f3f627fb29c"
     }
   ],
   "assets": {
     "images": {
       "count": 1,
       "totalSize": 69,
-      "index": "assets/images/index.json"
+      "index": "assets/images/index.json",
+      "hash": "sha256:2e2e7c08861f5546a724a4c461c088728c109c52680b9c83e3fd5dc3dd4aa91a"
     }
   },
   "metadata": {

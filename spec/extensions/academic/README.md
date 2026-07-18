@@ -524,7 +524,7 @@ Each line in the `lines` array:
 
 ## 9. Cross-References
 
-> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. A reader MUST fill each placeholder from the resolved target at render time; the authored display text carried by the mark's text node is a fallback, used only when the target is unresolvable or a placeholder cannot be filled, and a value resolved from the target takes precedence over any disagreeing cached text. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes that authored display text, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
+> **Reader dispositions.** Although a `*-ref` `target` uses Content Anchor syntax, the `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref` marks are extension cross-references resolved at render time, so a dangling target is a rendering-degradation WARNING in all states (State Machine section 5.4), not the INTEGRITY-ERROR of a dangling core anchor. The same disposition applies to the two academic block relationships typed as Content Anchor URIs — an `academic:proof`'s `of` (section 5.1) and an `academic:theorem`'s `uses` (section 4.1): although they carry the core anchor type, they too are academic cross-references resolved at render time, so a dangling `of`/`uses` target is a rendering-degradation WARNING in all states, **not** the FROZEN/PUBLISHED Error that Anchors and References section 7.2 assigns a dangling core anchor. A reader MUST fill each placeholder from the resolved target at render time; the authored display text carried by the mark's text node is a fallback, used only when the target is unresolvable or a placeholder cannot be filled, and a value resolved from the target takes precedence over any disagreeing cached text. When a placeholder cannot be filled — `{number}` for an unnumbered target, `{title}` for an untitled one — the reader substitutes that authored display text, otherwise the bare target id, and never renders an empty string or the literal `{number}`/`{title}` token.
 
 ### 9.1 academic:theorem-ref Mark
 
@@ -551,7 +551,7 @@ Reference a theorem-like block:
 | `format` | string | No | Display format (default: `"{variant} {number}"`) |
 
 Format placeholders:
-- `{variant}` - Variant name (e.g., "Theorem", "Lemma")
+- `{variant}` - the target theorem's variant, resolved for display as follows: a **built-in** variant is stored lowercase (`theorem`, `lemma`, …, section 4.2) and rendered title-cased — its first letter upper-cased, the rest unchanged (`Theorem`, `Lemma`); a **custom** variant resolves to its declared `label` (section 4.3), rendered verbatim (`Axiom`, `Law`). The reader MUST apply this rule so the citable label is deterministic across readers.
 - `{number}` - Theorem number
 - `{title}` - Theorem title (if present)
 
@@ -621,9 +621,9 @@ For line references:
 | `type` | string | Yes | Always `"academic:algorithm-ref"` |
 | `target` | string | Yes | Content Anchor URI to the algorithm |
 | `line` | string | No | Line label for line-specific references |
-| `format` | string | No | Display format |
+| `format` | string | No | Display format (default: `"Algorithm {number}"` for a whole-algorithm reference, or `"line {line}"` when `line` is present) |
 
-`{number}` resolves to the target algorithm's own number. `{line}` names a target line by its `label` (section 8.2) and resolves to that line's displayed line number: `startLine` (section 8.1, default 1) plus the line's zero-based position in the algorithm's `lines` array. When the target algorithm sets `lineNumbering: false` it displays no line numbers, so `{line}` cannot be filled and the reader uses the fallback in section 9. A `line` label that matches no line in the target algorithm is a dangling reference — a rendering-degradation WARNING (section 9), resolved to the fallback text.
+When `format` is omitted, the default depends on whether the reference names a line: an `academic:algorithm-ref` without a `line` renders as `Algorithm {number}`, and one carrying a `line` renders as `line {line}`. `{number}` resolves to the target algorithm's own number. `{line}` names a target line by its `label` (section 8.2) and resolves to that line's displayed line number: `startLine` (section 8.1, default 1) plus the line's zero-based position in the algorithm's `lines` array. When the target algorithm sets `lineNumbering: false` it displays no line numbers, so `{line}` cannot be filled and the reader uses the fallback in section 9. A `line` label that matches no line in the target algorithm is a dangling reference — a rendering-degradation WARNING (section 9), resolved to the fallback text.
 
 ## 10. Numbering Configuration
 
@@ -680,6 +680,8 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `chapter.section.number` | 2.3.1, 2.3.2 | Full hierarchical |
 | `section.number` | 3.1, 3.2 | Section-prefixed |
 
+**Default.** When an environment does not configure a `style`, its default is `"number"` — a bare sequence counter that carries no heading prefix and never resets (section 10.4). A configuration MUST NOT rely on an implementation-defined style default: the number format is deterministic because omission resolves to `"number"`.
+
 ### 10.2 Counter Sharing
 
 Theorem-like environments can share counters. When counters are shared, all variants in the group increment the same counter:
@@ -691,6 +693,8 @@ Theorem-like environments can share counters. When counters are shared, all vari
 ```
 
 This produces: Theorem 1, Lemma 2, Proposition 3, Theorem 4, etc.
+
+**Custom-variant sharing.** A custom variant's `sharesWith` (section 4.3) names the variant whose counter it joins. Resolution is transitive — a chain `a → b → c` collapses to `c`'s counter — and MUST terminate: a `sharesWith` cycle, or a target that names no defined variant (dangling), is a configuration error that a reader resolves by giving the variant its **own independent counter** and a rendering-degradation WARNING (section 9). A variant is governed by exactly one counter: it MUST NOT appear both in a `theorems.counters` `share` group and as a `sharesWith` target of a different group; if it does, the `share` group wins and the conflicting `sharesWith` falls back to an independent counter (WARNING).
 
 ### 10.3 Reset Triggers
 
@@ -725,7 +729,7 @@ Equations, algorithms, and exercises are auto-numbered whenever `academic/number
 
 **Counter sharing.** Variants listed together under `theorems.counters` (section 10.2) share one sequence counter. A custom variant (section 4.3) shares the counter of its `sharesWith` target, or has its own independent counter when `sharesWith` is `null`.
 
-**Reset.** An environment's **reset level** is the heading level named by its `resetOn` when it declares one (equations, algorithms, exercises); a theorem-like environment has no `resetOn`, so its reset level is the deepest heading level named by its `style` prefix — `chapter` is level 1, `section` is level 2 — and a bare `number` style (no prefix) never resets. `resetOn: "none"` never resets. The reader resets a sequence counter to 0 at every heading whose level is at most the environment's reset level, so a new chapter restarts section-scoped counters.
+**Reset.** An environment's **reset level** is derived from its `style` prefix by default — the deepest heading level the prefix names: `chapter` is level 1, `section` is level 2, and a bare `number` style (no prefix) never resets. Equations, algorithms, and exercises MAY override this default with an explicit `resetOn`: a heading level (`heading1`…`heading6`) sets the reset level to that level, and `resetOn: "none"` never resets. When `resetOn` is omitted — and always for a theorem-like environment, which has no `resetOn` field — the style-prefix-derived level applies, so the reset level is deterministic in every configuration (an omitted `resetOn` is never implementation-defined). The reader resets a sequence counter to 0 at every heading whose level is at most the environment's reset level, so a new chapter restarts section-scoped counters.
 
 **Advancing and composing.** On reaching a numbered unit whose number is auto-computed, the reader increments its environment's sequence counter by 1 (after any reset triggered by an intervening heading), then forms the number from the environment's `style` (section 10.1): each component is replaced by a counter value — `chapter` → the chapter counter, `section` → the section counter, `number` → the sequence counter — joined with `.`. With `style: "chapter.section.number"`, chapter 2, section 3, and sequence 8 produce `2.3.8`.
 
@@ -741,7 +745,7 @@ A theorem-like block MAY carry an explicit `number` and a `numbering` mode (`"au
 
 1. If `numbering` is `"none"`, the block is unnumbered: no number is displayed and it advances no counter. A `*-ref` whose target is this block cannot fill `{number}`, so the reader substitutes the authored display text carried by the mark's text node, otherwise the bare target id (section 9). Any `number` present is ignored for display.
 2. Otherwise, if an explicit `number` is present, it is displayed verbatim. An explicit `number` is authored content carried in the document hash, so it is integrity-protected (section 13), takes precedence over any auto value, and does not advance the auto sequence counter (section 10.4).
-3. Otherwise, if `numbering` is `"auto"`, the number is computed by the auto-numbering algorithm (section 10.4); a number derived this way is advisory and out-of-hash (section 13).
+3. Otherwise, if `numbering` is `"auto"`, the number is computed by the auto-numbering algorithm (section 10.4); a number derived this way is advisory and out-of-hash (section 13). **Exception:** a `restate: true` theorem is never auto-numbered even when `numbering` is `"auto"` — it repeats a theorem stated earlier, so rule 2 applies instead (it SHOULD carry that theorem's explicit `number`) and it advances no counter.
 4. Otherwise (no `number`, `numbering` omitted), the block is unnumbered.
 
 Equation lines, algorithm blocks, and exercises have no `numbering` field: they are auto-numbered when `academic/numbering.json` configures their environment (section 10.4), and an explicit per-unit `number` — or, for an equation line, a `tag` — overrides the auto value the same way and likewise advances no counter.
@@ -1144,3 +1148,5 @@ Academic constructs span two integrity tiers (see the extensions overview, Integ
 **Author identity is advisory.** The author name carried in Dublin Core `creator` is part of the document hash, but a signature attests those bytes, not that the named person authored the work. The richer structured author data — an ORCID, an affiliation, the `creators` array of `metadata/dublin-core.json` — is excluded from the document hash altogether (Document Hashing specification, section 4.1). An ORCID, DID, or other identifier (section 12) is an advisory label: it is not authenticated by being named, and an identifier that is DID-shaped is not a signature. To establish authorship cryptographically, sign the document with a security-extension credential bound to the author (security extension, Identity Authority).
 
 **Auto-numbering is bound through the manifest, not the document hash.** When `numbering` is `auto`, the displayed theorem, equation, and algorithm numbers, and the `{number}` text resolved by every `academic:theorem-ref`, `academic:equation-ref`, and `academic:algorithm-ref`, derive from `academic/numbering.json`. The manifest declares that file as a `{path, hash}` reference, so its content is bound by the manifest projection (security extension, section 9.7) even though it is not in the document hash: a manifest-covering signature attests `numbering.json`, and an archive writer who renumbers a `frozen` or signed document changes the file's hash and breaks that signature. The binding requires a manifest-covering signature; a document with no such signature — or a reader that verifies only the document ID — still sees the file unauthenticated. Where a cross-reference number must be integrity-protected regardless, give the referenced block an explicit `number`, carried in signed content.
+
+**A reader auto-numbers only from a declared, bound configuration.** A reader MUST consume `academic/numbering.json` for auto-numbering (section 10.4) **only** when the manifest's `academic` slot declares it as a `{path, hash}` reference — the same declaration that binds it through the manifest projection. A `numbering.json` that is present in the archive but not declared, or declared by path alone with no `hash`, is unbound and outside every signature; a reader MUST NOT auto-number from it, and instead renders as if no numbering configuration were present (section 10.4's WARNING). This closes the load-by-convention gap: because an undeclared or path-only `numbering.json` is never consumed, an attacker cannot drop in or swap one to shift every rendered number under an otherwise-intact signature.

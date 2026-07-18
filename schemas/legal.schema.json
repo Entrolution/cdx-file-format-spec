@@ -2,7 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdx.dev/schemas/legal.schema.json",
   "title": "CDX Legal Extension",
-  "description": "Schema for legal extension blocks and marks in a CDX document",
   "$defs": {
     "citationCategory": {
       "type": "string",
@@ -145,7 +144,8 @@
           "type": "string",
           "description": "Party role (e.g., Plaintiff, Defendant, Appellant)"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "captionBlock": {
       "allOf": [
@@ -256,7 +256,8 @@
           "format": "email",
           "description": "Email address"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "signatureBlockBlock": {
       "allOf": [

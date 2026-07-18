@@ -26,14 +26,16 @@
       "description": "Page definitions (paginated only)",
       "items": {
         "$ref": "#/$defs/page"
-      }
+      },
+      "maxItems": 10000
     },
     "sections": {
       "type": "array",
       "description": "Section definitions (continuous only)",
       "items": {
         "$ref": "#/$defs/section"
-      }
+      },
+      "maxItems": 10000
     },
     "breakpoints": {
       "type": "array",
@@ -141,7 +143,12 @@
           },
           "additionalProperties": false
         },
-        "lineNumbering": { "$ref": "#/$defs/lineNumbering" }
+        "lineNumbering": { "$ref": "#/$defs/lineNumbering" },
+        "avoidBreakInside": {
+          "type": "array",
+          "description": "Block types a paginator SHOULD keep on one page (avoid a page break inside), e.g. blockquote, table, figure",
+          "items": { "type": "string" }
+        }
       },
       "additionalProperties": false
     }
@@ -150,17 +157,25 @@
   "$defs": {
     "page": {
       "type": "object",
-      "required": ["number", "elements"],
+      "required": ["number"],
       "properties": {
         "number": {
           "type": "integer",
           "minimum": 1,
           "description": "Page number"
         },
+        "master": {
+          "type": "string",
+          "description": "Name of the master page (a masterPages key) applied to this page. A page either applies a master or lists its own elements."
+        },
         "elements": {
           "type": "array",
+          "maxItems": 4096,
           "items": {
-            "$ref": "#/$defs/pageElement"
+            "oneOf": [
+              { "$ref": "#/$defs/pageElement" },
+              { "$ref": "#/$defs/flowElement" }
+            ]
           }
         }
       },
@@ -172,7 +187,8 @@
       "properties": {
         "blockId": {
           "type": "string",
-          "description": "Reference to content block ID"
+          "description": "Reference to content block ID",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "position": {
           "$ref": "#/$defs/position"
@@ -192,6 +208,45 @@
         },
         "transform": {
           "$ref": "#/$defs/transform"
+        }
+      },
+      "additionalProperties": false
+    },
+    "flowElement": {
+      "type": "object",
+      "description": "Automatic text flow across regions (core Presentation Layers section 6.4). Declared inside a page's `elements`, on the flow's start page; its `regions` list the page-relative areas the content flows through in order. Distinct from the root `flowRegions`, which defines named reusable region sets rather than a page-level content flow.",
+      "required": ["type", "blockIds", "regions"],
+      "properties": {
+        "type": { "const": "flow" },
+        "blockIds": {
+          "type": "array",
+          "description": "Content block IDs that flow across the regions, in order",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of columns within each region"
+        },
+        "startPage": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "First page the flow begins on"
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "description": "Ordered flow regions, each on a page",
+          "items": {
+            "type": "object",
+            "required": ["page", "position"],
+            "properties": {
+              "page": { "type": "integer", "minimum": 1 },
+              "position": { "$ref": "#/$defs/position" }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false
@@ -288,7 +343,7 @@
       "properties": {
         "blockRefs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
           "description": "References to content block IDs"
         },
         "style": {
@@ -448,6 +503,7 @@
         "regions": {
           "type": "array",
           "description": "Ordered list of regions for text flow",
+          "maxItems": 4096,
           "items": {
             "type": "object",
             "properties": {
@@ -744,6 +800,7 @@
         },
         "content": {
           "type": "object",
+          "description": "Header/footer zones. `left`/`center`/`right` are absolute zones; `inside`/`outside` are page-relative zones for book (recto/verso) layouts, mirroring the inside/outside of masterPage margins — inside is the spine edge, outside the fore-edge. A template SHOULD use either the absolute pair or the page-relative pair, not both.",
           "properties": {
             "left": {
               "$ref": "#/$defs/headerFooterContent"
@@ -752,6 +809,12 @@
               "$ref": "#/$defs/headerFooterContent"
             },
             "right": {
+              "$ref": "#/$defs/headerFooterContent"
+            },
+            "inside": {
+              "$ref": "#/$defs/headerFooterContent"
+            },
+            "outside": {
               "$ref": "#/$defs/headerFooterContent"
             }
           },
@@ -874,7 +937,7 @@
       "description": "Index entry mark for document index generation",
       "required": ["type", "term"],
       "properties": {
-        "type": { "const": "index" },
+        "type": { "const": "presentation:index" },
         "term": {
           "type": "string",
           "description": "Primary index term"
@@ -897,6 +960,11 @@
           "type": "object",
           "description": "Base styles for responsive overrides. Intentionally open: holds the same free-form style bag this object otherwise enumerates.",
           "additionalProperties": true
+        },
+        "breakpoints": {
+          "type": "object",
+          "description": "Per-breakpoint style overrides, keyed by a breakpoint `name` (section 8.2). Each value is a partial style bag applied over `base` when that breakpoint is active. Open, like `base`.",
+          "additionalProperties": { "type": "object", "additionalProperties": true }
         },
         "fontFamily": { "type": "string" },
         "fontSize": { "type": "string" },
@@ -947,8 +1015,8 @@
         "color": { "type": "string" },
         "backgroundColor": { "type": "string" },
         "backgroundImage": {
-          "type": "string",
-          "description": "URL/path to background image"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+          "description": "URL/path to background image. Constrained to safe image schemes (see the Renderer Safety core specification): http(s), relative paths, and data:image raster payloads only; javascript:/SVG-data backgrounds are rejected at authoring time."
         },
         "backgroundSize": {
           "type": "string",

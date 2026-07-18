@@ -23,8 +23,8 @@
 const sha = (c: string): string => `sha256:${c.repeat(64)}`;
 
 /** The real signed-document corpus hashes (so V1 mirrors the on-disk example). */
-const DOC_ID = 'sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86';
-const DOC_CONTENT = 'sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7';
+const DOC_ID = 'sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7';
+const DOC_CONTENT = 'sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026';
 
 export interface ProjectionVector {
   name: string;
@@ -61,7 +61,7 @@ export const projectionVectors: ProjectionVector[] = [
       'The signed-document manifest: id/created/modified/hashAlgorithm/security/metadata and content.compression all drop; content{path,hash} + extensions + lineage(parent:null) + signaturePolicy(requiredSigners) bind.',
     manifest: `{"cdx":"0.1","id":"${DOC_ID}","state":"frozen","hashAlgorithm":"sha256","created":"2025-01-10T08:00:00Z","modified":"2025-01-15T14:22:00Z","content":{"path":"content/document.json","hash":"${DOC_CONTENT}","compression":"zstd"},"security":{"signatures":"security/signatures.json","encryption":null},"extensions":[{"id":"cdx.security","version":"0.1","required":true}],"metadata":{"dublinCore":"metadata/dublin-core.json"},"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]}}`,
     expectedJcs: `{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}`,
-    expectedSha256: 'sha256:839827035e0165d4ad7d1dbff7733c74e4fd4907c8f077b65077d35f31778391',
+    expectedSha256: 'sha256:e3de84b5784ee062a800d46b7e619d5a7ec79f3c3f1a6289e036117648954b80',
   },
   {
     name: 'presentation-and-default',
@@ -78,6 +78,22 @@ export const projectionVectors: ProjectionVector[] = [
     manifest: `{"cdx":"0.1","id":"${sha('5')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('6')}"},"extensions":[{"id":"cdx.academic","version":"0.2","required":false,"config":{"numbering":"academic/numbering.json"}},{"id":"cdx.security","version":"0.1","required":true,"config":{"policy":"strict"}}]}`,
     expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('6')}","path":"content/document.json"},"extensions":[{"config":{"policy":"strict"},"id":"cdx.security","required":true,"version":"0.1"},{"id":"cdx.academic","required":false,"version":"0.2"}],"state":"frozen"}`,
     expectedSha256: 'sha256:ea799b1b6f03b7f4fba5dfe01a06381cefd10e802af76cbe664f57c296f9a02a',
+  },
+  {
+    name: 'extensions-utf16-astral-sort',
+    description:
+      'extensions[] sort by comparing JCS serializations by UTF-16 code unit (§9.7): an astral-plane id (U+10000, first UTF-16 unit U+D800) sorts BEFORE a BMP id (U+E000), even though it is GREATER by Unicode code point. Authored in code-point order; the projection reverses it to UTF-16 order — pinning the reference impl against a code-point-sorting implementation.',
+    manifest: `{"cdx":"0.1","id":"sha256:${'f'.repeat(64)}","state":"frozen","content":{"path":"content/document.json","hash":"sha256:${'e'.repeat(64)}"},"extensions":[{"id":"z\u{E000}","version":"0.1","required":false},{"id":"z\u{10000}","version":"0.1","required":false}]}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"sha256:${'e'.repeat(64)}","path":"content/document.json"},"extensions":[{"id":"z\u{10000}","required":false,"version":"0.1"},{"id":"z\u{E000}","required":false,"version":"0.1"}],"state":"frozen"}`,
+    expectedSha256: 'sha256:cd0615f6da4049efb3e4f929a9997a1ae2290164df3c46521d89475f6056a59d',
+  },
+  {
+    name: 'empty-lineage-omitted',
+    description:
+      'A manifest carrying `lineage: {}` (an empty object) omits lineage from the projection, like any absent optional field (§9.7) — otherwise it would bind different signed bytes than an absent lineage.',
+    manifest: `{"cdx":"0.1","id":"sha256:${'a'.repeat(64)}","state":"frozen","content":{"path":"content/document.json","hash":"sha256:${'b'.repeat(64)}"},"lineage":{}}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"sha256:${'b'.repeat(64)}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:ac84c227c60021051e7462bd16ab7517343a72985f14b0d63a362282eb512510',
   },
   {
     name: 'minimal-no-optionals',
@@ -108,6 +124,30 @@ export const projectionVectors: ProjectionVector[] = [
     expectedJcs: `{"cdx":"0.1","configFiles":[{"hash":"${sha('a')}","path":"academic/numbering.json"},{"hash":"${sha('b')}","path":"semantic/bibliography.json"},{"hash":"${sha('c')}","path":"semantic/glossary.json"}],"content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
     expectedSha256: 'sha256:e4d8c6fb8d85054294bea0ad852c3b514ee31b074f07f1c048eb06b08526097c',
   },
+  {
+    name: 'asset-index-references',
+    description:
+      'Each declared asset category (images, fonts) binds its index file {path, hash} into `assets`, sorted by JCS; the advisory count/totalSize and the document id are not bound. Hash-pinning the index transitively attests out-of-content assets — fonts and image variants.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json","hash":"${sha('a')}"},"fonts":{"count":1,"totalSize":35000,"index":"assets/fonts/index.json","hash":"${sha('b')}"}}}`,
+    expectedJcs: `{"assets":[{"hash":"${sha('a')}","path":"assets/images/index.json"},{"hash":"${sha('b')}","path":"assets/fonts/index.json"}],"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:781a77097306db621695b02d20a76c2939052381b3bebb4bcb04939fc6437046',
+  },
+  {
+    name: 'access-control-bound',
+    description:
+      'manifest.security.accessControl, declared as a {path, hash}, binds its policy-file hash into the projection as `accessControl` (only {path, hash}; advisory storage hints are dropped). A manifest-covering signature then attests the access-control policy, so it cannot be swapped while a signature verifies; the path-only signatures/encryption references remain unbound.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"security/access-control.json","hash":"${sha('a')}"}}}`,
+    expectedJcs: `{"accessControl":{"hash":"${sha('a')}","path":"security/access-control.json"},"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:35225c282ba4aa2d88d3fad4d3b4a2dc85474ae23a7896bf71edcddeb500a438',
+  },
+  {
+    name: 'precise-layout-in-presentation',
+    description:
+      'A precise layout declared as a presentation[] entry (type "precise") binds its file hash into the projection alongside reactive presentations; entries sort by JCS (the paginated default before precise), so a frozen document\'s precise layout is attested by a manifest-covering signature.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"paginated","path":"presentation/paginated.json","hash":"${sha('3')}","default":true},{"type":"precise","path":"presentation/layouts/letter.json","hash":"${sha('4')}"}]}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"presentation":[{"default":true,"hash":"${sha('3')}","path":"presentation/paginated.json","type":"paginated"},{"hash":"${sha('4')}","path":"presentation/layouts/letter.json","type":"precise"}],"state":"frozen"}`,
+    expectedSha256: 'sha256:f04f9a36ff374bb092ad47e87bb150bcaf9a18c9f23a19495274eafcf4e430d9',
+  },
 ];
 
 export const scopeVectors: ScopeVector[] = [
@@ -116,7 +156,7 @@ export const scopeVectors: ScopeVector[] = [
     description: 'A content-only scope binds just the document ID — the legacy/default coverage.',
     scope: { documentId: DOC_ID },
     expectedJcs: `{"documentId":"${DOC_ID}"}`,
-    expectedSha256: 'sha256:8b63e569bdcc02bde3ae3a9669ec18c0aa7084027ea0f808d521a437f0b434c9',
+    expectedSha256: 'sha256:48d1e013a79eb07faa385ca0802c5d49312e8af038f2d0c3763ec94b3bd94e6b',
   },
   {
     name: 'scope-with-layouts',
@@ -140,7 +180,7 @@ export const scopeVectors: ScopeVector[] = [
       },
     },
     expectedJcs: `{"documentId":"${DOC_ID}","manifest":{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}}`,
-    expectedSha256: 'sha256:61d9e3fe0b1d527ac37832e1d76df7eadd8e039db83f0d1a51dba6565487af25',
+    expectedSha256: 'sha256:562fa75cb7e13fce36ac468a302263c873a629427d7a6a13692c29cd3666c190',
   },
 ];
 
@@ -192,5 +232,47 @@ export const errorVectors: ErrorVector[] = [
     description: 'The same config-file path declared with two different hashes (across config slots) makes the binding ambiguous and is rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"academic":{"numbering":{"path":"shared.json","hash":"${sha('a')}"}},"semantic":{"bibliography":{"path":"shared.json","hash":"${sha('b')}"}}}`,
     expectedError: 'conflicting hashes',
+  },
+  {
+    name: 'asset-index-missing-hash',
+    description: 'An asset category declared without a well-formed index hash would escape the transitive asset binding, so the projection fails closed rather than dropping it.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json"}}}`,
+    expectedError: 'index hash',
+  },
+  {
+    name: 'malformed-cdx-version',
+    description: 'A `cdx` that is not a "<major>.<minor>" string fails closed rather than binding a bogus version into the projection.',
+    manifest: `{"cdx":"0.1.2","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"}}`,
+    expectedError: 'version string',
+  },
+  {
+    name: 'presentation-unknown-type',
+    description: 'A presentation entry whose type is outside the enum fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"pdf","path":"presentation/x.json","hash":"${sha('3')}"}]}`,
+    expectedError: 'is not one of',
+  },
+  {
+    name: 'presentation-traversal-path',
+    description: 'A presentation entry whose path escapes the archive root fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"paginated","path":"../evil.json","hash":"${sha('3')}"}]}`,
+    expectedError: 'archive-relative path',
+  },
+  {
+    name: 'required-signer-malformed-did',
+    description: 'A required-signer `did` that is not a well-formed did:(key|jwk|web) fails closed rather than binding a bogus credential into the required set.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"not-a-did"}]}}`,
+    expectedError: 'malformed for its identity kind',
+  },
+  {
+    name: 'access-control-malformed-hash',
+    description: 'A security.accessControl reference whose hash is not a valid content hash fails closed rather than binding an unverifiable policy reference.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"security/access-control.json","hash":"notahash"}}}`,
+    expectedError: 'valid content hash',
+  },
+  {
+    name: 'access-control-traversal-path',
+    description: 'A security.accessControl reference whose path escapes the archive root fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"../evil.json","hash":"${sha('a')}"}}}`,
+    expectedError: 'archive-relative path',
   },
 ];
