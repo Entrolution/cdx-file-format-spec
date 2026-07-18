@@ -63,6 +63,19 @@ export const vectors: KatVector[] = [
     expectedId: 'sha256:51e48e3b7ed0874406c3bf1f5b42d0b13054cb01bd3a3e75befff9d60ce3849a',
   },
   {
+    name: 'metadata-empty-array-elements-dropped',
+    description: 'Empty ("") elements are dropped from creator/subject/language, in authored order; a term left with no elements (language) is omitted entirely (§4.3.1).',
+    parts: {
+      manifest: '{}',
+      content: '{"version":"0.1","blocks":[]}',
+      dublinCore:
+        '{"version":"1.1","terms":{"title":"T","creator":["Alice","","Bob"],"subject":["","Fin"],"language":["",""]}}',
+    },
+    expectedCanonicalJcs:
+      '{"content":{"blocks":[],"version":"0.1"},"metadata":{"creator":["Alice","Bob"],"subject":["Fin"],"title":"T"}}',
+    expectedId: 'sha256:529150bbfb678d3447226bec190329e5204b56d8c6b56d1abed537142c284491',
+  },
+  {
     name: 'null-vs-absent',
     description: 'listItem.checked:null is preserved; tableCell colspan/rowspan defaults are NOT materialized.',
     parts: {

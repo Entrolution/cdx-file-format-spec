@@ -1266,5 +1266,17 @@ test('block-level NFC: an NFC split across text-node boundaries still canonicali
   assert.match(computeDocumentId(nfcSplit, 'sha256'), /^sha256:[a-f0-9]{64}$/);
 });
 
+test('metadata projection: empty array elements are dropped (id is the same with or without empties)', () => {
+  const withEmpties = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['Alice', '', 'Bob'], subject: ['', 'Fin'] } },
+  });
+  const without = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['Alice', 'Bob'], subject: ['Fin'] } },
+  });
+  assert.equal(computeDocumentId(withEmpties, 'sha256'), computeDocumentId(without, 'sha256'));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

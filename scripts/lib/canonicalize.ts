@@ -339,8 +339,11 @@ function projectMetadata(dublinCore: unknown): Record<string, unknown> {
       if (v === '') continue; // wholly empty
       out[term] = [v]; // coerce scalar to a one-element array
     } else if (Array.isArray(v)) {
-      if (v.length === 0) continue; // wholly empty
-      out[term] = v.slice(); // preserve elements verbatim, in authored order
+      // Drop empty ("") elements; a term left with no elements is omitted, like a
+      // wholly-empty array (§4.3.1: non-empty array elements are preserved verbatim).
+      const nonEmpty = v.filter((e) => e !== '');
+      if (nonEmpty.length === 0) continue; // wholly empty (before or after dropping)
+      out[term] = nonEmpty; // non-empty elements, in authored order
     }
     // any other shape is left out (schema constrains these to string|string[])
   }

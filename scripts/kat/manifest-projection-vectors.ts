@@ -80,6 +80,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedSha256: 'sha256:ea799b1b6f03b7f4fba5dfe01a06381cefd10e802af76cbe664f57c296f9a02a',
   },
   {
+    name: 'extensions-utf16-astral-sort',
+    description:
+      'extensions[] sort by comparing JCS serializations by UTF-16 code unit (§9.7): an astral-plane id (U+10000, first UTF-16 unit U+D800) sorts BEFORE a BMP id (U+E000), even though it is GREATER by Unicode code point. Authored in code-point order; the projection reverses it to UTF-16 order — pinning the reference impl against a code-point-sorting implementation.',
+    manifest: `{"cdx":"0.1","id":"sha256:${'f'.repeat(64)}","state":"frozen","content":{"path":"content/document.json","hash":"sha256:${'e'.repeat(64)}"},"extensions":[{"id":"z\u{E000}","version":"0.1","required":false},{"id":"z\u{10000}","version":"0.1","required":false}]}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"sha256:${'e'.repeat(64)}","path":"content/document.json"},"extensions":[{"id":"z\u{10000}","required":false,"version":"0.1"},{"id":"z\u{E000}","required":false,"version":"0.1"}],"state":"frozen"}`,
+    expectedSha256: 'sha256:cd0615f6da4049efb3e4f929a9997a1ae2290164df3c46521d89475f6056a59d',
+  },
+  {
     name: 'minimal-no-optionals',
     description: 'Only the always-present fields; absent presentation/extensions/lineage are omitted, never null-materialized.',
     manifest: `{"cdx":"0.1","id":"${sha('7')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('8')}"}}`,
