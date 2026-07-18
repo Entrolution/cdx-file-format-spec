@@ -573,7 +573,6 @@ For frozen documents:
 
 ### 11.1 Draft Document Manifest
 
-<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -583,7 +582,7 @@ For frozen documents:
   "modified": "2025-01-14T16:30:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:..."
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"
@@ -593,7 +592,6 @@ For frozen documents:
 
 ### 11.2 Frozen Document Manifest
 
-<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -603,7 +601,7 @@ For frozen documents:
   "modified": "2025-01-15T10:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:abc123..."
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "security": {
     "signatures": "security/signatures.json"
@@ -623,7 +621,6 @@ For frozen documents:
 
 ### 11.3 Forked Document
 
-<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -633,7 +630,7 @@ For frozen documents:
   "modified": "2025-01-16T09:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:def456..."
+    "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "metadata": {
     "dublinCore": "metadata/dublin-core.json"

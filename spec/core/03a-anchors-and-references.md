@@ -91,12 +91,13 @@ Position fields (`offset`, `start`, `end`) are defined only when `blockId` targe
 
 Anchors MAY include an optional `contentHash` field to detect when an offset-based anchor may be stale:
 
+<!-- cdx-schema: anchor.schema.json#/$defs/contentAnchor -->
 ```json
 {
   "blockId": "intro",
   "start": 10,
   "end": 25,
-  "contentHash": "sha256:abc123..."
+  "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 ```
 

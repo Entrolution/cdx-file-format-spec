@@ -502,7 +502,6 @@ When modifying a document:
 
 ### 7.2 Signed Frozen Document
 
-<!-- cdx-validate: skip (illustrative example with placeholder values) -->
 ```json
 {
   "cdx": "0.1",
@@ -512,14 +511,14 @@ When modifying a document:
   "modified": "2025-01-15T14:22:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:abc123...",
+    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "compression": "zstd"
   },
   "presentation": [
     {
       "type": "paginated",
       "path": "presentation/paginated.json",
-      "hash": "sha256:def456...",
+      "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "default": true
     }
   ],
@@ -527,7 +526,8 @@ When modifying a document:
     "images": {
       "count": 3,
       "totalSize": 524288,
-      "index": "assets/images/index.json"
+      "index": "assets/images/index.json",
+      "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
   },
   "security": {
@@ -545,7 +545,7 @@ When modifying a document:
     "dublinCore": "metadata/dublin-core.json"
   },
   "lineage": {
-    "parent": "sha256:previousversion...",
+    "parent": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "version": 2,
     "note": "Final version after legal review"
   }
