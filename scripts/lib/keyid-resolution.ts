@@ -121,6 +121,13 @@ export function multibaseKeyToJwk(multibase: string): Record<string, string> {
   if (typeof multibase !== 'string' || multibase.length < 2 || multibase[0] !== 'z') {
     throw new KeyResolutionError("multibaseKeyToJwk: expected a base58btc multibase value ('z' prefix)");
   }
+  // Bound the length BEFORE decoding: base58btcDecode is O(n²) in the input length,
+  // and the supported keys (Ed25519 34 bytes, P-256 35 bytes) encode to ~48 chars.
+  // Reject an over-long value up front so a huge `publicKeyMultibase` cannot force a
+  // quadratic decode (a resolution-time DoS) — it is a non-matching method anyway.
+  if (multibase.length > 64) {
+    throw new KeyResolutionError('multibaseKeyToJwk: value is too long to be a supported public key');
+  }
   const bytes = base58btcDecode(multibase.slice(1));
 
   if (bytes.length === 2 + 32 && MULTICODEC_ED25519_PUB.equals(bytes.subarray(0, 2))) {

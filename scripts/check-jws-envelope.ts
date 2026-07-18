@@ -164,19 +164,20 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
 console.log('\nCredential-path shape (x5c XOR kid):');
 const baseHeader = { alg: 'ES256', b64: false, crit: ['b64'], sigT: '2025-01-15T10:00:00Z' };
 const JKT = 'kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k'; // a real RFC 7638 SHA-256 thumbprint (43 chars)
+const X5T = 'x5tCertThumbprintPlaceholder0000000000000AB'; // a 43-char base64url x5t#S256 placeholder
 const shapeCases: { name: string; header: Record<string, unknown>; accept: boolean }[] = [
-  { name: 'X.509 path (x5c + x5t#S256)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA' }, accept: true },
+  { name: 'X.509 path (x5c + x5t#S256)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': X5T }, accept: true },
   { name: 'keyId path (did:key)', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholderForShapeCheck' }, accept: true },
   { name: 'keyId path (did:jwk)', header: { ...baseHeader, kid: 'did:jwk:eyJrdHkiOiJFQyJ9PlaceholderForShapeCheck' }, accept: true },
   { name: 'keyId path with DID-URL fragment', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholder#z6MkPlaceholder' }, accept: true },
   { name: 'did:web + jkt', header: { ...baseHeader, kid: 'did:web:example.com:alice', jkt: JKT }, accept: true },
   { name: 'did:web with port + path + fragment + jkt', header: { ...baseHeader, kid: 'did:web:example.com%3A3000:dids:alice#key-1', jkt: JKT }, accept: true },
-  { name: 'both x5c and kid (mutual exclusion)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA', kid: 'did:key:z6MkPlaceholder' }, accept: false },
-  { name: 'kid + stray x5t#S256 (cross-contamination)', header: { ...baseHeader, kid: 'did:key:z6MkPlaceholder', 'x5t#S256': 'AAAA' }, accept: false },
+  { name: 'both x5c and kid (mutual exclusion)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': X5T, kid: 'did:key:z6MkPlaceholder' }, accept: false },
+  { name: 'kid + stray x5t#S256 (cross-contamination)', header: { ...baseHeader, kid: 'did:key:z6MkPlaceholder', 'x5t#S256': X5T }, accept: false },
   { name: 'neither credential path', header: { ...baseHeader }, accept: false },
   { name: 'did:web without jkt (required)', header: { ...baseHeader, kid: 'did:web:example.com:alice' }, accept: false },
   { name: 'did:key with jkt (forbidden on self-certifying)', header: { ...baseHeader, alg: 'EdDSA', kid: 'did:key:z6MkPlaceholder', jkt: JKT }, accept: false },
-  { name: 'X.509 with jkt (forbidden)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA', jkt: JKT }, accept: false },
+  { name: 'X.509 with jkt (forbidden)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': X5T, jkt: JKT }, accept: false },
   { name: 'did:web malformed jkt (too short)', header: { ...baseHeader, kid: 'did:web:example.com:alice', jkt: 'AAAA' }, accept: false },
   { name: 'did:web IP-literal host (SSRF)', header: { ...baseHeader, kid: 'did:web:127.0.0.1:alice', jkt: JKT }, accept: false },
   { name: 'did:web localhost host (SSRF)', header: { ...baseHeader, kid: 'did:web:localhost', jkt: JKT }, accept: false },
@@ -189,6 +190,9 @@ const shapeCases: { name: string; header: Record<string, unknown>; accept: boole
   { name: 'empty kid', header: { ...baseHeader, kid: '' }, accept: false },
   { name: 'non-DID kid', header: { ...baseHeader, kid: 'just-a-string' }, accept: false },
   { name: 'x5c without x5t#S256', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='] }, accept: false },
+  { name: 'malformed sigT (not a timestamp)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': X5T, sigT: 'banana' }, accept: false },
+  { name: 'malformed sigT (date only)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': X5T, sigT: '2025' }, accept: false },
+  { name: 'malformed x5t#S256 (too short)', header: { ...baseHeader, x5c: ['MIIBplaceholderDER=='], 'x5t#S256': 'AAAA' }, accept: false },
 ];
 for (const c of shapeCases) {
   let threw = false;
@@ -260,6 +264,14 @@ try {
 } catch (err) {
   if (err instanceof KeyResolutionError) console.log('  ✓ kty "__proto__" → KeyResolutionError (not a raw TypeError)');
   else fail(`kty "__proto__" — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
+}
+// An over-long publicKeyMultibase is rejected up front, before the O(n²) base58 decode.
+try {
+  multibaseKeyToJwk('z' + 'A'.repeat(100));
+  fail('over-long multibase — accepted (should reject)');
+} catch (err) {
+  if (err instanceof KeyResolutionError) console.log('  ✓ over-long publicKeyMultibase → KeyResolutionError (length capped before decode)');
+  else fail(`over-long multibase — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
 }
 
 if (failures > 0) {
