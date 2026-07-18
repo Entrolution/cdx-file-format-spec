@@ -705,8 +705,7 @@
         "email": "jane.smith@example.com"
       },
       "timestamp": "2025-01-28T14:00:00Z",
-      "purpose": "approval",
-      "digitalSignatureRef": "security/signatures.json#sig-001"
+      "purpose": "approval"
     },
     {
       "type": "horizontalRule",

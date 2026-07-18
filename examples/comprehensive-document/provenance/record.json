@@ -1,6 +1,6 @@
 {
   "version": "0.1",
-  "documentId": "sha256:9ed0ef9ca1bc31cb9fe1b81972d7f984e0014f30025676c4289e3e61a46ef281",
+  "documentId": "sha256:ba6ea10acd8cc2036110244f8b123b6c39765a7be8604a651ea07850ead3efa8",
   "created": "2025-01-28T14:00:00Z",
   "creator": {
     "name": "Document Author",
@@ -14,14 +14,14 @@
   },
   "merkle": {
     "root": "sha256:f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3",
-    "blockCount": 24,
+    "blockCount": 71,
     "algorithm": "sha256"
   },
   "timestamps": [
     {
       "type": "rfc3161",
       "time": "2025-01-28T14:05:00Z",
-      "hash": "sha256:9ed0ef9ca1bc31cb9fe1b81972d7f984e0014f30025676c4289e3e61a46ef281",
+      "hash": "sha256:ba6ea10acd8cc2036110244f8b123b6c39765a7be8604a651ea07850ead3efa8",
       "authority": "http://timestamp.digicert.com",
       "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0"
     }

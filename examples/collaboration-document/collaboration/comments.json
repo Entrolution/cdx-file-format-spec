@@ -5,7 +5,7 @@
     {
       "id": "comment-1",
       "type": "comment",
-      "anchor": { "blockId": "para-1", "start": 78, "end": 100 },
+      "anchor": { "blockId": "para-1", "start": 76, "end": 101 },
       "author": {
         "name": "Alice Chen",
         "email": "alice@example.com",
@@ -57,7 +57,7 @@
     {
       "id": "suggestion-1",
       "type": "suggestion",
-      "anchor": { "blockId": "para-timeline", "start": 47, "end": 56 },
+      "anchor": { "blockId": "para-timeline", "start": 36, "end": 44 },
       "author": {
         "name": "David Lee",
         "email": "david@example.com",
@@ -72,7 +72,7 @@
     {
       "id": "suggestion-2",
       "type": "suggestion",
-      "anchor": { "blockId": "para-timeline", "start": 106, "end": 114 },
+      "anchor": { "blockId": "para-timeline", "start": 97, "end": 105 },
       "author": {
         "name": "David Lee",
         "email": "david@example.com",
