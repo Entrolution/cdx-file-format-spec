@@ -459,7 +459,7 @@ Continuous presentation groups content into sections for styling purposes:
   ],
   "styles": {
     "heading1": {
-      "base": { "fontSize": "2rem", "fontWeight": "700" },
+      "base": { "fontSize": "2rem", "fontWeight": 700 },
       "breakpoints": { "mobile": { "fontSize": "1.5rem" } }
     }
   }
@@ -515,7 +515,7 @@ Styles are defined by name and referenced by elements:
     "heading1": {
       "fontFamily": "Georgia, serif",
       "fontSize": "2em",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "marginTop": "1.5em",
       "marginBottom": "0.5em",
       "color": "#1a1a1a"
@@ -565,7 +565,7 @@ Styles can inherit from other styles:
     "lead": {
       "extends": "paragraph",
       "fontSize": "1.2rem",
-      "fontWeight": "500"
+      "fontWeight": 500
     }
   }
 }
@@ -1032,7 +1032,7 @@ If `matrix` is specified, it overrides all other transform properties.
   "styles": {
     "heading1": {
       "fontSize": "2.5rem",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "marginTop": "2rem",
       "marginBottom": "1rem"
     },
@@ -1071,7 +1071,7 @@ If `matrix` is specified, it overrides all other transform properties.
     "heading1": {
       "fontFamily": "Helvetica, sans-serif",
       "fontSize": "24pt",
-      "fontWeight": "700",
+      "fontWeight": 700,
       "pageBreakBefore": "always"
     },
     "bodyText": {

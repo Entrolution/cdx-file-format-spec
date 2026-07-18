@@ -117,16 +117,23 @@ function documentRoots(): DocRoot[] {
       schema: 'security.schema.json',
       ref: '#/$defs/signaturesFile',
     },
+    // A reactive presentation root carries the 4-key required signature
+    // {version, type, defaults, styles}. No other document root requires all four:
+    // dublin-core/signatures/semantic share `version` but not the rest, and the
+    // precise-layout root uses `presentationType` (not `type`) and requires `pages`
+    // instead of `defaults`/`styles`. So a complete presentation fence is validated
+    // rather than skipped as an "unrecognized root".
+    {
+      name: 'presentation',
+      requiredKeys: requiredKeysOf('presentation.schema.json'),
+      schema: 'presentation.schema.json',
+    },
     // A precise-layout root carries a 7-key required signature
     // (version + presentationType + targetFormat + pageSize + contentHash +
     // generatedAt + pages) that no other document root, content block, or the
-    // presentation root shares, so it needs no guard. A complete precise-layout
-    // example embedded in the spec is therefore validated rather than skipped as an
-    // "unrecognized root". (The presentation.schema.json root — {version, type,
-    // defaults, styles} — is deliberately NOT added: two complete presentation
-    // fences in spec/core/04-presentation-layers.md do not currently satisfy that
-    // schema, so a discriminator would fail the gate on prose the tooling layer must
-    // not edit; enabling it needs a spec-side fix or skip-marker first.)
+    // reactive presentation root shares, so it needs no guard. A complete
+    // precise-layout example embedded in the spec is therefore validated rather than
+    // skipped as an "unrecognized root".
     {
       name: 'precise-layout',
       requiredKeys: requiredKeysOf('precise-layout.schema.json'),
@@ -321,6 +328,10 @@ function main(): void {
   const preciseLayoutValidate = getValidator('precise-layout.schema.json');
   if (preciseLayoutValidate({ version: '1.0', presentationType: 'precise', targetFormat: 'pdf' })) {
     selfTestFailures.push('precise-layout missing required pageSize/contentHash/generatedAt/pages ACCEPTED (validation has no teeth)');
+  }
+  const presentationValidate = getValidator('presentation.schema.json');
+  if (presentationValidate({ version: '0.1', type: 'continuous', defaults: {}, styles: { heading1: { fontWeight: '700' } } })) {
+    selfTestFailures.push('presentation with a string fontWeight ACCEPTED (validation has no teeth)');
   }
 
   // Tier-3 annotation path: the `cdx-schema:` marker must parse, resolve to a
