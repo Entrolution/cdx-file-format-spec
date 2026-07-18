@@ -178,9 +178,9 @@ document.cdx
 │   ├── document.json      # Semantic content blocks
 │   └── block-index.json   # Block hashes for Merkle proofs
 ├── presentation/
-│   ├── defaults.json      # Base styles
 │   ├── paginated.json     # Print hints (reactive)
 │   ├── continuous.json    # Screen hints (reactive)
+│   ├── responsive.json    # Viewport hints (reactive)
 │   └── layouts/           # Precise layouts (when fidelity required)
 │       ├── letter.json    # US Letter format coordinates
 │       └── a4.json        # A4 format coordinates
@@ -198,28 +198,40 @@ document.cdx
 
 ### Minimal Example
 
+The manifest carries document identity and references the content file by path and hash — the content blocks are not embedded inline:
+
 ```json
 {
   "cdx": "0.1",
   "id": "sha256:a1b2c3...",
   "state": "draft",
   "content": {
-    "blocks": [
-      {
-        "type": "heading",
-        "level": 1,
-        "children": [{ "type": "text", "value": "Hello, World" }]
-      },
-      {
-        "type": "paragraph",
-        "children": [
-          { "type": "text", "value": "This is a " },
-          { "type": "text", "value": "CDX", "marks": ["bold"] },
-          { "type": "text", "value": " document." }
-        ]
-      }
-    ]
+    "path": "content/document.json",
+    "hash": "sha256:e3b0c4..."
   }
+}
+```
+
+The blocks live in `content/document.json`:
+
+```json
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "heading",
+      "level": 1,
+      "children": [{ "type": "text", "value": "Hello, World" }]
+    },
+    {
+      "type": "paragraph",
+      "children": [
+        { "type": "text", "value": "This is a " },
+        { "type": "text", "value": "CDX", "marks": ["bold"] },
+        { "type": "text", "value": " document." }
+      ]
+    }
+  ]
 }
 ```
 

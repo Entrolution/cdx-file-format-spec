@@ -460,12 +460,12 @@ This document records key design decisions made during the CDX format specificat
 **Rationale**:
 - **Consistent with DD-010** — The core specification explicitly excludes executable content. PDF JavaScript is cited as a cautionary tale in DD-010, and allowing it in form validation would undermine that decision
 - **Security** — Expression evaluation opens injection attack vectors. Even "sandboxed" JavaScript has a long history of sandbox escapes
-- **Declarative sufficiency** — The built-in validators (`required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `email`, `url`, `containsUppercase`, `containsDigit`, `containsSpecial`, `matchesField`) cover the vast majority of form validation needs
+- **Declarative sufficiency** — The built-in validators (`required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `email`, `url`, `containsUppercase`, `containsLowercase`, `containsDigit`, `containsSpecial`, `matchesField`) cover the vast majority of form validation needs
 - **Pattern validator as escape hatch** — The `pattern` validator accepts regular expressions, providing complex string matching without executable code
 - **Implementer simplicity** — Declarative rules can be validated by any JSON processor without requiring a JavaScript runtime
 
 **Consequences**:
-- Some highly dynamic validation (e.g., "field B required only if field A > 10") is not expressible. This is an acceptable limitation — such logic belongs in the application layer, not the document format
+- Field-dependent validation is still expressible declaratively through the `conditionalValidation` construct: a `when` condition on another field (`equals`, `notEquals`, `isEmpty`, `isNotEmpty`) gates a `then` set of validators — for example, "field B is required only when field A is non-empty". What remains out of scope is validation requiring arbitrary computed predicates, such as the numeric comparison "field A > 10", since evaluating those would need an expression evaluator; that logic belongs in the application layer, not the document format
 - The `pattern` validator inherits regex complexity concerns, but regex is well-understood and does not enable arbitrary code execution
 
 ---

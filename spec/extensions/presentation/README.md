@@ -50,7 +50,7 @@ This extension's concepts are **top-level sections of that one presentation obje
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `columns` | integer | Number of columns (1-6) |
+| `columns` | integer | Number of columns (1-12) |
 | `gap` | string | Gap between columns |
 | `balance` | boolean | Balance column heights |
 | `rule` | object | Column rule (separator line) |
@@ -583,6 +583,8 @@ The footnote `position` is one of `page-bottom`, `column-bottom`, or `section-en
 ```
 
 ### 10.3 Endnotes
+
+The endnote `numbering` style is one of `1`, `a`, `A`, `i`, or `I`. Unlike footnotes (section 10.2), endnotes do not offer the symbolic `*` style, since a long endnote list would exhaust the symbol sequence.
 
 ```json
 {

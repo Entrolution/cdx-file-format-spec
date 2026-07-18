@@ -44,7 +44,7 @@
         "depth": {
           "type": "integer",
           "minimum": 1,
-          "description": "Distance from root document"
+          "description": "Generation number: 1 for the root document, incremented by 1 each generation (one more than the number of ancestor links). Advisory; recomputed on verification."
         },
         "branch": {
           "type": "string",

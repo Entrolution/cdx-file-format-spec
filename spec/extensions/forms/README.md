@@ -274,6 +274,17 @@ The `minDate` and `maxDate` fields accept ISO 8601 date strings (e.g., `"2024-01
 
 The `forms:signature` field captures visual/input signatures (e.g., drawn signatures or typed names) as part of form data. This is distinct from the security extension's cryptographic digital signatures, which provide tamper detection and non-repudiation. For documents requiring both visual and cryptographic signatures, use `forms:signature` for the user-facing input and the security extension for cryptographic verification. The field defines only the capture widget; the captured signature itself is stored in `forms/data.json` (see section 6.5), outside the content hash and bound by no signature, so it is advisory and forgeable and provides no integrity, non-repudiation, or binding on its own.
 
+CDX uses the word "signature" for four distinct, namespaced constructs; do not conflate them:
+
+| Construct | Where it lives | What it is |
+|-----------|----------------|------------|
+| `forms:signature` (this field) | `forms/data.json` (captured value) | An advisory visual/input signature; no cryptographic meaning |
+| core `signature` block | `content/document.json` (in-hash) | A content block that renders a signature image or line in the document body — rendered content, not an attestation |
+| `legal:signatureBlock` (legal extension) | `content/document.json` (in-hash) | A legal signature block modeling a signatory and execution details of a legal instrument — in-hash content, not a cryptographic signature |
+| security-extension digital signature (`cdx.security`) | `security/signatures.json` | The only cryptographic signature — provides tamper detection and non-repudiation |
+
+Only the last authenticates anything; the first three are rendered or captured representations that a verifier MUST NOT treat as tamper-evident or non-repudiable.
+
 ## 4. Validation
 
 ### 4.1 Built-in Validators
@@ -367,7 +378,7 @@ The `when` condition supports the following operators:
 | `isEmpty` | Condition is true when the field is empty (set to `true`) |
 | `isNotEmpty` | Condition is true when the field has a value (set to `true`) |
 
-Only one operator should be used per condition. When the condition evaluates to true, all validation rules in `then` are applied to the field.
+Authoring guidance is to use a single operator per condition. The schema does not enforce this — a `when` object MAY carry more than one operator — so a consumer MUST resolve the multi-operator case deterministically: when a `when` object contains more than one operator, the condition is true only if **every** operator present evaluates true (logical AND). When the condition evaluates to true, all validation rules in `then` are applied to the field.
 
 Example with multiple conditional rules:
 
@@ -410,6 +421,8 @@ The `version` field follows the extension version contract in the CDX Extensions
 
 ### 5.2 Submission
 
+The submission target is **not** part of the form data layer. A form's `action`, `method`, and `encoding` are properties of the in-hash `forms:form` container block (section 3.0a), stored in `content/document.json` and therefore covered by the content hash. The object below restates those in-hash fields for reference only; `forms/data.json` carries no submission endpoint, and a consumer preparing a submission MUST read `action`/`method`/`encoding` from the `forms:form` block, never from the mutable data file:
+
 ```json
 {
   "form": {
@@ -419,6 +432,8 @@ The `version` field follows the extension version contract in the CDX Extensions
   }
 }
 ```
+
+Because the endpoint lives in signed content, an attacker cannot silently redirect a submission by editing the out-of-hash `forms/data.json`. A renderer MUST also apply the `action` safe-scheme constraint (section 3.0a), and the receiving endpoint MUST re-validate every submitted value.
 
 ## 6. State Behavior
 
@@ -482,6 +497,8 @@ For viewers that don't support forms:
 ```
 
 > **Reader dispositions.** A consumer without forms support treats a `forms:*` block as an unknown namespaced block (State Machine section 5.4): it renders the block's `fallback` if present, otherwise IGNOREs the field. A structurally malformed forms block of a known type is a WARNING in draft/review and an INTEGRITY-ERROR on a frozen or published document. Form filling and submission stay permitted on a frozen or published document because `forms/data.json` is an out-of-hash layer (State Machine section 3.4); a missing or malformed `forms/data.json` is a WARNING in all states.
+
+> **A `fallback` is not a validated content block.** The forms schema requires only that a `fallback` carry a `type`; it does not constrain the object to the core content block model, so a `fallback` is not guaranteed to be a well-formed content block. A non-forms consumer that renders a `fallback` MUST therefore treat it as untrusted content: validate it against the core content model and apply the same renderer-safety allowlists it applies to primary content (Renderer Safety section 6) before rendering, and if the fallback does not validate, IGNORE the field rather than render a malformed block.
 
 ## 8. Examples
 

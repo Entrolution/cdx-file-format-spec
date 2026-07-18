@@ -60,7 +60,10 @@ Every block has the following base structure:
 | `type` | string | Yes | Block type identifier |
 | `id` | string | No | Unique block identifier within document |
 | `children` | array | Varies | Child nodes (blocks or text) |
-| `attributes` | object | No | Type-specific attributes |
+| `attributes` | object | No | Standard block attributes (closed set — see below) |
+| `crdt` | object | No | Transient CRDT synchronization state for the collaboration extension. Library-specific and intentionally open; stripped before the document hash is computed (Document Hashing section 4.3.1), so it never affects the document ID or any signature. |
+
+The `attributes` object is a closed set. It accepts only `dir`, `lang`, and `writingMode` (Internationalization, section 6.1), `style` (a named style resolved by the presentation layer), and `semantic` (a JSON-LD annotation for the block, per the Semantic extension). No other keys are permitted; `attributes` is not an open container for arbitrary type-specific fields.
 
 ### 3.2 Block Identifiers
 
@@ -73,7 +76,7 @@ Block IDs:
 - SHOULD be stable across edits in DRAFT state (for collaboration)
 - SHOULD use URL-safe characters
 
-Block IDs share the document-wide ID namespace with named anchor IDs (see Anchors and References specification). Block IDs and anchor IDs MUST be unique across both sets.
+Block IDs share one document-wide identifier namespace with named anchor IDs and with in-content sub-block IDs — academic equation-line IDs and subfigure IDs (see Anchors and References specification). Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line IDs, and subfigure IDs.
 
 ## 4. Core Block Types
 
@@ -106,7 +109,6 @@ Text nodes are the leaf nodes that contain actual text content.
 | `code` | Inline code (monospace) |
 | `superscript` | Superscript text |
 | `subscript` | Subscript text |
-| `anchor` | Named anchor point (see below and Anchors and References spec) |
 
 #### 4.1.1a Anchor Mark
 
@@ -403,6 +405,7 @@ Embedded or referenced image.
 | `height` | integer | No | Intrinsic height in pixels |
 | `external` | boolean | No | When true, `src` is an external URL resolved at render time (left verbatim in the document ID) |
 | `fallback` | string | No | Archive-relative path to a packaged fallback image for an unavailable external `src` (left verbatim) |
+| `float` | object | No | Float positioning for this image (presentation extension) |
 
 Children: None (void element)
 
@@ -701,6 +704,7 @@ Semantic representation of a signature with optional image, signer information, 
 | `timestamp` | string | No | ISO 8601 timestamp |
 | `purpose` | string | No | Purpose of the signature |
 | `digitalSignatureRef` | string | No | Reference to cryptographic signature |
+| `external` | boolean | No | When true, `image` is an external reference resolved at render time (left verbatim in the document ID) |
 
 #### 4.17.1 Signature Types
 
@@ -763,10 +767,11 @@ Alternative inline form:
 | `title` | string | No | Title/caption |
 | `width` | integer | No | Display width in pixels |
 | `height` | integer | No | Display height in pixels |
+| `external` | boolean | No | When true, `src` is an external reference resolved at render time (left verbatim in the document ID) |
 
 *Either `src` or `content` MUST be provided, but not both.
 
-For `src`, the path MUST be a relative path within the archive (e.g., `assets/graphics/chart.svg`) or a URL.
+For `src`, the path MUST be a relative path within the archive (e.g., `assets/graphics/chart.svg`) or a URL. When `external` is `true`, `src` is resolved at render time and left verbatim in the document ID. Unlike `image`, `svg` provides no `fallback` field, so an unavailable external SVG has no packaged backup.
 
 For `content`, the value MUST be a complete SVG element including the `xmlns` attribute.
 
@@ -855,6 +860,8 @@ Container for figures with optional captions. Figures group visual content (imag
 |-----------|------|----------|-------------|
 | `numbering` | string or integer | No | Figure numbering mode |
 | `subfigures` | array | No | Array of subfigure objects (alternative to children) |
+| `float` | object | No | Float positioning for this figure (presentation extension) |
+| `numberingConfig` | object | No | Extended figure numbering configuration (presentation extension) |
 
 #### 4.20.1 Numbering Values
 

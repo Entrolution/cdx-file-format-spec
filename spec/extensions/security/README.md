@@ -57,7 +57,7 @@ The document ID binds the document's semantic content only. It does **not** bind
 | ECDSA P-384 | `ES384` | 384-bit | Recommended |
 | Ed25519 | `EdDSA` | 256-bit | Recommended |
 | RSA-PSS | `PS256` | 2048+ bit | Optional |
-| ML-DSA-65 | `ML-DSA-65` | PQC | Optional (future) |
+| ML-DSA-65 | `ML-DSA-65` | PQC | Experimental |
 
 Implementations MUST support ES256. Support for other algorithms is RECOMMENDED.
 
@@ -185,7 +185,7 @@ To verify a signature and assign it a state (section 3.8):
    d. **Trust path.** Anchor the credential to verifier-configured trust, yielding `anchored`, `untrusted`, or `unknown`: validate the `x5c` chain against the trust store (section 3.9), or anchor the resolved `kid` against the verifier's pin (section 3.11). For `did:web` this step performs the HTTPS resolution and the `jkt` key-match; an unresolvable or unmatched key is `unknown` (key-unavailable)
    e. **Revocation and validity.** Determine the credential's revocation status and validity window relative to the reference time — a validated signature-timestamp's time T when present (sections 3.6, 7.5), else the untrusted `sigT` (section 7.4)
 4. Combine these inputs into a state using the production rules of section 3.8, and report it
-5. **Signature-set integrity (document-level).** After every signature has a state, evaluate the completeness of the signature *set* (section 3.12): if the signed manifest projection declares `signaturePolicy.requiredSigners`, every required signer MUST be satisfied by a present signature whose state is `valid`, and a document with any unsatisfied required signer MUST be rejected as stripped or downgraded. For a `frozen` or `published` document that declares no policy, a verifier MUST warn that the signature set is unprotected against stripping
+5. **Signature-set integrity (document-level).** After every signature has a state, evaluate the completeness of the signature *set* (section 3.12): if the signed manifest projection declares `signaturePolicy.requiredSigners`, every required signer MUST be satisfied by a present signature whose state is `valid`. For a `frozen` or `published` document, any unsatisfied required signer means the set is stripped or downgraded and the verifier MUST reject the document; for a `draft` or `review` document the set is not yet final (section 3.12 binds the set only for `frozen`/`published`), so an unsatisfied required signer is a WARNING, not a rejection. For a `frozen` or `published` document that declares no policy, a verifier MUST warn that the signature set is unprotected against stripping
 
 A single signature's state (steps 3–4) is **per-signature**: it carries no meaning about the completeness of the signature *set*. Set integrity is the separate, document-level verdict of step 5 (section 3.12), not a signature state.
 

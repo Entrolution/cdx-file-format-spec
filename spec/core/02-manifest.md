@@ -197,6 +197,8 @@ Array of presentation layer references.
 | `path` | string | Yes | Relative path within archive |
 | `hash` | string | Yes | Hash of file contents |
 | `default` | boolean | No | Whether this is the default presentation |
+| `contentHash` | string | No | Document content hash when this presentation was generated |
+| `generated` | string | No | ISO 8601 timestamp when this presentation was generated |
 
 Standard presentation types:
 - `"paginated"` - Fixed page layout for print
@@ -277,6 +279,7 @@ Array of active extensions beyond the core specification.
 | `id` | string | Yes | Extension identifier |
 | `version` | string | Yes | Extension version |
 | `required` | boolean | Yes | Whether extension is required for correct rendering |
+| `config` | object | No | Extension-specific configuration paths or inline settings |
 
 If `required` is `true`, implementations that do not support the extension MUST refuse to process the document. If `required` is `false`, an implementation that does not support the extension MUST still process the document, ignoring that extension's data and degrading gracefully (State Machine section 5.4).
 
@@ -298,6 +301,7 @@ References to metadata files.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `dublinCore` | string | Yes | Path to Dublin Core metadata |
+| `jsonld` | string | No | Path to a document-level JSON-LD metadata file (Semantic Extension); out-of-hash advisory data, referenced by path only |
 | `custom` | object | No | Map of custom metadata references (name → path) |
 
 ### 4.12 `phantoms` (Optional)
@@ -340,7 +344,7 @@ Version history and document relationships. The manifest's `lineage` is the **au
 | `parent` | string | No | Document ID of parent version (`null` for a root) |
 | `ancestors` | array | No | Nearest-first ancestor chain; `ancestors[0]` equals `parent`. Placing it here binds the signed chain (Provenance and Lineage section 3.3) |
 | `version` | integer | No | Sequential version number (advisory) |
-| `depth` | integer | No | Distance from the root document (advisory; recomputed on verification) |
+| `depth` | integer | No | Generation number: 1 for the root, +1 per generation (advisory; recomputed on verification) |
 | `branch` | string | No | Branch identifier for parallel versions |
 | `mergedFrom` | array | No | Additional merge-parent document IDs (Provenance and Lineage section 3.4) |
 | `note` | string | No | Description of changes from parent |

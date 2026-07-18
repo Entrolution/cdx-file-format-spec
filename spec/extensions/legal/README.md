@@ -193,14 +193,15 @@ The canonical citation string is assembled from the structured fields by `form`.
 - `{parties:"Celotex Corp. v. Catrett", volume:"477", reporter:"U.S.", page:"317", pinpoint:"323", year:"1986"}` → `Celotex Corp. v. Catrett, 477 U.S. 317, 323 (1986)`
 - `{volume:"225", reporter:"F.3d", page:"1115", pinpoint:"1123", court:"9th Cir.", year:"2000"}` → `225 F.3d 1115, 1123 (9th Cir. 2000)`
 
-**`code`.** `{title}` space `{code}` space `§` space `{section}`, then a space and `{suffix}` (if present). `§` is U+00A7 (SECTION SIGN).
+**`code`.** `{title}` space `{code}` space `§` space `{section}`, then a space and `{suffix}` (if present), then `", "` and `{pinpoint}` (if present). `§` is U+00A7 (SECTION SIGN).
 
 - `{title:"42", code:"U.S.C.", section:"2000e", suffix:"et seq."}` → `42 U.S.C. § 2000e et seq.`
 - `{title:"29", code:"C.F.R.", section:"1602.14"}` → `29 C.F.R. § 1602.14`
+- `{title:"42", code:"U.S.C.", section:"2000e", pinpoint:"2000e-2"}` → `42 U.S.C. § 2000e, 2000e-2`
 
-**`other`.** The `text` field, rendered verbatim.
+**`other`.** The `text` field, rendered verbatim, then `", "` and `{pinpoint}` (if present).
 
-A `pinpoint` is rendered after `{page}` in the reporter form (`317, 323`) and after the canonical form for code/other authorities (`§ 2000e, 323`); the short form (section 8.2) renders it as `at {pinpoint}`.
+A `pinpoint` is rendered after the authority's canonical string with a `", "` separator in every form (reporter `317, 323`; code `§ 2000e, 2000e-2`); the short form (section 8.2) renders it as `at {pinpoint}`.
 
 ### 5.2 Citation Styles (advisory)
 

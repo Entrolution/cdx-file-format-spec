@@ -72,7 +72,7 @@ The provenance lineage:
 | `parent` | string | No | Immediate parent document hash |
 | `ancestors` | array | No | Chain of ancestor hashes (nearest first) |
 | `version` | integer | No | Sequential version number |
-| `depth` | integer | No | Distance from root document |
+| `depth` | integer | No | Generation number: 1 for the root, +1 per generation (the merge rule sets it to `max(parents.depth) + 1`) |
 
 ### 3.2 Ancestor Chain
 
@@ -133,7 +133,7 @@ visit(id, path, d):
     if node.ancestors is non-empty: return REJECTED    // a root has no ancestors
     memo += id;  return VERIFIED
   if d >= traversalBound: return INCOMPLETE            // honest deep history, not an error
-  if node.ancestors is present:                        // cross-check vs the resolved PRIMARY parent
+  if node.ancestors is present and non-empty:          // cross-check vs the resolved PRIMARY parent
     parent = resolve(node.parent)
     if parent != null:
       if node.ancestors[0] != node.parent: return REJECTED
@@ -155,7 +155,7 @@ visit(id, path, d):
 
 A forged ancestor *beyond* a resolved parent's committed range is not rejected — it is simply **unverified** (the parent never vouched for it). The authoritative chain is the resolved walk, not the array, so such an entry is ignored, never endorsed.
 
-**Traversal bounds (cycle / DoS safety).** A verifier MUST bound the walk in **two** dimensions, and reaching either bound yields INCOMPLETE — never REJECTED, since a legitimately large history is not an inconsistency. **Depth:** a conforming verifier MUST support a depth bound of at least **64** links and MAY allow a larger one. **Breadth:** because the chain is a reconverging DAG — `mergedFrom` gives a node more than one parent, so there can be exponentially many *paths* to a given depth — a depth bound alone does not bound the work; a verifier MUST also bound the total number of node resolutions across the walk. Verified subtrees are memoised, so a legitimate history resolves each ancestor about once and stays far below that bound; only a wide reconverging DAG that never resolves (an unresolvable base, or every node held at the depth bound) approaches it. Cycle detection is separate and always rejects. The bounds are verifier configuration, consistent with the mandatory resource bounds of Container Format section 5.3.
+**Traversal bounds (cycle / DoS safety).** A verifier MUST bound the walk in **two** dimensions, and reaching either bound yields INCOMPLETE — never REJECTED, since a legitimately large history is not an inconsistency. **Depth:** the walk counts generations with the 1-based `d` counter of the algorithm above — the subject is generation 1, incremented once per ancestor generation, and the walk stops with INCOMPLETE once `d` reaches the bound. A conforming verifier MUST support a depth bound of at least **64** generations and MAY allow a larger one. **Breadth:** because the chain is a reconverging DAG — `mergedFrom` gives a node more than one parent, so there can be exponentially many *paths* to a given depth — a depth bound alone does not bound the work; a verifier MUST also bound the total number of node resolutions across the walk. Verified subtrees are memoised, so a legitimate history resolves each ancestor about once and stays far below that bound; only a wide reconverging DAG that never resolves (an unresolvable base, or every node held at the depth bound) approaches it. Cycle detection is separate and always rejects. The bounds are verifier configuration, consistent with the mandatory resource bounds of Container Format section 5.3.
 
 **`depth` and `version` are advisory.** A verifier recomputes the chain depth from the resolved walk; a document's *claimed* `depth` and `version` are cross-checked only as warnings, never as rejection conditions. A hard `parent + 1` rule would reject legitimate branching (Section 3.4) and honest authoring mistakes: `depth` derives structurally from the resolved chain, and `version` is author-assigned and advisory.
 
@@ -316,6 +316,10 @@ Prove a block exists in a document without revealing other blocks:
 4. merkleRoot must match document's manifest
 ```
 
+The `+` in the construction (Section 4.3) and in this verification is **raw-digest-byte concatenation**, identical to the aggregated-anchor recomputation (Section 6.5): each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm. Pinning the encoding here keeps a block proof built from Section 5.2 alone interoperable with the aggregated construction rather than diverging between implementations.
+
+**Construction limitations (disclosed, not closed).** The tree construction (Section 4.3) hashes an odd node count by duplicating the last hash, and it applies no domain-separation tag distinguishing a leaf from an internal node. Duplicating the last hash lets two distinct block sets share one root (the CVE-2012-2459 pattern), and the absence of a leaf/internal tag lets an internal node value be presented as a leaf; a hardened construction would tag leaves and internal nodes distinctly and reject rather than duplicate an odd node. Neither is changed in this version, and both are bounded by the fact that the block-level `merkle.root` is itself unverified here (Section 6.7): Section 5's proofs are defined for interoperability but are not yet a trusted redaction/inclusion oracle, and a verifier MUST NOT rely on a block-level Merkle proof as authenticated evidence until the root is bound.
+
 ### 5.3 Exclusion Proofs
 
 Prove a block does NOT exist (useful for redaction verification):
@@ -375,6 +379,8 @@ Each entry's `time` field is **advisory** (Section 6.6): the authoritative time 
 A timestamp is meaningful only if the hash it commits to is **this document's** hash. CDX fixes the binding:
 
 > The hash a timestamp commits to MUST equal the provenance record's `documentId`, and the record's `documentId` MUST equal the manifest `id`.
+
+Because `documentId` is a computed content hash — the `contentHash` grammar excludes the `pending` placeholder — a provenance record exists only once the document's `id` has been computed. A document whose `id` is still `pending` (a draft not yet submitted for review) carries no provenance record; the record is written when the `id` is first computed at the `draft → review` transition (State Machine section 4.2).
 
 The committed hash is named per type:
 

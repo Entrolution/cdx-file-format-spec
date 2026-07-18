@@ -108,7 +108,7 @@
     },
     "option": {
       "type": "object",
-      "description": "Option for dropdown, radio group, or checkbox group",
+      "description": "Option for a dropdown or radio group",
       "required": ["value", "label"],
       "properties": {
         "value": {

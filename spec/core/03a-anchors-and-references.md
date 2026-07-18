@@ -85,6 +85,8 @@ ContentAnchor objects are used in JSON data files (collaboration, phantoms, anno
 
 A ContentAnchor MUST have either no position fields (block-level), `offset` only (point), or both `start` and `end` (range). An anchor with `offset` alongside `start`/`end` is invalid.
 
+Position fields (`offset`, `start`, `end`) are defined only when `blockId` targets a text-bearing block (section 3). When `blockId` names a named anchor rather than a block, it already denotes a specific position, so `offset`, `start`, and `end` MUST NOT be present; a named-anchor target carrying a position field is invalid. (The schema permits the field combination structurally, so a consumer enforces this as a validation rule.)
+
 ### 2.3 ContentAnchor with Stale Detection
 
 Anchors MAY include an optional `contentHash` field to detect when an offset-based anchor may be stale:
@@ -248,7 +250,7 @@ These severities are the WARNING and INTEGRITY-ERROR dispositions of State Machi
 - `start` MUST be less than `end`
 - `start` MUST be non-negative
 - `offset` MUST be non-negative
-- For valid ranges, `end` SHOULD NOT exceed the target block's text content length
+- An `offset`, `start`, or `end` MUST NOT exceed the target block's text content length; a position past the end of the text carries the state-dependent severity of section 7.2 — a warning in DRAFT/REVIEW, an error in FROZEN/PUBLISHED
 
 ## 8. Terminology Glossary
 

@@ -64,7 +64,7 @@ Each content block can carry CRDT metadata:
 }
 ```
 
-**Hashing:** CRDT metadata (`crdt` fields on content blocks) MUST be stripped before computing the document content hash (see Core Specification, Section 6 — Document Hashing). CRDT metadata represents transient synchronization state, not document content. Implementations MUST materialize CRDT operations to plain content before hashing.
+**Hashing:** CRDT metadata (`crdt` fields on content blocks) MUST be stripped before computing the document content hash (see the Document Hashing specification, section 4.3.1 — Constructing the Canonical Content). CRDT metadata represents transient synchronization state, not document content. Implementations MUST materialize CRDT operations to plain content before hashing.
 
 ### 3.4 Text CRDTs
 
@@ -229,15 +229,17 @@ The `version` field follows the extension version contract in the CDX Extensions
 | `author` | object | Yes | Comment author |
 | `created` | string | Yes | Creation timestamp |
 | `modified` | string | No | Last modification timestamp |
-| `content` | string | Yes | Comment text |
+| `content` | string | Conditional | Comment text (required per type — see note below) |
 | `resolved` | boolean | No | Whether comment is resolved |
 | `replies` | array | No | Reply comments |
+
+The `content` requirement depends on the comment `type`: it is **required** for a `comment`, **optional** for a `highlight` (where it is an optional note, section 4.7), and MUST NOT appear on a `suggestion` (which carries `originalText`/`suggestedText`, section 4.5) or a `reaction` (which carries `emoji`, section 4.6). A validator built from this table MUST apply the per-type rule rather than requiring `content` on every record.
 
 The `resolved` and `replies` fields apply to `comment` and `suggestion` records only; a `highlight` or `reaction` MUST NOT carry them. A renderer SHOULD visually distinguish a resolved comment (for example, by collapsing or de-emphasizing it) and MUST NOT silently drop it, since the comment remains part of the archive. Because `resolved` is advisory and unauthenticated (section 4.5), a verifier MUST NOT treat it as an authenticated decision.
 
 ### 4.3a Reply Object
 
-The `replies` array contains reply objects. Replies are flat — they do not nest (a reply cannot contain further replies). Replies do not have their own anchors; they inherit the anchor context of the parent comment. There is no explicit ordering field: a renderer MUST present replies in `created` timestamp order, breaking ties by array order, so every reader shows the same thread sequence.
+The `replies` array contains reply objects. Replies are flat — they do not nest (a reply cannot contain further replies). Replies do not have their own anchors; they inherit the anchor context of the parent comment. There is no explicit ordering field: a renderer MUST present replies in `created` timestamp order — comparing the parsed instant, not the ISO 8601 string lexically, since the same instant may be written with a `Z` or a numeric offset or with fractional seconds — breaking ties by array order, so every reader shows the same thread sequence.
 
 ```json
 {
@@ -329,7 +331,7 @@ Suggestion statuses: `pending`, `accepted`, `rejected`
 
 Standard emoji identifiers using Unicode CLDR short names (without colons). Examples: `thumbsup`, `heart`, `thinking`, `rocket`. See the [Unicode CLDR annotations](https://cldr.unicode.org/translation/characters-emoji-symbols/short-names-and-keywords) for the canonical list.
 
-A reaction is identified by the pair (`author`, `emoji`) on a given anchor. A renderer that tallies reactions MUST collapse duplicates of the same pair to a single reaction (counting the author once), so a repeated record does not inflate the count.
+A reaction is identified by the pair (`author`, `emoji`) on a given anchor. Two `author` objects denote the same author when their **identity keys** are equal, where the identity key is `userId` if present, otherwise `email` if present, otherwise `name`. A renderer that tallies reactions MUST compare authors by this identity key and MUST collapse duplicates of the same (author, emoji) pair to a single reaction (counting the author once), so a repeated record — or the same person recorded once with and once without an optional `email` — does not inflate the count.
 
 ### 4.7 Highlights
 

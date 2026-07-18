@@ -39,7 +39,7 @@ assets/
 
 ### 3.1 Index File
 
-Each asset category declared in the manifest MUST have its own index file located at `assets/<category>/index.json`, where `<category>` is the corresponding key in the manifest's `assets` object. Asset `path` values within an index are resolved relative to that category directory. The index catalogs all assets in the category:
+Each asset category declared in the manifest MUST have its own index file located at `assets/<category>/index.json`, where `<category>` is the corresponding key in the manifest's `assets` object. The manifest's `assets.<category>.index` path MUST equal this derived location. A reader loads the index from the derived path, and if an explicit `index` value disagrees with it the derived path governs — Document Hashing section 4.3.1 builds every asset archive path from the category key, never from the `index` field, so a mismatched `index` value never changes which bytes enter the document ID. Asset `path` values within an index are resolved relative to that category directory. The index catalogs all assets in the category:
 
 ```json
 {
@@ -390,7 +390,9 @@ External references introduce risks:
 - Availability (broken links)
 - Integrity (content can change)
 
-Implementations SHOULD:
+A processor MUST NOT fetch a remote resource named by an untrusted document by default. Automatic resolution of an `external` reference — including a display image — is opt-in behaviour, enabled only in a trusted context (Renderer Safety section 5); with fetching disabled, which is the default, the `fallback` asset is displayed instead. Treating an `external` `src` as fetchable without that opt-in exposes a processor to server-side request forgery (an internal or cloud-metadata host reached through the document) and to tracking. This no-fetch-by-default rule governs; the guidance below applies only once a processor has been explicitly configured to fetch.
+
+Once fetching is enabled, implementations SHOULD:
 
 - Warn users about external content
 - Provide option to fetch and embed external resources
