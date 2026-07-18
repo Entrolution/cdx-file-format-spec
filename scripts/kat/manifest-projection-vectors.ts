@@ -23,8 +23,8 @@
 const sha = (c: string): string => `sha256:${c.repeat(64)}`;
 
 /** The real signed-document corpus hashes (so V1 mirrors the on-disk example). */
-const DOC_ID = 'sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86';
-const DOC_CONTENT = 'sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7';
+const DOC_ID = 'sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7';
+const DOC_CONTENT = 'sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026';
 
 export interface ProjectionVector {
   name: string;
@@ -61,7 +61,7 @@ export const projectionVectors: ProjectionVector[] = [
       'The signed-document manifest: id/created/modified/hashAlgorithm/security/metadata and content.compression all drop; content{path,hash} + extensions + lineage(parent:null) + signaturePolicy(requiredSigners) bind.',
     manifest: `{"cdx":"0.1","id":"${DOC_ID}","state":"frozen","hashAlgorithm":"sha256","created":"2025-01-10T08:00:00Z","modified":"2025-01-15T14:22:00Z","content":{"path":"content/document.json","hash":"${DOC_CONTENT}","compression":"zstd"},"security":{"signatures":"security/signatures.json","encryption":null},"extensions":[{"id":"cdx.security","version":"0.1","required":true}],"metadata":{"dublinCore":"metadata/dublin-core.json"},"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]}}`,
     expectedJcs: `{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}`,
-    expectedSha256: 'sha256:839827035e0165d4ad7d1dbff7733c74e4fd4907c8f077b65077d35f31778391',
+    expectedSha256: 'sha256:e3de84b5784ee062a800d46b7e619d5a7ec79f3c3f1a6289e036117648954b80',
   },
   {
     name: 'presentation-and-default',
@@ -156,7 +156,7 @@ export const scopeVectors: ScopeVector[] = [
     description: 'A content-only scope binds just the document ID — the legacy/default coverage.',
     scope: { documentId: DOC_ID },
     expectedJcs: `{"documentId":"${DOC_ID}"}`,
-    expectedSha256: 'sha256:8b63e569bdcc02bde3ae3a9669ec18c0aa7084027ea0f808d521a437f0b434c9',
+    expectedSha256: 'sha256:48d1e013a79eb07faa385ca0802c5d49312e8af038f2d0c3763ec94b3bd94e6b',
   },
   {
     name: 'scope-with-layouts',
@@ -180,7 +180,7 @@ export const scopeVectors: ScopeVector[] = [
       },
     },
     expectedJcs: `{"documentId":"${DOC_ID}","manifest":{"cdx":"0.1","content":{"hash":"${DOC_CONTENT}","path":"content/document.json"},"extensions":[{"id":"cdx.security","required":true,"version":"0.1"}],"lineage":{"parent":null,"version":1},"signaturePolicy":{"requiredSigners":[{"did":"did:web:acme.example.com:notary"}]},"state":"frozen"}}`,
-    expectedSha256: 'sha256:61d9e3fe0b1d527ac37832e1d76df7eadd8e039db83f0d1a51dba6565487af25',
+    expectedSha256: 'sha256:562fa75cb7e13fce36ac468a302263c873a629427d7a6a13692c29cd3666c190',
   },
 ];
 

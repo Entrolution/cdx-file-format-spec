@@ -39,8 +39,8 @@ const fail = (msg: string): void => {
   failures++;
 };
 
-const DOC_ID = 'sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86';
-const DOC_CONTENT = 'sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7';
+const DOC_ID = 'sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7';
+const DOC_CONTENT = 'sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026';
 const MANIFEST_SCOPE = {
   documentId: DOC_ID,
   manifest: {
@@ -83,8 +83,8 @@ function validateBinding(webauthn: any, scope: unknown): void {
 // --- Part 1: challenge-binding KAT (independent Python oracle) --------------
 console.log('Challenge-binding vectors (challenge == BASE64URL(SHA-256(JCS(scope)))):');
 const challengeVectors = [
-  { name: 'content-only', scope: { documentId: DOC_ID }, expected: 'i2Plab3MAr3jrjqWaewYwKpwhAJ-oPgI1SGkN_C0NMk' },
-  { name: 'manifest-covering', scope: MANIFEST_SCOPE, expected: 'LJlJtQGIAHP0DeUl526SVY_XpgFHlZjZBRya1rAVmzA' },
+  { name: 'content-only', scope: { documentId: DOC_ID }, expected: 'SNHgE6eesH-qOFyggCxdSTEuivA48tDDdj7JSzvZTms' },
+  { name: 'manifest-covering', scope: MANIFEST_SCOPE, expected: 'ymTRDMa0h0-LS1nOPNaumSCvK1OPGSa0OrjVA_M1LVE' },
 ];
 for (const v of challengeVectors) {
   const got = webauthnChallenge(v.scope);

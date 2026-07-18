@@ -15,8 +15,8 @@
  * credential paths: X.509 (`x5c`+`x5t#S256`) and keyId (`kid`, §3.11).
  */
 
-const DOC_ID = 'sha256:66db6e3c227d306b57068a4fa5e779e3a4b2ab74c9cb6320ecd57ddf280c2b86';
-const DOC_CONTENT = 'sha256:dac719a7afeb6b8bfb05fa673154f3a840ba8554348a2c085859889abe240bb7';
+const DOC_ID = 'sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7';
+const DOC_CONTENT = 'sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026';
 
 /** Clearly-fake, non-verifying cert material for envelope-shape vectors. */
 const X5C_PLACEHOLDER = 'MIIBixUNVERIFIEDplaceholderDERcertificateBASE64FORILLUSTRATIONxw==';
@@ -81,7 +81,7 @@ export const signingInputVectors: SigningInputVector[] = [
     description: 'Minimal header + a content-only scope (documentId alone).',
     header: { alg: 'ES256', b64: false, crit: ['b64'] },
     scope: { documentId: DOC_ID },
-    expectedSha256: 'sha256:5f8b3603411b3b56488d878ed8ffe8423669346a60ae325e5704c8696bbc2ffb',
+    expectedSha256: 'sha256:6df5f4e1a284c4c61734869c76f325a9b1141d76267de3e3856cd29b75ce6608',
   },
   {
     name: 'full-manifest-covering',
@@ -104,7 +104,7 @@ export const signingInputVectors: SigningInputVector[] = [
         lineage: { parent: null, version: 1 },
       },
     },
-    expectedSha256: 'sha256:714cfbb574c69a2d5f965c6d0d6ab5699d67f7d13becff3a1de82dae331d2688',
+    expectedSha256: 'sha256:982c1edf31749950f8b91a0fc16a757376c9f517f32e0870b2b669c1e565dfe9',
   },
   {
     name: 'eddsa-sha384-content-only',
@@ -118,14 +118,14 @@ export const signingInputVectors: SigningInputVector[] = [
     description: 'A keyId-path (did:key) header + a content-only scope — confirms the signing-input construction is identical across credential paths (only the header contents differ).',
     header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_PLACEHOLDER, sigT: '2025-01-15T10:00:00Z' },
     scope: { documentId: DOC_ID },
-    expectedSha256: 'sha256:295f97c39bc6789dee47e1ac520fa069793176c09fccc4f1d70f6ff583fd8946',
+    expectedSha256: 'sha256:49cbf20981ac75ee6e5be5e7e891b75b27b8dcbef26a0592f3f71c1ff42bce3c',
   },
   {
     name: 'kid-did-web-content-only',
     description: 'A did:web header (kid + jkt) + content-only scope — confirms the signing-input construction is unchanged for the out-of-band keyId path.',
     header: { alg: 'EdDSA', b64: false, crit: ['b64'], kid: KID_WEB, jkt: JKT_SAMPLE, sigT: '2025-01-15T10:00:00Z' },
     scope: { documentId: DOC_ID },
-    expectedSha256: 'sha256:33f5125338386a3d985ca305ad0ee1f8e6bcfe66b7eb38c16e289edf2145c809',
+    expectedSha256: 'sha256:278bff47816fa8651c08c8da465485819e7b22d9bcd5b99e00b2ef14a7c7bbc1',
   },
 ];
 
