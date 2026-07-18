@@ -60,7 +60,10 @@ const HEX_DIGEST_LENGTH: Readonly<Record<string, number>> = {
   blake3: 64,
 };
 
-const KNOWN_ALGORITHMS = Object.keys(HEX_DIGEST_LENGTH);
+/** The CDX-permitted hash algorithms (§3.2). The single allowlist tooling picks
+ *  a file-hash algorithm from; a name outside this set is not a valid CDX digest
+ *  algorithm even when the host runtime's crypto library would accept it (md5, …). */
+export const KNOWN_ALGORITHMS = Object.keys(HEX_DIGEST_LENGTH);
 
 /**
  * Extract the algorithm from an `algorithm:hexdigest` value (e.g. the manifest

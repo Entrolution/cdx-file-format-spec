@@ -29,12 +29,22 @@ const CANONICAL =
 const SOURCE_FILE = 'anchor.schema.json';
 const SOURCE_PATH = '/$defs/contentHash/pattern';
 
-// A pattern is "hash-shaped" if it names a digest algorithm or quantifies a
-// lowercase-hex class — the shape of a content-hash pattern. Non-hash patterns
-// (orcid `[0-9]{4}`, principal `user:`, version `\d+\.\d+`, ids `[A-Za-z0-9._-]`)
-// do not match, so this does not false-positive.
+// A pattern is "hash-shaped" if it names a digest algorithm, quantifies a hex
+// character class (lowercase, uppercase, or mixed case), or applies a digest-
+// length quantifier (`{64}`/`{96}`/`{128}`) — the shape of a content-hash
+// pattern. Matching only the two lowercase classes `[a-f0-9]`/`[0-9a-f]` let an
+// ad-hoc case-insensitive pattern (`^[a-fA-F0-9]{64}$`) or a `\d`-plus-letters
+// class (`^[\da-f]{64}$`) evade the offender check, so the detector now flags any
+// char class carrying an `a-f`/`A-F` hex-letter range and, independently, any
+// digest-length quantifier. Non-hash patterns (orcid `[0-9]{4}`, principal
+// `user:`, version `\d+\.\d+`, ids `[A-Za-z0-9._-]` — an `A-Z` range, not `A-F`)
+// contain none of these signals, so this does not false-positive.
 function isHashPattern(p: string): boolean {
-  return /sha256|sha384|sha512|sha3-256|sha3-512|blake3/.test(p) || /\[a-f0-9\]|\[0-9a-f\]/.test(p);
+  return (
+    /sha256|sha384|sha512|sha3-256|sha3-512|blake3/.test(p) || // names a digest algorithm
+    /\[[^\]]*(?:a-f|A-F)[^\]]*\]/.test(p) ||                    // a hex-letter range (any case) in a char class
+    /\{(?:64|96|128)\}/.test(p)                                 // a digest-length quantifier
+  );
 }
 
 interface Found { file: string; jsonPath: string; pattern: string; }

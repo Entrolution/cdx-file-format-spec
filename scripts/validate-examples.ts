@@ -18,7 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
 import { CONFIG_SLOTS } from './lib/config-slots.js';
-import { parseStrictJson } from './lib/canonicalize.js';
+import { parseStrictJson, KNOWN_ALGORITHMS } from './lib/canonicalize.js';
 
 const examplesDir = path.join(__dirname, '..', 'examples');
 
@@ -108,6 +108,18 @@ for (const exampleName of exampleDirs) {
     const manifest = parseStrictJson(fs.readFileSync(manifestPath, 'utf8')) as any;
     const algo: string = manifest.hashAlgorithm ?? 'sha256';
 
+    // Fail closed on an unrecognized file-hash algorithm: `algo` selects the digest
+    // used for the content/presentation file hashes below, and crypto.createHash
+    // would silently accept host-only names the format forbids (md5, sha1). Constrain
+    // it to the CDX algorithm set (lib/canonicalize / anchor.schema contentHash) up
+    // front, so an out-of-set hashAlgorithm is reported here rather than hashing under
+    // a disallowed algorithm. (blake3 is in-set but Node-unavailable; that remains
+    // caught per-hash below, at the point of use.)
+    if (!KNOWN_ALGORITHMS.includes(algo)) {
+      console.log(`  ✗ manifest hashAlgorithm ${JSON.stringify(manifest.hashAlgorithm)} is not a recognized CDX hash algorithm (allowed: ${KNOWN_ALGORITHMS.join(', ')})`);
+      hasErrors = true;
+    }
+
     // Path-only references that must resolve on disk.
     const pathRefs: Array<[string, unknown]> = [
       ['metadata.dublinCore', manifest.metadata?.dublinCore],
@@ -137,7 +149,16 @@ for (const exampleName of exampleDirs) {
     // invariant content/presentation hold.
     for (const slot of Object.keys(CONFIG_SLOTS)) {
       const collectRefs = (v: unknown, label: string): void => {
-        if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+        // Recurse into array elements too: a {path, hash} reference nested inside an
+        // array (e.g. a slot holding a list of referenced files) is bound by the
+        // manifest projection exactly like one nested inside an object, and the
+        // projector (lib/canonicalize.ts canon) already recurses arrays — mirror it
+        // so an array-nested reference cannot go hash-unverified.
+        if (Array.isArray(v)) {
+          v.forEach((el, i) => collectRefs(el, `${label}[${i}]`));
+          return;
+        }
+        if (!v || typeof v !== 'object') return;
         const o = v as Record<string, unknown>;
         if (typeof o.path === 'string' && typeof o.hash === 'string') {
           hashRefs.push([`${label}.hash`, o.path, o.hash]);

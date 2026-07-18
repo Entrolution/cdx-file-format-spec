@@ -117,6 +117,21 @@ function documentRoots(): DocRoot[] {
       schema: 'security.schema.json',
       ref: '#/$defs/signaturesFile',
     },
+    // A precise-layout root carries a 7-key required signature
+    // (version + presentationType + targetFormat + pageSize + contentHash +
+    // generatedAt + pages) that no other document root, content block, or the
+    // presentation root shares, so it needs no guard. A complete precise-layout
+    // example embedded in the spec is therefore validated rather than skipped as an
+    // "unrecognized root". (The presentation.schema.json root — {version, type,
+    // defaults, styles} — is deliberately NOT added: two complete presentation
+    // fences in spec/core/04-presentation-layers.md do not currently satisfy that
+    // schema, so a discriminator would fail the gate on prose the tooling layer must
+    // not edit; enabling it needs a spec-side fix or skip-marker first.)
+    {
+      name: 'precise-layout',
+      requiredKeys: requiredKeysOf('precise-layout.schema.json'),
+      schema: 'precise-layout.schema.json',
+    },
   ];
 }
 
@@ -302,6 +317,10 @@ function main(): void {
   const sigValidate = getValidator('security.schema.json', '#/$defs/signaturesFile');
   if (sigValidate({ version: '0.1', documentId: 'sha256:' + 'a'.repeat(64), signatures: [] })) {
     selfTestFailures.push('signatures file with empty signature set ACCEPTED (minItems has no teeth)');
+  }
+  const preciseLayoutValidate = getValidator('precise-layout.schema.json');
+  if (preciseLayoutValidate({ version: '1.0', presentationType: 'precise', targetFormat: 'pdf' })) {
+    selfTestFailures.push('precise-layout missing required pageSize/contentHash/generatedAt/pages ACCEPTED (validation has no teeth)');
   }
 
   // Tier-3 annotation path: the `cdx-schema:` marker must parse, resolve to a
