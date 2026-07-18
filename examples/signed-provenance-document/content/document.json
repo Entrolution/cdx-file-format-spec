@@ -18,7 +18,7 @@
       "children": [
         {
           "type": "text",
-          "value": "This document certifies that the attached record is an authentic, timestamped instance issued by "
+          "value": "This document accompanies a record notarized by "
         },
         {
           "type": "text",
@@ -29,7 +29,7 @@
         },
         {
           "type": "text",
-          "value": "."
+          "value": ". Its authenticity rests on the detached signature over the document's signed scope, which is what a verifier cryptographically checks; the notary's named identity is a claim to be verified, not something authenticated merely by being stated."
         }
       ]
     },
@@ -39,7 +39,7 @@
       "children": [
         {
           "type": "text",
-          "value": "Its provenance record carries a trusted timestamp binding this document hash to a verifiable point in time.",
+          "value": "The accompanying provenance record asserts an RFC 3161 timestamp and an aggregated blockchain anchor over this document's hash. These are supporting evidence a verifier must validate independently — the timestamp token against a trusted timestamping authority and the anchor against the chain — and are not authenticated by their presence in the record alone.",
           "marks": [
             "italic"
           ]

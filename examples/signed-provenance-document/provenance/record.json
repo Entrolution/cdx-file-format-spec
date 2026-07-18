@@ -1,6 +1,6 @@
 {
   "version": "0.1",
-  "documentId": "sha256:10bcd23e4b51d89aa73a4599f970bb06138a389de5cfa3f2c8057a77a046f733",
+  "documentId": "sha256:e7bddf621a4b04b5b8b41faa0caaeafda2fb25d90992e360c1f0eb2115d726f3",
   "created": "2025-03-01T09:00:00Z",
   "creator": {
     "name": "Acme Notary Service",
@@ -16,18 +16,18 @@
     {
       "type": "rfc3161",
       "time": "2025-03-01T09:00:05Z",
-      "hash": "sha256:10bcd23e4b51d89aa73a4599f970bb06138a389de5cfa3f2c8057a77a046f733",
+      "hash": "sha256:e7bddf621a4b04b5b8b41faa0caaeafda2fb25d90992e360c1f0eb2115d726f3",
       "authority": "https://timestamp.digicert.com",
       "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0"
     },
     {
       "type": "aggregated",
       "time": "2025-03-01T09:05:00Z",
-      "hash": "sha256:10bcd23e4b51d89aa73a4599f970bb06138a389de5cfa3f2c8057a77a046f733",
+      "hash": "sha256:e7bddf621a4b04b5b8b41faa0caaeafda2fb25d90992e360c1f0eb2115d726f3",
       "provider": "opentimestamps.org",
       "calendar": "https://alice.btc.calendar.opentimestamps.org",
       "proof": {
-        "documentHash": "sha256:10bcd23e4b51d89aa73a4599f970bb06138a389de5cfa3f2c8057a77a046f733",
+        "documentHash": "sha256:e7bddf621a4b04b5b8b41faa0caaeafda2fb25d90992e360c1f0eb2115d726f3",
         "path": [
           {
             "position": "right",
@@ -35,7 +35,7 @@
           }
         ]
       },
-      "merkleRoot": "sha256:29500811405f6d31556561b28b5cdd8519324b1b60fee5e23ce46931ad46cfa2",
+      "merkleRoot": "sha256:730d9b5a36d05a969bc9613a6ac8763c784f00d26088a971ff3ff4e81a61f239",
       "anchor": {
         "chain": "bitcoin",
         "blockHeight": 880000,

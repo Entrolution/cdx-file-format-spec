@@ -110,7 +110,7 @@
       "type": "paragraph",
       "id": "signature-note",
       "children": [
-        { "type": "text", "value": "This document has been digitally signed by both parties. The cryptographic signatures verify the authenticity and integrity of this agreement.", "marks": ["italic"] }
+        { "type": "text", "value": "This agreement carries digital signatures from the Service Provider, the Client, and Acme Notary Service. Verification confirms the cryptographic integrity of each signature that is present; it does not guarantee that any particular party has signed, since the signature policy requires only the notary's signature.", "marks": ["italic"] }
       ]
     }
   ]
