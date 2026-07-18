@@ -197,7 +197,7 @@
             "anchor": {
               "type": "object",
               "description": "On-chain commitment of merkleRoot.",
-              "required": ["chain", "txId"],
+              "required": ["chain", "blockHash", "txId"],
               "properties": {
                 "chain": { "type": "string", "enum": ["bitcoin", "ethereum"], "description": "Anchoring chain." },
                 "blockHeight": { "type": "integer", "minimum": 0, "description": "Anchor block height (advisory locator)." },

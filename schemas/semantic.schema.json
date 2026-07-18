@@ -253,7 +253,7 @@
             "type": { "const": "semantic:bibliography" },
             "style": {
               "type": "string",
-              "description": "Citation style (e.g., 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver')"
+              "description": "Citation style (open vocabulary; the Semantic Extension README lists recommended styles, e.g. 'apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver'). An unrecognized value degrades gracefully — a consumer that does not recognize it applies its default style rather than rejecting the document."
             },
             "title": {
               "type": "string",

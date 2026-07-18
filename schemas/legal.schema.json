@@ -144,7 +144,8 @@
           "type": "string",
           "description": "Party role (e.g., Plaintiff, Defendant, Appellant)"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "captionBlock": {
       "allOf": [
@@ -255,7 +256,8 @@
           "format": "email",
           "description": "Email address"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "signatureBlockBlock": {
       "allOf": [

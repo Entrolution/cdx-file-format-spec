@@ -306,6 +306,10 @@
           "$ref": "#/$defs/crdtFormat",
           "description": "CRDT library format hint for interoperability"
         },
+        "crdtVersion": {
+          "type": "string",
+          "description": "Version of the CRDT library used, declared alongside crdtFormat (section 3.6)"
+        },
         "comments": {
           "type": "array",
           "description": "Array of comment entries",
@@ -333,6 +337,10 @@
         "crdtFormat": {
           "$ref": "#/$defs/crdtFormat",
           "description": "CRDT library format hint for interoperability"
+        },
+        "crdtVersion": {
+          "type": "string",
+          "description": "Version of the CRDT library used, declared alongside crdtFormat (section 3.6)"
         },
         "changes": {
           "type": "array",

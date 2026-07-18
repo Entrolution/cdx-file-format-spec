@@ -270,8 +270,8 @@
         "y": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
       },
       "oneOf": [
-        { "properties": { "kty": { "const": "EC" } }, "required": ["y"] },
-        { "properties": { "kty": { "const": "OKP" } }, "not": { "required": ["y"] } }
+        { "properties": { "kty": { "const": "EC" }, "crv": { "enum": ["P-256", "P-384"] } }, "required": ["y"] },
+        { "properties": { "kty": { "const": "OKP" }, "crv": { "const": "Ed25519" } }, "not": { "required": ["y"] } }
       ],
       "additionalProperties": false
     },

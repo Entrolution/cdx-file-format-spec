@@ -1319,6 +1319,20 @@ export const closureVectors: ClosureVector[] = [
     invalidInstance: 42,
   },
   {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/party',
+    description: 'caption party closed (name/role only)',
+    validInstance: { name: 'Oliver Brown, et al.', role: 'Plaintiff' },
+    invalidInstance: { name: 'Oliver Brown, et al.', role: 'Plaintiff', bogus: 1 },
+  },
+  {
+    schema: 'legal.schema.json',
+    ref: '#/$defs/signatureBlockSigner',
+    description: 'signatureBlockSigner closed',
+    validInstance: { name: 'Thurgood Marshall', title: 'Counsel for Appellants', barNumber: '12345', firm: 'NAACP Legal Defense Fund' },
+    invalidInstance: { name: 'Thurgood Marshall', title: 'Counsel for Appellants', bogus: 1 },
+  },
+  {
     schema: 'forms.schema.json',
     ref: '#/$defs/validation',
     description: 'forms validation closed',

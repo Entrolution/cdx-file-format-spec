@@ -28,8 +28,7 @@
     "hashAlgorithm": {
       "type": "string",
       "description": "Hash algorithm used for document ID",
-      "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"],
-      "default": "sha256"
+      "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"]
     },
     "created": {
       "type": "string",
@@ -197,6 +196,18 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "A `pending` id (deferred document-id computation) is valid only in the `draft` state; once the document is frozen or published its id is the computed content hash (State Machine §5.3).",
+      "if": {
+        "required": ["id"],
+        "properties": { "id": { "const": "pending" } }
+      },
+      "then": {
+        "properties": { "state": { "const": "draft" } }
+      }
+    }
+  ],
   "$defs": {
     "fileReference": {
       "type": "object",

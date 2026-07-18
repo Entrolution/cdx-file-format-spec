@@ -57,7 +57,12 @@
         },
         "date": {
           "type": "string",
-          "description": "Publication date (ISO 8601)"
+          "description": "Publication date (ISO 8601 / W3CDTF): a full date-time (matching manifest created/modified), a complete date, or a reduced-precision year or year-month value per §3.3.5.",
+          "anyOf": [
+            { "format": "date" },
+            { "format": "date-time" },
+            { "pattern": "^\\d{4}(-(0[1-9]|1[0-2]))?$" }
+          ]
         },
         "type": {
           "type": "string",

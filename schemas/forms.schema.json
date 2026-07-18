@@ -326,8 +326,9 @@
               "minItems": 1
             },
             "defaultValue": {
-              "type": "string",
-              "description": "Default selected value"
+              "type": ["string", "array"],
+              "items": { "type": "string" },
+              "description": "Default selected value — a single string, or an array of strings when `multiple` is true"
             },
             "searchable": {
               "type": "boolean",
