@@ -1231,5 +1231,40 @@ test('resource bounds: deeply nested Dublin Core metadata throws a typed error, 
   }
 });
 
+test('block-level NFC: a combining sequence split across text-node boundaries is rejected', () => {
+  // Two text nodes with different marks are not merged; each value is individually
+  // NFC ('cafe' and a lone U+0301), but the concatenation 'café' is NFD.
+  const split = makeParts({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', children: [
+        { type: 'text', value: 'cafe', marks: ['bold'] },
+        { type: 'text', value: '́', marks: ['italic'] },
+      ] }],
+    },
+  });
+  assert.throws(() => computeDocumentId(split, 'sha256'), CanonicalizationError);
+  try {
+    computeDocumentId(split, 'sha256');
+  } catch (err) {
+    assert.match((err as Error).message, /combining sequence is split|not in NFC/);
+  }
+});
+
+test('block-level NFC: an NFC split across text-node boundaries still canonicalizes', () => {
+  // 'caf' + precomposed 'é' — the split is NFC, so it is accepted (only a split
+  // that BREAKS NFC is rejected).
+  const nfcSplit = makeParts({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', children: [
+        { type: 'text', value: 'caf', marks: ['bold'] },
+        { type: 'text', value: 'é', marks: ['italic'] },
+      ] }],
+    },
+  });
+  assert.match(computeDocumentId(nfcSplit, 'sha256'), /^sha256:[a-f0-9]{64}$/);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

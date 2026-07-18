@@ -779,7 +779,31 @@ export function validateStoredByteInvariants(value: unknown): void {
       throw new CanonicalizationError(`integer ${value} exceeds the safe-integer range (magnitude > 2^53-1)`);
     }
   } else if (Array.isArray(value)) {
-    for (const v of value) validateStoredByteInvariants(v);
+    // Block-level NFC (§4.3.2 item 2): NFC applies to the *concatenated* text
+    // content of a block, not merely to each text-node value — an NFC-combining
+    // sequence MUST NOT be split across text-node boundaries. Consecutive text
+    // nodes at this point differ in marks or carry an id (mergeAdjacentText already
+    // merged same-mark runs), so a per-string check misses a combining mark that
+    // begins one node and completes a base at the end of the previous. Check the
+    // concatenation of each run of two-or-more consecutive text nodes (a single
+    // node is already covered by its own checkString). A valid text-bearing block
+    // has text-node-only children (Content Blocks §4.13–4.14), so a maximal run
+    // equals the block's full text content; resetting the run on any non-text
+    // element is a defensive path (a break or a nested block severs adjacency).
+    let run = '';
+    let runNodes = 0;
+    for (const v of value) {
+      if (isPlainObject(v) && v.type === 'text' && typeof v.value === 'string') {
+        run += v.value;
+        runNodes++;
+      } else {
+        if (runNodes >= 2) checkConcatenatedNfc(run);
+        run = '';
+        runNodes = 0;
+      }
+      validateStoredByteInvariants(v);
+    }
+    if (runNodes >= 2) checkConcatenatedNfc(run);
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
       checkString(key);
@@ -794,6 +818,15 @@ function checkString(s: string): void {
   }
   if (s.normalize('NFC') !== s) {
     throw new CanonicalizationError(`string is not in Normalization Form C (NFC): ${JSON.stringify(s)}`);
+  }
+}
+
+/** Reject a run of concatenated text-node values whose NFC form differs (§4.3.2 item 2). */
+function checkConcatenatedNfc(run: string): void {
+  if (run.normalize('NFC') !== run) {
+    throw new CanonicalizationError(
+      `concatenated block text is not in NFC — a combining sequence is split across text-node boundaries: ${JSON.stringify(run)}`,
+    );
   }
 }
 
