@@ -26,14 +26,16 @@
       "description": "Page definitions (paginated only)",
       "items": {
         "$ref": "#/$defs/page"
-      }
+      },
+      "maxItems": 10000
     },
     "sections": {
       "type": "array",
       "description": "Section definitions (continuous only)",
       "items": {
         "$ref": "#/$defs/section"
-      }
+      },
+      "maxItems": 10000
     },
     "breakpoints": {
       "type": "array",
@@ -168,6 +170,7 @@
         },
         "elements": {
           "type": "array",
+          "maxItems": 4096,
           "items": {
             "oneOf": [
               { "$ref": "#/$defs/pageElement" },
@@ -184,7 +187,8 @@
       "properties": {
         "blockId": {
           "type": "string",
-          "description": "Reference to content block ID"
+          "description": "Reference to content block ID",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "position": {
           "$ref": "#/$defs/position"
@@ -217,7 +221,7 @@
         "blockIds": {
           "type": "array",
           "description": "Content block IDs that flow across the regions, in order",
-          "items": { "type": "string" }
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }
         },
         "columns": {
           "type": "integer",
@@ -232,6 +236,7 @@
         "regions": {
           "type": "array",
           "minItems": 1,
+          "maxItems": 4096,
           "description": "Ordered flow regions, each on a page",
           "items": {
             "type": "object",
@@ -338,7 +343,7 @@
       "properties": {
         "blockRefs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
           "description": "References to content block IDs"
         },
         "style": {
@@ -498,6 +503,7 @@
         "regions": {
           "type": "array",
           "description": "Ordered list of regions for text flow",
+          "maxItems": 4096,
           "items": {
             "type": "object",
             "properties": {
@@ -1009,8 +1015,8 @@
         "color": { "type": "string" },
         "backgroundColor": { "type": "string" },
         "backgroundImage": {
-          "type": "string",
-          "description": "URL/path to background image"
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/safeImageUri",
+          "description": "URL/path to background image. Constrained to safe image schemes (see the Renderer Safety core specification): http(s), relative paths, and data:image raster payloads only; javascript:/SVG-data backgrounds are rejected at authoring time."
         },
         "backgroundSize": {
           "type": "string",

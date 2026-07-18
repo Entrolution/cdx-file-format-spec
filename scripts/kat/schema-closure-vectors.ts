@@ -175,8 +175,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'precise-layout.schema.json',
     ref: '#/$defs/linePrecision',
     description: 'linePrecision',
-    validInstance: { number: 1, y: '0', height: '1em' },
-    invalidInstance: { number: 1, y: '0', height: '1em', bogus: 1 },
+    validInstance: { number: 1, y: '0', height: '0.2in' },
+    invalidInstance: { number: 1, y: '0', height: '0.2in', bogus: 1 },
   },
   {
     schema: 'precise-layout.schema.json',
