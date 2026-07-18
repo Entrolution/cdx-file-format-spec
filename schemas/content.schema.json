@@ -30,7 +30,8 @@
         },
         "id": {
           "type": "string",
-          "description": "Unique block identifier"
+          "description": "Unique block identifier",
+          "pattern": "^[A-Za-z0-9._-]+$"
         },
         "attributes": {
           "$ref": "#/$defs/blockAttributes"
@@ -509,6 +510,14 @@
               "items": { "$ref": "#/$defs/listItem" }
             }
           }
+        },
+        {
+          "$comment": "`start` (a starting ordinal) is meaningful only for ordered lists, so its presence requires ordered:true.",
+          "if": { "required": ["start"] },
+          "then": {
+            "required": ["ordered"],
+            "properties": { "ordered": { "const": true } }
+          }
         }
       ],
       "unevaluatedProperties": false
@@ -575,7 +584,14 @@
             },
             "children": {
               "type": "array",
-              "items": { "$ref": "#/$defs/textNode" },
+              "description": "Exactly one marks-free text node carrying the complete, authoritative source (per Content Blocks: a code block's content is a single plain text node). marks are forbidden here; styling is supplied out-of-hash via `tokens`.",
+              "items": {
+                "allOf": [
+                  { "$ref": "#/$defs/textNode" },
+                  { "not": { "required": ["marks"] } }
+                ]
+              },
+              "minItems": 1,
               "maxItems": 1
             }
           }

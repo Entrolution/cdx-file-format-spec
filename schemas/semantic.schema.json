@@ -410,7 +410,8 @@
         "@context": {
           "oneOf": [
             { "type": "string", "format": "uri" },
-            { "type": "object" }
+            { "type": "object" },
+            { "type": "array" }
           ],
           "description": "JSON-LD context"
         },
