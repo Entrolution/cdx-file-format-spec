@@ -85,14 +85,16 @@
       "description": "Timestamp anchors",
       "items": {
         "$ref": "#/$defs/timestamp"
-      }
+      },
+      "maxItems": 256
     },
     "derivedFrom": {
       "type": "array",
       "description": "Source documents this was derived from",
       "items": {
         "$ref": "#/$defs/derivation"
-      }
+      },
+      "maxItems": 1024
     }
   },
   "additionalProperties": false,
@@ -155,7 +157,8 @@
             "merkleProof": {
               "type": "array",
               "description": "Optional SPV proof of txId's inclusion in the block (a full node does not need it).",
-              "items": { "type": "string" }
+              "items": { "type": "string" },
+              "maxItems": 256
             }
           },
           "additionalProperties": false
@@ -182,8 +185,9 @@
                 },
                 "path": {
                   "type": "array",
-                  "description": "Sibling chain from documentHash up to merkleRoot.",
-                  "items": { "$ref": "#/$defs/merklePathElement" }
+                  "description": "Sibling chain from documentHash up to merkleRoot (bounded to match the reference verifier's MAX_MERKLE_PATH).",
+                  "items": { "$ref": "#/$defs/merklePathElement" },
+                  "maxItems": 256
                 }
               },
               "additionalProperties": false
