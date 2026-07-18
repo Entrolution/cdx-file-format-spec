@@ -1,22 +1,26 @@
 {
   "version": "0.1",
   "values": {
-    "fullName": "Jane Doe",
-    "email": "jane.doe@example.com",
-    "phone": "+1 (555) 123-4567",
-    "employmentType": "employed",
-    "companyName": "Acme Corporation",
-    "jobTitle": "Senior Software Engineer",
-    "ticketType": "premium",
-    "sessions": ["ai-ml", "cloud", "security"],
-    "includeLunch": true,
-    "dietaryRequirements": "vegetarian",
-    "dietaryNotes": "",
-    "agreeTerms": true,
-    "subscribeNewsletter": true,
-    "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "signatureDate": "2025-01-28"
+    "registration-form": {
+      "fullName": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "phone": "+1 (555) 123-4567",
+      "employmentType": "employed",
+      "companyName": "Acme Corporation",
+      "jobTitle": "Senior Software Engineer",
+      "ticketType": "premium",
+      "sessions": ["ai-ml", "cloud", "security"],
+      "includeLunch": true,
+      "dietaryRequirements": "vegetarian",
+      "dietaryNotes": "",
+      "agreeTerms": true,
+      "subscribeNewsletter": true,
+      "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "signatureDate": "2025-01-28"
+    }
   },
-  "submitted": false,
+  "submitted": {
+    "registration-form": false
+  },
   "lastModified": "2025-01-28T15:30:00Z"
 }

@@ -9,54 +9,6 @@
       "description": "Supported signature algorithms",
       "enum": ["ES256", "ES384", "EdDSA", "PS256", "ML-DSA-65"]
     },
-    "algorithmStatus": {
-      "type": "object",
-      "description": "Algorithm status metadata for implementation guidance",
-      "properties": {
-        "ES256": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "required" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "ES384": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "recommended" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "EdDSA": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "recommended" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "PS256": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "optional" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "ML-DSA-65": {
-          "type": "object",
-          "properties": {
-            "status": { "const": "experimental" },
-            "note": { "type": "string" },
-            "description": { "type": "string" }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
     "contentEncryptionAlgorithm": {
       "type": "string",
       "description": "Content encryption algorithms",

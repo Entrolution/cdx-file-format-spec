@@ -128,19 +128,8 @@
       "additionalProperties": false
     },
     "fallbackBlock": {
-      "type": "object",
-      "description": "Fallback content for viewers that don't support forms",
-      "required": ["type"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "Block type (typically 'paragraph')"
-        },
-        "children": {
-          "type": "array",
-          "description": "Child content"
-        }
-      }
+      "description": "Fallback content for viewers that don't support forms — a real content block conforming to the core content model (typically a paragraph). A non-forms consumer that renders it still applies the renderer-safety allowlists it applies to primary content.",
+      "$ref": "https://cdx.dev/schemas/content.schema.json#/$defs/block"
     },
     "baseFormField": {
       "type": "object",
@@ -432,23 +421,32 @@
         },
         "values": {
           "type": "object",
-          "description": "Map of field names to values",
-          "additionalProperties": true
+          "description": "Per-form field values, keyed by the enclosing forms:form block id; each entry maps that form's field names to their values. Keying by form id keeps identically-named fields (e.g. `email`) in different forms from colliding in one flat namespace.",
+          "additionalProperties": {
+            "type": "object",
+            "description": "One form's field-name → value map",
+            "additionalProperties": true
+          }
         },
         "submitted": {
-          "type": "boolean",
-          "description": "Whether the form has been submitted",
-          "default": false
+          "type": "object",
+          "description": "Per-form submission flag, keyed by forms:form block id; a form's value is `true` once that form has been submitted.",
+          "additionalProperties": {
+            "type": "boolean"
+          }
         },
         "submittedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 submission timestamp"
+          "type": "object",
+          "description": "Per-form ISO 8601 submission timestamp, keyed by forms:form block id.",
+          "additionalProperties": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
         "lastModified": {
           "type": "string",
           "format": "date-time",
-          "description": "ISO 8601 last modification timestamp"
+          "description": "ISO 8601 last modification timestamp for the data file"
         }
       },
       "additionalProperties": false

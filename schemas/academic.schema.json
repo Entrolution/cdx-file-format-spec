@@ -525,7 +525,8 @@
       "properties": {
         "version": {
           "type": "string",
-          "description": "Configuration version"
+          "description": "Configuration version",
+          "pattern": "^\\d+\\.\\d+$"
         },
         "equations": {
           "type": "object",

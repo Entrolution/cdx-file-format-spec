@@ -507,6 +507,8 @@ The `leaders` style is one of `none`, `dots`, `dashes`, or `underline`.
 
 ### 9.1 Index Entries
 
+Index entries are carried by the `presentation:index` mark, which uses the `presentation:` namespace prefix as required by the core content blocks spec (section 5) for extension mark types.
+
 In content:
 
 ```json
@@ -514,7 +516,7 @@ In content:
   "type": "text",
   "value": "algorithm",
   "marks": [
-    { "type": "index", "term": "algorithm", "subterm": "sorting" }
+    { "type": "presentation:index", "term": "algorithm", "subterm": "sorting" }
   ]
 }
 ```

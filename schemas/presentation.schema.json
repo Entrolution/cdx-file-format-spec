@@ -937,7 +937,7 @@
       "description": "Index entry mark for document index generation",
       "required": ["type", "term"],
       "properties": {
-        "type": { "const": "index" },
+        "type": { "const": "presentation:index" },
         "term": {
           "type": "string",
           "description": "Primary index term"

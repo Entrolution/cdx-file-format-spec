@@ -549,8 +549,8 @@ export const closureVectors: ClosureVector[] = [
     schema: 'presentation.schema.json',
     ref: '#/$defs/indexMark',
     description: 'indexMark',
-    validInstance: { type: 'index', term: 'entropy' },
-    invalidInstance: { type: 'index', term: 'entropy', bogus: 1 },
+    validInstance: { type: 'presentation:index', term: 'entropy' },
+    invalidInstance: { type: 'presentation:index', term: 'entropy', bogus: 1 },
   },
   {
     schema: 'presentation.schema.json',
@@ -691,14 +691,7 @@ export const closureVectors: ClosureVector[] = [
     invalidInstance: { images: { count: 1 } },
   },
 
-  // --- security (Phase 3 closed most of this; register + teeth-test, prioritising the no-example encryption/ACL/algorithm shapes) ---
-  {
-    schema: 'security.schema.json',
-    ref: '#/$defs/algorithmStatus',
-    description: 'algorithmStatus + inner per-algorithm objects',
-    validInstance: { ES256: { status: 'required' }, 'ML-DSA-65': { status: 'experimental', note: 'post-quantum' } },
-    invalidInstance: { ES256: { status: 'required', bogus: 1 } },
-  },
+  // --- security (Phase 3 closed most of this; register + teeth-test, prioritising the no-example encryption/ACL shapes) ---
   {
     schema: 'security.schema.json',
     ref: '#/$defs/signaturesFile',
@@ -1345,6 +1338,15 @@ export const closureVectors: ClosureVector[] = [
     description: 'forms validation closed',
     validInstance: { required: true, minLength: 1, message: 'required' },
     invalidInstance: { required: true, bogus: 1 },
+  },
+  {
+    schema: 'forms.schema.json',
+    ref: '#/$defs/dataFile',
+    description: 'forms dataFile closed; per-form values map stays open',
+    // values is keyed by form id and each form's value bag carries arbitrary field
+    // names (open) — a form entry MUST accept them; teeth via a stray top-level key.
+    validInstance: { version: '0.1', values: { 'registration-form': { email: 'a@b.c', anyField: 1 } }, submitted: { 'registration-form': false } },
+    invalidInstance: { version: '0.1', values: { 'registration-form': { email: 'a@b.c' } }, bogus: 1 },
   },
   {
     schema: 'semantic.schema.json',
