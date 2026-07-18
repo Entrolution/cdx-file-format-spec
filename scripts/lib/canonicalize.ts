@@ -255,7 +255,7 @@ export interface CanonicalizeOptions {
  * (objects/arrays); scalars are leaves. A structure exactly `maxDepth` containers
  * deep is accepted; one level deeper is rejected.
  */
-function assertBoundedDepth(root: unknown, maxDepth: number): void {
+export function assertBoundedDepth(root: unknown, maxDepth: number): void {
   const stack: Array<{ node: unknown; depth: number }> = [{ node: root, depth: 1 }];
   while (stack.length > 0) {
     const { node, depth } = stack.pop()!;
@@ -327,25 +327,43 @@ const ARRAY_TERMS = ['creator', 'subject', 'language'] as const;
 
 function projectMetadata(dublinCore: unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const terms = isPlainObject(dublinCore) ? dublinCore.terms : undefined;
-  if (!isPlainObject(terms)) return out;
+  if (!isPlainObject(dublinCore)) {
+    throw new CanonicalizationError('Dublin Core part must be a JSON object');
+  }
+  const terms = dublinCore.terms;
+  if (terms === undefined) return out; // absent terms → no projected metadata
+  // A malformed term (a non-object `terms`, or a term of the wrong type) is rejected,
+  // not silently dropped: dropping would let a malformed value and an absent one
+  // project to the same bytes and thus the same document ID (a malleability seam).
+  if (!isPlainObject(terms)) {
+    throw new CanonicalizationError('Dublin Core `terms` must be an object');
+  }
 
   for (const term of STRING_TERMS) {
     const v = terms[term];
-    if (typeof v === 'string' && v !== '') out[term] = v; // omit absent / ""
+    if (v === undefined) continue;
+    if (typeof v !== 'string') {
+      throw new CanonicalizationError(`Dublin Core term "${term}" must be a string`);
+    }
+    if (v !== '') out[term] = v; // omit ""
   }
   for (const term of ARRAY_TERMS) {
     const v = terms[term];
-    if (v === undefined || v === null) continue;
+    if (v === undefined) continue; // absent → omit; a present null is malformed (rejected below)
     if (typeof v === 'string') {
       if (v === '') continue; // wholly empty
       out[term] = [v]; // coerce scalar to a one-element array
     } else if (Array.isArray(v)) {
+      if (!v.every((e) => typeof e === 'string')) {
+        throw new CanonicalizationError(`Dublin Core term "${term}" array must contain only strings`);
+      }
       // Drop empty ("") elements; a term left with no elements is omitted, like a
       // wholly-empty array (§4.3.1: non-empty array elements are preserved verbatim).
       const nonEmpty = v.filter((e) => e !== '');
       if (nonEmpty.length === 0) continue; // wholly empty (before or after dropping)
       out[term] = nonEmpty; // non-empty elements, in authored order
+    } else {
+      throw new CanonicalizationError(`Dublin Core term "${term}" must be a string or array of strings`);
     }
     // any other shape is left out (schema constrains these to string|string[])
   }

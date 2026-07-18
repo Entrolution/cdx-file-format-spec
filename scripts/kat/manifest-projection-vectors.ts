@@ -88,6 +88,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedSha256: 'sha256:cd0615f6da4049efb3e4f929a9997a1ae2290164df3c46521d89475f6056a59d',
   },
   {
+    name: 'empty-lineage-omitted',
+    description:
+      'A manifest carrying `lineage: {}` (an empty object) omits lineage from the projection, like any absent optional field (§9.7) — otherwise it would bind different signed bytes than an absent lineage.',
+    manifest: `{"cdx":"0.1","id":"sha256:${'a'.repeat(64)}","state":"frozen","content":{"path":"content/document.json","hash":"sha256:${'b'.repeat(64)}"},"lineage":{}}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"sha256:${'b'.repeat(64)}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:ac84c227c60021051e7462bd16ab7517343a72985f14b0d63a362282eb512510',
+  },
+  {
     name: 'minimal-no-optionals',
     description: 'Only the always-present fields; absent presentation/extensions/lineage are omitted, never null-materialized.',
     manifest: `{"cdx":"0.1","id":"${sha('7')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('8')}"}}`,
@@ -222,5 +230,29 @@ export const errorVectors: ErrorVector[] = [
     description: 'An asset category declared without a well-formed index hash would escape the transitive asset binding, so the projection fails closed rather than dropping it.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json"}}}`,
     expectedError: 'index hash',
+  },
+  {
+    name: 'malformed-cdx-version',
+    description: 'A `cdx` that is not a "<major>.<minor>" string fails closed rather than binding a bogus version into the projection.',
+    manifest: `{"cdx":"0.1.2","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"}}`,
+    expectedError: 'version string',
+  },
+  {
+    name: 'presentation-unknown-type',
+    description: 'A presentation entry whose type is outside the enum fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"pdf","path":"presentation/x.json","hash":"${sha('3')}"}]}`,
+    expectedError: 'is not one of',
+  },
+  {
+    name: 'presentation-traversal-path',
+    description: 'A presentation entry whose path escapes the archive root fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"paginated","path":"../evil.json","hash":"${sha('3')}"}]}`,
+    expectedError: 'archive-relative path',
+  },
+  {
+    name: 'required-signer-malformed-did',
+    description: 'A required-signer `did` that is not a well-formed did:(key|jwk|web) fails closed rather than binding a bogus credential into the required set.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"not-a-did"}]}}`,
+    expectedError: 'malformed for its identity kind',
   },
 ];

@@ -1278,5 +1278,27 @@ test('metadata projection: empty array elements are dropped (id is the same with
   assert.equal(computeDocumentId(withEmpties, 'sha256'), computeDocumentId(without, 'sha256'));
 });
 
+test('metadata projection: a malformed Dublin Core term is rejected, not silently dropped', () => {
+  // A non-string title would previously drop silently, colliding with an absent title.
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 123, creator: 'C' } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+});
+
+test('metadata projection: a non-string array element in a term is rejected', () => {
+  const parts = makeParts({
+    content: { version: '0.1', blocks: [] },
+    dublinCore: { version: '1.1', terms: { title: 'T', creator: ['A', 42] } },
+  });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+});
+
+test('numbers: an integer beyond the 2^53-1 safe range is rejected as a canonicalization error', () => {
+  const parts = makeParts({ content: { version: '0.1', blocks: [], bignum: 9007199254740993 } });
+  assert.throws(() => computeDocumentId(parts, 'sha256'), CanonicalizationError);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

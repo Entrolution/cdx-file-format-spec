@@ -61,10 +61,25 @@ import {
   parseStrictJson,
   jcsOf,
   validateStoredByteInvariants,
+  assertBoundedDepth,
+  MAX_CANONICALIZATION_DEPTH,
   isPlainObject,
   isValidContentHash,
   CanonicalizationError,
 } from './canonicalize.js';
+
+/** Semantic-version pattern for `cdx` and extension/presentation versions. */
+const VERSION_PATTERN = /^\d+\.\d+$/;
+/** The four presentation part types (mirrors manifest.schema presentationReference.type). */
+const PRESENTATION_TYPES = new Set(['paginated', 'continuous', 'responsive', 'precise']);
+/** Zip-Slip-safe archive-relative path (mirrors anchor.schema relativePath). */
+const RELATIVE_PATH = /^(?!\.\.?(?:\/|$))(?!.*\/\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+/** Per-kind required-signer value patterns (mirror anchor.schema requiredSigner). */
+const REQUIRED_SIGNER_PATTERNS: Record<string, RegExp> = {
+  did: /^did:(key|jwk|web):[A-Za-z0-9._:%-]+$/,
+  x5tS256: /^[A-Za-z0-9_-]{4,}$/,
+  jkt: /^[A-Za-z0-9_-]{4,}$/,
+};
 
 /**
  * The manifest lifecycle states (mirrors manifest.schema.json). The projector
@@ -111,8 +126,8 @@ function projectRequiredSigner(entry: unknown): Record<string, unknown> {
   }
   const kind = present[0];
   const value = entry[kind];
-  if (typeof value !== 'string' || value === '') {
-    throw new CanonicalizationError(`requiredSigners ${kind} must be a non-empty string`);
+  if (typeof value !== 'string' || !REQUIRED_SIGNER_PATTERNS[kind].test(value)) {
+    throw new CanonicalizationError(`requiredSigners ${kind} is malformed for its identity kind`);
   }
   return { [kind]: value };
 }
@@ -150,6 +165,9 @@ function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{
   const byPath = new Map<string, string>();
   const visit = (v: unknown): void => {
     if (isFileReference(v)) {
+      if (!RELATIVE_PATH.test(v.path)) {
+        throw new CanonicalizationError(`config file path "${v.path}" is not a valid archive-relative path`);
+      }
       const existing = byPath.get(v.path);
       if (existing !== undefined && existing !== v.hash) {
         throw new CanonicalizationError(`config file "${v.path}" is declared with conflicting hashes`);
@@ -199,6 +217,9 @@ function collectAssetIndexReferences(manifest: Record<string, unknown>): Array<{
     if (typeof cat.index !== 'string') {
       throw new CanonicalizationError(`manifest.assets category "${category}" must declare a string index path`);
     }
+    if (!RELATIVE_PATH.test(cat.index)) {
+      throw new CanonicalizationError(`manifest.assets category "${category}" index path "${cat.index}" is not a valid archive-relative path`);
+    }
     if (!isValidContentHash(cat.hash)) {
       throw new CanonicalizationError(`manifest.assets category "${category}" index hash "${String(cat.hash)}" is malformed`);
     }
@@ -235,11 +256,18 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     throw new CanonicalizationError('manifest id is "pending"; a manifest projection is undefined until the document id is assigned');
   }
 
+  // Bound nesting depth before the recursive walks (config-ref collection, byte-invariant
+  // validation, JCS) so a deeply nested lineage/config slot fails with a typed error
+  // rather than overflowing the native stack (Container Format §5.3).
+  assertBoundedDepth(manifest, MAX_CANONICALIZATION_DEPTH);
+
   const projection: Record<string, unknown> = {};
 
   // --- cdx (spec version) — always present (manifest required field) ---------
-  if (typeof manifest.cdx !== 'string') {
-    throw new CanonicalizationError('manifest.cdx must be a string');
+  // Pattern-checked, not merely typed: a signer skipping manifest-schema validation
+  // must not bind a malformed version into the signed projection (fail closed).
+  if (typeof manifest.cdx !== 'string' || !VERSION_PATTERN.test(manifest.cdx)) {
+    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string');
   }
   projection.cdx = manifest.cdx;
 
@@ -253,6 +281,9 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   const content = manifest.content;
   if (!isPlainObject(content) || typeof content.path !== 'string' || typeof content.hash !== 'string') {
     throw new CanonicalizationError('manifest.content must be an object with string path and hash');
+  }
+  if (!RELATIVE_PATH.test(content.path)) {
+    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`);
   }
   if (!isValidContentHash(content.hash)) {
     throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`);
@@ -274,6 +305,12 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     const items = presentation.map((entry) => {
       if (!isPlainObject(entry) || typeof entry.type !== 'string' || typeof entry.path !== 'string' || typeof entry.hash !== 'string') {
         throw new CanonicalizationError('each manifest.presentation[] entry must have string type, path and hash');
+      }
+      if (!PRESENTATION_TYPES.has(entry.type)) {
+        throw new CanonicalizationError(`manifest.presentation[] type "${entry.type}" is not one of: ${[...PRESENTATION_TYPES].join(', ')}`);
+      }
+      if (!RELATIVE_PATH.test(entry.path)) {
+        throw new CanonicalizationError(`manifest.presentation[] path "${entry.path}" is not a valid archive-relative path`);
       }
       if (!isValidContentHash(entry.hash)) {
         throw new CanonicalizationError(`presentation "${entry.path}" has a malformed hash "${entry.hash}"`);
@@ -326,7 +363,11 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     if (!isPlainObject(manifest.lineage)) {
       throw new CanonicalizationError('manifest.lineage must be an object');
     }
-    projection.lineage = manifest.lineage;
+    // An empty lineage object is omitted like any absent optional field (§9.7);
+    // otherwise a `lineage: {}` would bind different signed bytes than an absent one.
+    if (Object.keys(manifest.lineage).length > 0) {
+      projection.lineage = manifest.lineage;
+    }
   }
 
   // --- signaturePolicy (optional) — the required-signer set (§3.12) -----------
