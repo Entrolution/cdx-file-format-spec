@@ -99,6 +99,9 @@ jobs:
       - name: Check spec examples
         run: npm run check:spec-examples
 
+      - name: Check structural constraints
+        run: npm run check:structural
+
       - name: Check manifest extension config
         run: npm run check:manifest-extension-config
 

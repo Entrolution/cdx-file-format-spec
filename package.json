@@ -22,6 +22,7 @@
     "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
     "check:schema-closure": "npx tsx scripts/check-schema-closure.ts",
     "check:spec-examples": "npx tsx scripts/check-spec-examples.ts",
+    "check:structural": "npx tsx scripts/check-structural-constraints.ts",
     "check:manifest-extension-config": "npx tsx scripts/check-manifest-extension-config.ts",
     "check:enumeration-coverage": "npx tsx scripts/check-enumeration-coverage.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
