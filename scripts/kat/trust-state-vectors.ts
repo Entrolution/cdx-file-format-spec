@@ -61,6 +61,15 @@ export const trustStateVectors: TrustStateVector[] = [
   { name: 'untrusted-beats-expired', description: 'An unanchored chain is untrusted regardless of expiry.', inputs: v({ chainResult: 'untrusted', certCurrentlyExpired: true }), expected: 'untrusted' },
   { name: 'revoked-beats-expired', description: 'Revocation outranks expiry.', inputs: v({ revocationStatus: 'revoked', certCurrentlyExpired: true }), expected: 'revoked' },
 
+  // Out-of-enum robustness (§3.8) — the trust path is an ALLOWLIST, so any axis value
+  // outside the documented enum is non-acceptance, never `valid`. The inputs are
+  // TS-typed, so an out-of-enum value can only arise at runtime (a future state, a
+  // casing/whitespace slip, an unmapped code path); the `as any` casts model that.
+  { name: 'out-of-enum-chain', description: 'A chainResult outside {anchored,untrusted,unknown} floors to untrusted, never valid.', inputs: v({ chainResult: 'error' as any }), expected: 'untrusted' },
+  { name: 'casing-slip-chain', description: 'A casing slip ("Anchored" != "anchored") is non-acceptance (untrusted): the allowlist requires the exact token.', inputs: v({ chainResult: 'Anchored' as any }), expected: 'untrusted' },
+  { name: 'out-of-enum-revocation', description: 'A revocationStatus outside {good,revoked,unknown} on an anchored credential floors to unknown, never valid.', inputs: v({ revocationStatus: 'indeterminate' as any }), expected: 'unknown' },
+  { name: 'whitespace-slip-revocation', description: 'A whitespace slip ("good\\n" != "good") is non-acceptance (unknown), not valid.', inputs: v({ revocationStatus: 'good\n' as any }), expected: 'unknown' },
+
   // Long-term validation (§7.5): a validated signature-timestamp re-bases the
   // validity-window inputs (certCurrentlyExpired / signingTimeWithinValidity)
   // onto the trusted time T, while revocation stays its own axis (rules 5/6) so
