@@ -722,6 +722,13 @@ export const closureVectors: ClosureVector[] = [
   },
   {
     schema: 'security.schema.json',
+    ref: '#/$defs/accessControlFile',
+    description: 'accessControlFile (versioned access-control policy)',
+    validInstance: { version: '1.0', accessControl: { default: { view: true, print: false }, permissions: [{ principal: 'user:jane@example.com', grants: { view: true, edit: false } }] } },
+    invalidInstance: { version: '1.0', accessControl: { default: { view: true } }, bogus: 1 },
+  },
+  {
+    schema: 'security.schema.json',
     ref: '#/$defs/encryptionFile',
     description: 'encryptionFile (no example coverage)',
     validInstance: { version: '1.0', algorithm: 'A256GCM', keyManagement: 'ECDH-ES+A256KW', recipients: [{ id: 'r1', encryptedKey: 'aaaa' }], encryptedContent: [{ iv: 'aaaa', tag: 'bbbb', path: 'content.enc' }] },

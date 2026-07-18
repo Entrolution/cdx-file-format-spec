@@ -222,6 +222,16 @@
             "additionalProperties": false
           }
         },
+        "accessControl": {
+          "type": "object",
+          "description": "Access-control policy reference ({path, hash}) projected from manifest.security.accessControl (section 9.9) — the one security-block reference bound into the projection, so a manifest-covering signature attests the access-control policy. Only {path, hash} is bound; advisory storage hints are dropped. Omitted when absent.",
+          "required": ["path", "hash"],
+          "properties": {
+            "path": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
+            "hash": { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash" }
+          },
+          "additionalProperties": false
+        },
         "lineage": {
           "type": "object",
           "description": "Lineage, bound verbatim from the manifest"
@@ -574,10 +584,25 @@
         }
       },
       "additionalProperties": false
+    },
+    "accessControlFile": {
+      "type": "object",
+      "description": "Schema for a security/access-control.json file: a versioned wrapper around an accessControl policy. Referenced from manifest.security.accessControl as a {path, hash}; a manifest-covering signature attests that hash through the manifest projection (security extension section 9.9), so the policy cannot be swapped while a signature verifies. The policy is advisory authorization guidance — CDX binds its integrity, not its enforcement; a consumer applies it at its own discretion.",
+      "required": ["version", "accessControl"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Security extension version",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "accessControl": { "$ref": "#/$defs/accessControl" }
+      },
+      "additionalProperties": false
     }
   },
   "oneOf": [
     { "$ref": "#/$defs/signaturesFile" },
-    { "$ref": "#/$defs/encryptionFile" }
+    { "$ref": "#/$defs/encryptionFile" },
+    { "$ref": "#/$defs/accessControlFile" }
   ]
 }

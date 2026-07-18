@@ -133,6 +133,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedSha256: 'sha256:781a77097306db621695b02d20a76c2939052381b3bebb4bcb04939fc6437046',
   },
   {
+    name: 'access-control-bound',
+    description:
+      'manifest.security.accessControl, declared as a {path, hash}, binds its policy-file hash into the projection as `accessControl` (only {path, hash}; advisory storage hints are dropped). A manifest-covering signature then attests the access-control policy, so it cannot be swapped while a signature verifies; the path-only signatures/encryption references remain unbound.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"security/access-control.json","hash":"${sha('a')}"}}}`,
+    expectedJcs: `{"accessControl":{"hash":"${sha('a')}","path":"security/access-control.json"},"cdx":"0.1","content":{"hash":"${sha('2')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:35225c282ba4aa2d88d3fad4d3b4a2dc85474ae23a7896bf71edcddeb500a438',
+  },
+  {
     name: 'precise-layout-in-presentation',
     description:
       'A precise layout declared as a presentation[] entry (type "precise") binds its file hash into the projection alongside reactive presentations; entries sort by JCS (the paginated default before precise), so a frozen document\'s precise layout is attested by a manifest-covering signature.',
@@ -254,5 +262,17 @@ export const errorVectors: ErrorVector[] = [
     description: 'A required-signer `did` that is not a well-formed did:(key|jwk|web) fails closed rather than binding a bogus credential into the required set.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"not-a-did"}]}}`,
     expectedError: 'malformed for its identity kind',
+  },
+  {
+    name: 'access-control-malformed-hash',
+    description: 'A security.accessControl reference whose hash is not a valid content hash fails closed rather than binding an unverifiable policy reference.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"security/access-control.json","hash":"notahash"}}}`,
+    expectedError: 'valid content hash',
+  },
+  {
+    name: 'access-control-traversal-path',
+    description: 'A security.accessControl reference whose path escapes the archive root fails closed.',
+    manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"../evil.json","hash":"${sha('a')}"}}}`,
+    expectedError: 'archive-relative path',
   },
 ];

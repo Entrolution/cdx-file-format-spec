@@ -46,9 +46,11 @@
  *    hash-pinned index of a declared category (`assets`, above), and only while a
  *    manifest-covering signature is present.
  *  - The *bytes* of path-only parts (metadata, provenance, phantoms,
- *    annotations) and of the `security` block. An extension config file is bound
- *    only when declared as a `{path, hash}` reference; a path-only declaration
- *    (e.g. collaboration comments/changes) is not.
+ *    annotations) and of the path-only `security` references (signatures,
+ *    encryption). An auxiliary file is bound only when declared as a `{path, hash}`
+ *    reference — an extension config file, an asset-category index, or the
+ *    `security.accessControl` policy; a path-only declaration (e.g. collaboration
+ *    comments/changes, or the signatures/encryption paths) is not.
  *  - Signatures OUTSIDE the declared required set: the `signaturePolicy` binds
  *    only the *declared required* signers, so stripping an optional signature,
  *    signing order, and late-joiners are not detected (§3.12, §9.8). A document
@@ -423,6 +425,27 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   // binding. Sorted by JCS; absent → the field is omitted.
   const assetIndexes = collectAssetIndexReferences(manifest);
   if (assetIndexes.length > 0) projection.assets = assetIndexes;
+
+  // --- access-control policy reference (optional) — bind its hash ---------------
+  // manifest.security.accessControl is the ONE security-block reference carried as a
+  // {path, hash} rather than a bare path, precisely so a manifest-covering signature
+  // attests the access-control policy's content: a repackager cannot swap the policy
+  // (e.g. widen permissions) while a signature still verifies. Only {path, hash} is
+  // bound — any advisory storage hints (compression, merkleRoot) are dropped like
+  // other non-integrity fields. The path-only security references (signatures,
+  // encryption) remain unbound by design: signatures cannot self-sign and the
+  // encryption block is not a signed-content claim. Absent → the field is omitted.
+  const security = manifest.security;
+  if (isPlainObject(security) && security.accessControl !== undefined && security.accessControl !== null) {
+    const ref = security.accessControl;
+    if (!isPlainObject(ref) || typeof ref.path !== 'string' || !isValidContentHash(ref.hash)) {
+      throw new CanonicalizationError('manifest.security.accessControl must carry a string path and a valid content hash');
+    }
+    if (!RELATIVE_PATH.test(ref.path)) {
+      throw new CanonicalizationError(`manifest.security.accessControl path "${ref.path}" is not a valid archive-relative path`);
+    }
+    projection.accessControl = { path: ref.path, hash: ref.hash };
+  }
 
   // The projected bytes obey the same stored-byte invariants as the document ID
   // (NFC, well-formed Unicode, safe integers) — validate, never normalize.

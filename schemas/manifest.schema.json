@@ -78,6 +78,13 @@
             { "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/relativePath" },
             { "type": "null" }
           ]
+        },
+        "accessControl": {
+          "description": "Reference to the access-control policy file as a {path, hash}. Unlike the path-only signatures/encryption references, the policy's content hash is bound into the manifest projection, so a manifest-covering signature attests the policy (security extension section 9.9).",
+          "anyOf": [
+            { "$ref": "#/$defs/fileReference" },
+            { "type": "null" }
+          ]
         }
       },
       "additionalProperties": false
