@@ -27,8 +27,10 @@ import {
   validateProtectedHeader,
   jwsSigningInput,
   base64urlDecode,
+  base64url,
+  JwsEnvelopeError,
 } from './lib/jws-envelope.js';
-import { jwkThumbprint, multibaseKeyToJwk } from './lib/keyid-resolution.js';
+import { jwkThumbprint, multibaseKeyToJwk, KeyResolutionError } from './lib/keyid-resolution.js';
 import {
   headerVectors,
   signingInputVectors,
@@ -238,6 +240,26 @@ for (const v of multibaseVectors) {
     continue;
   }
   console.log(`  ✓ multibase ${v.name}`);
+}
+
+// --- Part 6: parser and lookup robustness ----------------------------------
+console.log('\nParser and lookup robustness:');
+// A duplicate key in the protected header is rejected (strict JSON), not resolved
+// last-wins as plain JSON.parse would — matching the canonicalizer's duplicate-key MUST.
+try {
+  decodeProtectedHeader(base64url('{"alg":"ES256","alg":"none"}'));
+  fail('duplicate protected-header key — accepted (should reject)');
+} catch (err) {
+  if (err instanceof JwsEnvelopeError) console.log('  ✓ duplicate protected-header key rejected (strict JSON)');
+  else fail(`duplicate protected-header key — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
+}
+// A prototype-polluting kty yields the typed KeyResolutionError, not a raw TypeError.
+try {
+  jwkThumbprint({ kty: '__proto__' });
+  fail('kty "__proto__" — accepted (should reject)');
+} catch (err) {
+  if (err instanceof KeyResolutionError) console.log('  ✓ kty "__proto__" → KeyResolutionError (not a raw TypeError)');
+  else fail(`kty "__proto__" — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
 }
 
 if (failures > 0) {

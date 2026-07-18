@@ -25,6 +25,7 @@ import * as crypto from 'crypto';
 import {
   webauthnChallenge,
   parseClientData,
+  WebauthnError,
   parseAuthData,
   webauthnSigningInput,
   verifyWebauthnSignature,
@@ -196,6 +197,16 @@ for (const name of fs.readdirSync(examplesDir, { withFileTypes: true }).filter((
       fail(`${name} signature "${id}" — ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+}
+
+// Parser robustness: a duplicate key in clientDataJSON is rejected (strict JSON),
+// not resolved last-wins as plain JSON.parse would.
+try {
+  parseClientData(Buffer.from('{"type":"webauthn.get","challenge":"a","challenge":"b"}', 'utf8'));
+  fail('duplicate clientDataJSON key — accepted (should reject)');
+} catch (err) {
+  if (err instanceof WebauthnError) console.log('  ✓ duplicate clientDataJSON key rejected (strict JSON)');
+  else fail(`duplicate clientDataJSON key — wrong error type: ${err instanceof Error ? err.name : String(err)}`);
 }
 
 if (failures > 0) {

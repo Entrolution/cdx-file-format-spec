@@ -84,7 +84,11 @@ const REQUIRED_MEMBERS: Record<string, readonly string[]> = {
  */
 export function jwkThumbprint(jwk: Record<string, unknown>): string {
   const kty = jwk.kty;
-  if (typeof kty !== 'string' || !(kty in REQUIRED_MEMBERS)) {
+  // Object.hasOwn, not `in`: `in` also matches inherited Object.prototype names, so
+  // an attacker-served kty of '__proto__'/'constructor' would bypass this guard and
+  // reach the loop below with a non-array value, throwing a raw TypeError instead of
+  // the module's KeyResolutionError (a did:web-resolution DoS/error-path trap).
+  if (typeof kty !== 'string' || !Object.hasOwn(REQUIRED_MEMBERS, kty)) {
     throw new KeyResolutionError(`jwkThumbprint: unsupported or missing "kty" (${JSON.stringify(kty)})`);
   }
   const canonical: Record<string, string> = {};

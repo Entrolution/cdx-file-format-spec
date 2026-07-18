@@ -18,6 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getValidator, ruleFor } from './lib/part-schema.js';
 import { CONFIG_SLOTS } from './lib/config-slots.js';
+import { parseStrictJson } from './lib/canonicalize.js';
 
 const examplesDir = path.join(__dirname, '..', 'examples');
 
@@ -67,7 +68,7 @@ for (const exampleName of exampleDirs) {
 
     let data: unknown;
     try {
-      data = JSON.parse(fs.readFileSync(path.join(examplePath, relPath), 'utf8'));
+      data = parseStrictJson(fs.readFileSync(path.join(examplePath, relPath), 'utf8'));
     } catch (err) {
       console.log(`  ✗ ${relPath} — parse error: ${err instanceof Error ? err.message : String(err)}`);
       hasErrors = true;
@@ -104,7 +105,7 @@ for (const exampleName of exampleDirs) {
   // check:document-id gate (scripts/check-document-id.ts).
   const manifestPath = path.join(examplePath, 'manifest.json');
   if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifest = parseStrictJson(fs.readFileSync(manifestPath, 'utf8')) as any;
     const algo: string = manifest.hashAlgorithm ?? 'sha256';
 
     // Path-only references that must resolve on disk.
@@ -210,7 +211,7 @@ for (const exampleName of exampleDirs) {
       // (2) Each asset entry's own file, then each of its image variants.
       let index: { assets?: Array<{ path?: string; hash?: string; variants?: Array<{ path?: string; hash?: string }> }> };
       try {
-        index = JSON.parse(indexBytes.toString('utf8'));
+        index = parseStrictJson(indexBytes.toString('utf8')) as typeof index;
       } catch (err) {
         console.log(`  ✗ ${indexRel} — parse error: ${err instanceof Error ? err.message : String(err)}`);
         hasErrors = true;

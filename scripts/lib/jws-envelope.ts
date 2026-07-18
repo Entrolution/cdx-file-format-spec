@@ -30,7 +30,7 @@
  * stored string via `jwsSigningInput`.
  */
 
-import { jcsOf } from './canonicalize.js';
+import { jcsOf, parseStrictJson } from './canonicalize.js';
 
 /** Thrown for a malformed JWS envelope or protected header. */
 export class JwsEnvelopeError extends Error {
@@ -97,7 +97,9 @@ export function encodeProtectedHeader(header: Record<string, unknown>): string {
 export function decodeProtectedHeader(protectedB64url: string): Record<string, unknown> {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(base64urlDecode(protectedB64url).toString('utf8'));
+    // parseStrictJson (not JSON.parse) so a duplicate header key is rejected, matching
+    // the canonicalizer's duplicate-key MUST rather than silently taking last-wins.
+    parsed = parseStrictJson(base64urlDecode(protectedB64url).toString('utf8'));
   } catch (err) {
     throw new JwsEnvelopeError(`protected header is not valid base64url JSON: ${err instanceof Error ? err.message : String(err)}`);
   }

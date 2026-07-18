@@ -23,7 +23,7 @@
  */
 
 import * as crypto from 'crypto';
-import { jcsOf } from './canonicalize.js';
+import { jcsOf, parseStrictJson } from './canonicalize.js';
 
 export class WebauthnError extends Error {
   constructor(message: string) {
@@ -61,7 +61,9 @@ export interface ClientData {
 export function parseClientData(clientDataJSON: Buffer): ClientData {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(clientDataJSON.toString('utf8'));
+    // parseStrictJson (not JSON.parse) so a duplicate key in clientDataJSON is rejected,
+    // matching the canonicalizer's duplicate-key MUST rather than silently last-wins.
+    parsed = parseStrictJson(clientDataJSON.toString('utf8'));
   } catch (err) {
     throw new WebauthnError(`clientDataJSON is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -132,7 +134,11 @@ const ALG_KEY_TYPE: Record<string, { kty: string; crv: string }> = {
 
 /** Whether a public JWK's type/curve agrees with a COSE signature algorithm (§6.3). */
 export function webauthnKeyMatchesAlg(publicKey: crypto.JsonWebKey, algorithm: string): boolean {
-  const e = ALG_KEY_TYPE[algorithm];
+  // Object.hasOwn, not a bare index: an attacker-supplied algorithm of
+  // '__proto__'/'constructor' would otherwise resolve to an inherited value and
+  // could spuriously pass the kty/crv comparison (the unguarded-lookup class
+  // hardened across this module set).
+  const e = Object.hasOwn(ALG_KEY_TYPE, algorithm) ? ALG_KEY_TYPE[algorithm] : undefined;
   return e !== undefined && publicKey?.kty === e.kty && publicKey?.crv === e.crv;
 }
 

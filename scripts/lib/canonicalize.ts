@@ -90,7 +90,9 @@ export function isValidContentHash(h: unknown): h is string {
   if (idx <= 0) return false;
   const algorithm = h.slice(0, idx);
   const digest = h.slice(idx + 1);
-  const expected = HEX_DIGEST_LENGTH[algorithm];
+  // Object.hasOwn, not a bare index: a hash prefix of '__proto__'/'constructor' must
+  // not resolve to an inherited value (the unguarded-lookup class hardened elsewhere).
+  const expected = Object.hasOwn(HEX_DIGEST_LENGTH, algorithm) ? HEX_DIGEST_LENGTH[algorithm] : undefined;
   return expected !== undefined && digest.length === expected && /^[0-9a-f]+$/.test(digest);
 }
 

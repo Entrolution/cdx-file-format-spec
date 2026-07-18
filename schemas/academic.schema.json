@@ -2,7 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdx.dev/schemas/academic.schema.json",
   "title": "CDX Academic Extension",
-  "description": "Schema for academic extension blocks and marks in a CDX document",
   "$defs": {
     "abstractBlock": {
       "allOf": [

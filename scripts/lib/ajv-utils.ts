@@ -6,6 +6,7 @@ import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseStrictJson } from './canonicalize.js';
 
 const schemasDir = path.join(__dirname, '..', '..', 'schemas');
 
@@ -31,5 +32,8 @@ export function createAjv(): Ajv2020 {
 export function loadSchema(filename: string): object {
   const filepath = path.join(schemasDir, filename);
   const content = fs.readFileSync(filepath, 'utf8');
-  return JSON.parse(content);
+  // parseStrictJson (not JSON.parse) rejects a duplicated keyword — e.g. two
+  // `additionalProperties` — which JSON.parse silently collapses to last-wins,
+  // doubly invisible alongside strict:false's keyword handling.
+  return parseStrictJson(content) as object;
 }
