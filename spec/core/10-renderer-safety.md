@@ -59,6 +59,13 @@ linkifies even though the schema already constrains it — the renderer is the
 security boundary (Section 2.3). A `javascript:` identifier MUST be shown as inert
 text, never promoted to a navigation target.
 
+The same render-time allowlist governs the out-of-hash metadata URLs the schema leaves
+unconstrained — a Dublin Core `source`, `relation`, or `identifier`, a `rights` object's
+`licenseUrl`, and an asset `license.url`: these are advisory strings a renderer often
+turns into a hyperlink, so a renderer MUST pass any such value through the `safeUri`
+allowlist before linkifying it, and a `javascript:` licence or source link is shown as
+inert text rather than a navigation target.
+
 `safeUri` is an **allowlist**. It permits:
 
 - `https:` and `http:` URLs (scheme matched case-insensitively),
@@ -84,8 +91,9 @@ resulting navigation; the default-deny posture is the conformant baseline.
 ### 2.2 Image sources
 
 Fields whose value is rendered as an image source — the collaboration
-extension's author `avatar`, and any extension image reference that mirrors the
-core image block — are constrained by the shared `safeImageUri` definition
+extension's author `avatar`, the presentation extension's style
+`backgroundImage`, and any extension image reference that mirrors the core image
+block — are constrained by the shared `safeImageUri` definition
 (`anchor.schema.json#/$defs/safeImageUri`).
 
 `safeImageUri` permits the `https:`/`http:` URLs and relative references (no
@@ -170,7 +178,11 @@ inject an author-supplied style or color string into a stylesheet or a `style`
 attribute without validating it against the expected grammar (for `color`, a CSS
 color value) or escaping it. An unvalidated value can break out of the intended
 property and inject additional declarations, including `url()`, `expression()`,
-or `@import` constructs that fetch remote resources or alter layout.
+or `@import` constructs that fetch remote resources or alter layout. This applies to
+every author-supplied style value across the extensions, including a phantom
+cluster's `metadata.color` and any other extension-chrome color or style string; a
+phantom cluster's `label` (rendered as its display chrome) is author text and MUST be
+escaped as inert text (Section 3.4), never injected as markup.
 
 ### 3.4 Contact and identity strings
 
@@ -205,6 +217,19 @@ interpolates into a markup context:
   a markup context, so a template carrying `<…>` cannot inject markup. A `tag` a
   renderer instead routes through the math engine (a `\dagger` typeset as a
   symbol) is untrusted math source and is subject to the Section 3.2 hardening.
+
+### 3.6 Bidirectional and invisible control characters
+
+Rendered author text may carry Unicode bidirectional-override controls (`U+202A`–
+`U+202E`, `U+2066`–`U+2069`) or zero-width and invisible characters that reorder or
+hide displayed glyphs without changing the hashed bytes — a "Trojan Source" attack,
+in which code, a citation, or a licence string reads differently to a human than the
+bytes that were signed. Because these characters are inside the content hash, a
+signature attests them faithfully; the risk is that the *human* is shown a different
+string than the one that was signed. A renderer SHOULD detect and visibly flag (or
+strip) bidirectional-control and invisible characters in text it displays, and MUST
+NOT let them silently reorder a security-relevant string (a URL, a signer name, a
+code span) into something other than its logical byte order.
 
 ## 4. Client-side validation patterns
 
@@ -271,6 +296,16 @@ authenticated (signed) content, so a reader cannot mistake an out-of-hash overla
 valid-signature indicator. Machine-trust disclosure (integrity status) does not
 discharge this obligation on its own: the masquerade defense the human relies on is
 visual distinguishability.
+
+**External and out-of-hash asset content is not integrity-bound.** An image whose
+`src` is `external`, an `image.fallback`, and any asset a signature does not
+transitively bind (an asset outside a declared, hash-pinned category index —
+Security Extension section 9.8) is fetched or resolved at render time and is not
+covered by the document hash. A renderer MUST NOT present such content as
+integrity-bound: on a signed document it MUST either omit it, or visually
+distinguish it from the hash-covered content so a reader cannot mistake an
+attacker-substitutable external image for signed content carrying the same
+valid-signature indicator.
 
 **Out-of-hash derived fields MUST be regenerated, not trusted.** Some content blocks
 carry a derived, out-of-hash convenience copy of hashed data: a `measurement`'s

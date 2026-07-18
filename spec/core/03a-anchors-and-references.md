@@ -227,6 +227,8 @@ Anchors MAY include an optional `contentHash` field (see section 2.3) containing
 
 Implementations SHOULD validate that anchor targets (block IDs, named anchor IDs) resolve to existing content at parse time.
 
+Reference resolution MUST be **byte-exact and case-sensitive**: a target id resolves to a defined id only when the two strings are byte-for-byte identical. A resolver MUST NOT case-fold, Unicode-fold, or otherwise normalize a target before matching — `#Figure1` and `#figure1` are distinct ids, and a case-insensitive resolver would let one reference silently redirect to a different block than the author (and the document hash) committed to.
+
 ### 7.2 State-Dependent Severity
 
 | Condition | DRAFT/REVIEW | FROZEN/PUBLISHED |

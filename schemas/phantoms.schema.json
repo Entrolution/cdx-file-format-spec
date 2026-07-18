@@ -57,7 +57,7 @@
           "properties": {
             "color": {
               "type": "string",
-              "description": "Display color (CSS color value)"
+              "description": "Display color (a CSS color value; a renderer MUST validate it against the CSS color grammar or escape it before use — see the Renderer Safety core specification, section 3.3)"
             },
             "collapsed": {
               "type": "boolean",
