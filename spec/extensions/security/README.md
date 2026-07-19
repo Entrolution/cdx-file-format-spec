@@ -3,6 +3,7 @@
 **Extension ID**: `cdx.security`
 **Version**: 0.1
 **Status**: Draft
+**Maturity**: Hardened
 
 ## 1. Overview
 

@@ -3,6 +3,7 @@
 **Extension ID**: `cdx.collaboration`
 **Version**: 0.2
 **Status**: Draft
+**Maturity**: Draft
 
 ## 1. Overview
 

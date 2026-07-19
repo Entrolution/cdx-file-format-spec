@@ -2,6 +2,7 @@
 
 **Version**: 0.1 (Draft)
 **Status**: Working Draft
+**Maturity**: Draft
 **Editors**: CDX Specification Team
 
 ## Abstract
@@ -195,6 +196,16 @@ This specification uses semantic versioning (MAJOR.MINOR.PATCH):
 - **PATCH**: Clarifications and bug fixes
 
 Documents MUST declare the specification version they conform to in their manifest.
+
+#### 1.8.1 Document Maturity
+
+Each specification document carries a **Maturity** label in its header, describing how much scrutiny its normative content has absorbed. Maturity is a review-depth signal for readers and implementers; it is not a conformance class, and it is a different axis from both a document's standards-track **Status** (Draft, and so on) and the Required/Recommended/Optional/Experimental status column of the algorithm tables — an algorithm-status *Experimental* (e.g. ML-DSA-65, Security Extension section 3.2) marks an at-risk algorithm entry, not a document tier.
+
+- **Hardened** — the document's normative logic has been through dedicated adversarial hardening review, its load-bearing rules are mechanized as executable reference logic with known-answer tests where practicable, and its disclosed limitations are believed complete. Hardened is not "final": the document remains a draft and can still change.
+- **Draft** — the document is specified in full and internally reviewed, but has not had a dedicated hardening pass. The default tier.
+- **Experimental** — the construct is at-risk: it may change incompatibly, be extracted to an extension, or be removed, and it is excluded from conformance expectations. Experimental status is declared at the section level where a single section diverges from its document's tier.
+
+A maturity label never weakens a normative requirement: a MUST in a Draft document binds a conforming implementation exactly as a MUST in a Hardened one.
 
 ## 2. References
 

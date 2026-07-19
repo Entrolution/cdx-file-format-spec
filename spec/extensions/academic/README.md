@@ -3,6 +3,7 @@
 **Extension ID**: `cdx.academic`
 **Version**: 0.1
 **Status**: Draft
+**Maturity**: Draft
 
 ## 1. Overview
 
