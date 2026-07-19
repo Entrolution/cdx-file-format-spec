@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 #### Core Specification
+- Security Model document (spec/core/11-security-model.md): consolidated attacker model, guarantees/non-guarantees inventory, the lifecycle-downgrade reduction in context, an informative mapping of the published PDF signature attack classes (ISA/SWA/USF, shadow attacks, certification attacks) onto CDX mechanisms and residuals, a verifier-obligations index (the scoping brief for external review), and a disclosure index locating every accepted-limitation statement
 - Document manifest with state machine (draft → review → frozen → published)
 - Content block model with 22 block types
 - Dublin Core metadata support
