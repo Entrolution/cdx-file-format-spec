@@ -49,6 +49,7 @@ export interface Rule {
 export const rules: Rule[] = [
   { test: /^manifest\.json$/, schema: 'manifest.schema.json' },
   { test: /^content\/document\.json$/, schema: 'content.schema.json' },
+  { test: /^content\/block-index\.json$/, schema: 'block-index.schema.json' },
   { test: /^metadata\/dublin-core\.json$/, schema: 'dublin-core.schema.json' },
   { test: /^metadata\/jsonld\.json$/, schema: 'semantic.schema.json', ref: '#/$defs/jsonLdDocument' },
   // academic.schema's root is the manifest-level academic config ({numbering: path});

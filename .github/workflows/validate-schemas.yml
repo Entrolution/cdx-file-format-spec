@@ -93,6 +93,9 @@ jobs:
       - name: Check provenance timestamp
         run: npm run check:provenance-timestamp
 
+      - name: Check block merkle
+        run: npm run check:block-merkle
+
       - name: Check schema closure
         run: npm run check:schema-closure
 

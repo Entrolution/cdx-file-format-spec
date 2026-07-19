@@ -64,6 +64,14 @@ export const projectionVectors: ProjectionVector[] = [
     expectedSha256: 'sha256:e3de84b5784ee062a800d46b7e619d5a7ec79f3c3f1a6289e036117648954b80',
   },
   {
+    name: 'content-advisory-hints-drop',
+    description:
+      'Every advisory storage hint on the content reference — compression, merkleRoot, blockCount, and the cdx-bmt-1 construction identifier (§9.7/§9.8: the projection binds content as {path, hash} only) — drops from the projection, so the advisory block-Merkle fields can never reach signed bytes.',
+    manifest: `{"cdx":"0.1","id":"${sha('7')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('8')}","compression":"zstd","merkleRoot":"${sha('9')}","blockCount":42,"construction":"cdx-bmt-1"}}`,
+    expectedJcs: `{"cdx":"0.1","content":{"hash":"${sha('8')}","path":"content/document.json"},"state":"frozen"}`,
+    expectedSha256: 'sha256:711be22dd3851024d9d2cf761c6b32d5e72707aa50fd675b2db3e103d666fc1d',
+  },
+  {
     name: 'presentation-and-default',
     description:
       'presentation[] is sorted by JCS (paginated before responsive) and only the default entry carries default:true; a default:false is dropped (no default-value materialization).',

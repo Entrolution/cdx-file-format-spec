@@ -168,6 +168,7 @@ Reference to the content layer.
 | `compression` | string | No | Compression used ("deflate", "zstd", "none") |
 | `merkleRoot` | string | No | Merkle tree root hash of content blocks (see Provenance spec section 4.4) |
 | `blockCount` | integer | No | Number of content blocks in the document |
+| `construction` | string | No | Merkle tree construction identifier — `cdx-bmt-1` (see Provenance spec section 4.4) |
 
 ### 4.7 `presentation` (Optional)
 

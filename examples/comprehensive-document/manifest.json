@@ -6,7 +6,10 @@
   "modified": "2025-01-28T14:00:00Z",
   "content": {
     "path": "content/document.json",
-    "hash": "sha256:9a49582379817622a715a33d40a27afdc47a47ee9de2be839d801d04f602af5c"
+    "hash": "sha256:9a49582379817622a715a33d40a27afdc47a47ee9de2be839d801d04f602af5c",
+    "merkleRoot": "sha256:13f84a9cc6d35b9a94cec11fdd67259b772ed59be155ef55be45d279bec67339",
+    "blockCount": 71,
+    "construction": "cdx-bmt-1"
   },
   "presentation": [
     {

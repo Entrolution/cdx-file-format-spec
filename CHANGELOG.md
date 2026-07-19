@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Content schema now references legal extension marks (`legal:cite`)
+- Block-level Merkle tree hardened to the tagged `cdx-bmt-1` construction (core 09 §4.2–4.3): RFC 6962-style leaf/internal domain separation (`0x00`/`0x01`), odd nodes promoted instead of duplicated — closing the two previously disclosed defects (CVE-2012-2459-pattern duplication, leaf/internal ambiguity). The §5.2 block-proof fold is decoupled from the §6.5 aggregated-timestamp fold (which stays untagged raw concatenation, fixed by external aggregators). Adds a `construction` wire identifier, a `block-index.schema.json`, the `scripts/lib/block-merkle.ts` reference implementation with independent-oracle KATs, the `check:block-merkle` gate, and a worked `content/block-index.json` in the comprehensive-document example. The root remains advisory (unbound by the document ID and manifest projection); see DD-020
 
 ### Notes
 - This is an initial draft specification

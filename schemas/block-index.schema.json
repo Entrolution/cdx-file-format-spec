@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdx.dev/schemas/block-index.schema.json",
+  "title": "Block Index",
+  "description": "Schema for content/block-index.json — the stored leaf hashes of the block-level Merkle tree (core specification 09 §4.5). Each entry's hash is the tagged leaf hash H(0x00 || JCS(block)) of a top-level content block under the cdx-bmt-1 construction (09 §4.2–4.3); the root is what those leaves reduce to under the declared construction. The root is advisory in this version — it is not bound by the document ID or the manifest projection (09 §5.2).",
+  "type": "object",
+  "required": ["version", "algorithm", "root", "blocks"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Block index format version",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "algorithm": {
+      "type": "string",
+      "description": "Hash algorithm used for every leaf and internal node in the tree",
+      "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"]
+    },
+    "construction": {
+      "type": "string",
+      "description": "Merkle tree construction identifier (09 §4.3). Absent is read as cdx-bmt-1 (09 §4.4).",
+      "enum": ["cdx-bmt-1"]
+    },
+    "root": {
+      "description": "Merkle root the blocks[] leaves reduce to under the declared construction",
+      "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+    },
+    "blocks": {
+      "type": "array",
+      "description": "Leaf entries for the document's top-level content blocks, in document order. Non-empty: the construction defines no root for zero leaves (09 §4.3).",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/blockEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blockEntry": {
+      "type": "object",
+      "required": ["id", "hash", "index"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Content block identifier (matches the block's id in content/document.json)",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "hash": {
+          "description": "Tagged leaf hash H(0x00 || JCS(block)) of the block (09 §4.2) — not an untagged hash of the block bytes",
+          "$ref": "https://cdx.dev/schemas/anchor.schema.json#/$defs/contentHash"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based position of the block in document order"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

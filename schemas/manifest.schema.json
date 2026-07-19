@@ -241,6 +241,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of content blocks"
+        },
+        "construction": {
+          "type": "string",
+          "description": "Merkle tree construction identifier (core 09 §4.3–4.4). Absent is read as cdx-bmt-1. Advisory, like merkleRoot/blockCount: dropped from the manifest projection.",
+          "enum": ["cdx-bmt-1"]
         }
       },
       "additionalProperties": false
