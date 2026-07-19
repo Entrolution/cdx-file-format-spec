@@ -265,6 +265,19 @@ The blocks live in `content/document.json`:
 - [ ] CLI tools (validate, sign, verify)
 - [ ] Standards body submission
 
+### Deferred capabilities
+
+Capabilities whose absence the specification discloses today and which are planned or under consideration for future versions. Each pointer leads to the disclosure that explains what is (and is not) provided now.
+
+- **Merkle root binding & trusted redaction** — the block-level `cdx-bmt-1` root is advisory (bound by neither the document ID nor the manifest projection), so inclusion/exclusion/redaction proofs are not yet trusted evidence (core 09 §5.2; DD-020). Binding the root into the projection unlocks verifiable redaction — a marquee capability for the legal profile.
+- **Archive timestamps / LTV renewal** — long-term validation currently decays when a TSA certificate expires or a timestamp algorithm weakens; archive-timestamp chains that renew proofs are a subsequent version (security extension §7.5, §8.5).
+- **Authenticated annotations & approvals** — every annotation, comment, form value, and workflow status is advisory today; authenticating an editorial decision requires signed content or a required-signer policy (security extension §3.10). An annotation-signature construction is an open design question (design decisions, OQ-005).
+- **Counter-signatures & signing-order binding** — the required-signer set declares *which* signers, never *in what order*; "notarized after signing" is not expressible (security extension §3.12; OQ-006).
+- **WebAuthn attestation** — assertions are verified without authenticator-model assurance (AAGUID / FIDO MDS); requiring certified hardware needs attestation support (security extension §6.4).
+- **Composite hybrid signatures** — the hybrid PQC profile uses two independent signatures; a single-envelope composite algorithm awaits standardization (security extension §8.2).
+- **Lifecycle-downgrade closure** — the downgrade residual is provably minimal for a self-contained file (security extension §9.8; DD-021); closing the remaining replay case requires external infrastructure (a transparency log or verifier-side expected-ID pinning), named a deliberate non-goal of the current design (core 09 §2.1).
+- **Blockchain anchoring extraction** — the standalone `blockchain` timestamp type is Experimental and a candidate for extraction to a separate extension (core 09 §6.4).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

@@ -548,6 +548,22 @@ Should the format support DRM?
 
 ---
 
+### OQ-005: Authenticated Annotations
+
+Should there be an annotation-signature construction — a signature over an annotation's bytes plus the document ID — so approvals, sign-offs, and review decisions can be authenticated without re-freezing the document?
+
+**Status**: Open; disclosed as out of scope for this version (security extension §3.10)
+**Considerations**: Today every annotation, comment, and workflow status is advisory; authenticating a decision requires signed content or a required-signer policy, both of which force a new frozen version per approval. The collaboration and legal use cases will likely demand this first. Design tension: annotations live outside the hash boundary precisely so they never disturb document identity — an authenticated-annotation layer must preserve that while binding annotation bytes to a credential.
+
+### OQ-006: Counter-Signatures and Signing-Order Binding
+
+Should signatures be able to bind *over* other signatures ("notarized after signing"), establishing verifiable order?
+
+**Status**: Open; disclosed as a residual limitation (security extension §3.12)
+**Considerations**: The required-signer set declares which signers, never in what order; a signature-timestamp bounds when a signature existed but establishes no inter-signature order. A counter-signature scope (covering another signature's bytes) is the classic mechanism, but it breaks the current "independent, unordered set" model and its re-signing ergonomics. Relevant to the legal profile's notarization narrative (security extension §9.6).
+
+---
+
 ## Strategic Insights
 
 This section captures key strategic insights from early design discussions that inform the specification's direction and adoption approach. Full discussion notes are archived in `docs/archive/`.

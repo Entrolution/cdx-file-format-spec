@@ -2,6 +2,7 @@
 
 **Section**: Core Specification
 **Version**: 0.1
+**Maturity**: Hardened
 
 ## 1. Overview
 
@@ -346,6 +347,8 @@ This tagged fold is the `cdx-bmt-1` construction and is **deliberately distinct*
 
 ### 5.3 Exclusion Proofs
 
+> **Maturity: Experimental** (Introduction section 1.8.1). Sections 5.3–5.4 define proof *shapes* over a root that is not yet bound by any signature (Section 5.2), so they cannot yet serve as trusted evidence, are excluded from conformance expectations, and may change incompatibly when root binding lands (see the deferred-capabilities roadmap).
+
 Prove a block does NOT exist (useful for redaction verification):
 
 ```json
@@ -394,7 +397,7 @@ When content is redacted, prove the relationship between original and redacted:
 
 ### 6.1 Purpose
 
-While the hash chain (Section 3) proves *relative* ordering (A before B), timestamp anchoring proves *absolute* existence: that a document hash existed at or before a time T. A provenance record (Section 8.1) MAY carry a `timestamps` array; each entry anchors the document hash to a point in time through one of three mechanisms — an RFC 3161 timestamp authority (`rfc3161`, Section 6.3), a direct blockchain transaction (`blockchain`, Section 6.4), or an aggregated Merkle anchor (`aggregated`, Section 6.5).
+While the hash chain (Section 3) proves *relative* ordering (A before B), timestamp anchoring proves *absolute* existence: that a document hash existed at or before a time T. A provenance record (Section 8.1) MAY carry a `timestamps` array; each entry anchors the document hash to a point in time through one of three mechanisms — an RFC 3161 timestamp authority (`rfc3161`, Section 6.3), a direct blockchain transaction (`blockchain`, Section 6.4 — the standalone type is **Experimental**), or an aggregated Merkle anchor (`aggregated`, Section 6.5).
 
 Each entry's `time` field is **advisory** (Section 6.6): the authoritative time comes from the validated proof, never from the self-asserted field. A timestamp a verifier cannot validate is reported as **unverified** — never as a valid time — and an unverified, malformed, or absent timestamp never invalidates the document itself (Section 6.7). The *signature* timestamp of the security extension (§3.6) is a different construction that binds `H(protected || "." || signature)`; a provenance timestamp binds the **document hash** (Section 6.2).
 
@@ -441,6 +444,8 @@ A trusted timestamp authority (TSA) issues a signed token over the document hash
 3. Takes the trusted reference time **T** to be the token's genTime (Section 6.6).
 
 ### 6.4 Blockchain Anchoring
+
+> **Maturity: Experimental** (Introduction section 1.8.1). Direct blockchain anchoring pulls an entire additional trust domain — per-chain finality rules, node/light-client access, producer-influenced block times — into a niche capability. The standalone `blockchain` timestamp type is excluded from conformance expectations, is a candidate for extraction to a separate extension, and may change incompatibly or be removed. The `rfc3161` (Section 6.3) and `aggregated` (Section 6.5) mechanisms are the supported anchoring paths; `aggregated` covers the on-chain use case through an external aggregator, and its use of this section's confirmation-and-finality rules for its `anchor` member (Section 6.5 step 2) remains normative for that purpose.
 
 A transaction on a public blockchain commits the document hash; the block dates it:
 
@@ -514,7 +519,7 @@ A timestamp bounds the document's existence **from above only**: it proves the h
 Validating a timestamp is a **verifier obligation**, and a verifier that cannot complete it MUST report the timestamp **unverified** — never valid, and never as grounds to reject the document. The hash bindings of Section 6.2 and the aggregated Merkle recomputation of Section 6.5 are mechanically checkable and enforced by this specification's conformance gates; the cryptographic proofs themselves are obligations a conforming verifier MUST perform but a format-conformance gate cannot:
 
 - **rfc3161** — parsing the token, validating the TSA chain to the TSA trust store, and extracting genTime (no ASN.1 / PKI in a schema gate).
-- **blockchain** — querying a trusted node or light client, confirming the transaction commits the hash, and checking confirmation/finality depth (no chain access in a schema gate).
+- **blockchain** — querying a trusted node or light client, confirming the transaction commits the hash, and checking confirmation/finality depth (no chain access in a schema gate). The standalone type is Experimental (Section 6.4): this obligation binds a verifier that supports it, and it stands in full for the §6.5 `anchor`.
 - **aggregated** — the on-chain validation of the `anchor` (the Merkle *path* is recomputed by the gate; the *anchor* is a blockchain obligation, as above).
 
 **Limits (disclosed, not closed):**
@@ -655,7 +660,7 @@ The chain's security depends on hash collision resistance:
 Each timestamp type carries a distinct trust dependency, and each is validated against verifier-configured trust — never document-supplied material (Section 6):
 
 - **rfc3161** — trust rests on the TSA, validated to a verifier-configured **TSA trust store** (Section 6.3); an in-document token whose TSA does not anchor is not trusted.
-- **blockchain** — trust rests on the chain's consensus, confirmed at a chain-relative depth (Bitcoin: a probabilistic confirmation depth; Ethereum: finalization — Section 6.4).
+- **blockchain** — trust rests on the chain's consensus, confirmed at a chain-relative depth (Bitcoin: a probabilistic confirmation depth; Ethereum: finalization — Section 6.4; the standalone type is Experimental).
 - **aggregated** — trust rests on the on-chain `anchor`, not the aggregator: `provider` and `calendar` are advisory, and the Merkle proof self-verifies against the anchor (Section 6.5).
 
 In all three, the timestamped hash MUST equal the document `id` (Section 6.2), the claimed `time` is advisory (Section 6.6), and a timestamp the verifier cannot validate is reported **unverified** — never valid, and never grounds to reject the document (Section 6.7). The bound is from above only: a timestamp cannot establish that a document did *not* exist earlier (antedating, Section 6.7).
@@ -729,6 +734,8 @@ If an ancestor cannot be resolved, chain verification is **INCOMPLETE**, not "va
   ]
 }
 ```
+
+The `blockchain` entry illustrates the **Experimental** standalone type (Section 6.4); the supported anchoring paths are `rfc3161` and `aggregated`.
 
 ### 11.3 Block Inclusion Proof
 

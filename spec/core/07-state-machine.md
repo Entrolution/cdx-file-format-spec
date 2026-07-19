@@ -2,6 +2,7 @@
 
 **Section**: Core Specification
 **Version**: 0.1
+**Maturity**: Hardened
 
 ## 1. Overview
 

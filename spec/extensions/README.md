@@ -4,16 +4,18 @@ This directory contains specifications for CDX extensions. Each extension adds s
 
 ## Available Extensions
 
-| Extension | ID | Version | Status | Purpose |
-|-----------|----|---------|----|---------|
-| [Semantic](semantic/README.md) | `cdx.semantic` | 0.1 | Draft | Citations, footnotes, glossary, entity annotations |
-| [Academic](academic/README.md) | `cdx.academic` | 0.1 | Draft | Theorems, proofs, exercises, algorithms, equations |
-| [Forms](forms/README.md) | `cdx.forms` | 0.1 | Draft | Interactive form fields and validation |
-| [Collaboration](collaboration/README.md) | `cdx.collaboration` | 0.2 | Draft | Comments, track changes, real-time collaboration |
-| [Security](security/README.md) | `cdx.security` | 0.1 | Draft | Digital signatures, encryption, access control |
-| [Phantoms](phantoms/README.md) | `cdx.phantoms` | 0.1 | Draft | Off-page annotation clusters |
-| [Presentation](presentation/README.md) | `cdx.presentation` | 0.1 | Draft | Layout templates and rendering hints |
-| [Legal](legal/README.md) | `cdx.legal` | 0.1 | Draft | Legal citations, captions, tables of authorities, jurisdiction metadata |
+| Extension | ID | Version | Status | Maturity | Purpose |
+|-----------|----|---------|----|----------|---------|
+| [Semantic](semantic/README.md) | `cdx.semantic` | 0.1 | Draft | Draft | Citations, footnotes, glossary, entity annotations |
+| [Academic](academic/README.md) | `cdx.academic` | 0.1 | Draft | Draft | Theorems, proofs, exercises, algorithms, equations |
+| [Forms](forms/README.md) | `cdx.forms` | 0.1 | Draft | Draft | Interactive form fields and validation |
+| [Collaboration](collaboration/README.md) | `cdx.collaboration` | 0.2 | Draft | Draft | Comments, track changes, real-time collaboration |
+| [Security](security/README.md) | `cdx.security` | 0.1 | Draft | Hardened | Digital signatures, encryption, access control |
+| [Phantoms](phantoms/README.md) | `cdx.phantoms` | 0.1 | Draft | Draft | Off-page annotation clusters |
+| [Presentation](presentation/README.md) | `cdx.presentation` | 0.1 | Draft | Draft | Layout templates and rendering hints |
+| [Legal](legal/README.md) | `cdx.legal` | 0.1 | Draft | Draft | Legal citations, captions, tables of authorities, jurisdiction metadata |
+
+Maturity tiers (Hardened / Draft / Experimental) are defined in Introduction section 1.8.1; Hardened marks a document whose normative logic has absorbed a dedicated adversarial hardening pass and is mechanized by the conformance gates.
 
 ## Extension Compatibility
 

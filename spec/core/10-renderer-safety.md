@@ -2,6 +2,7 @@
 
 **Section**: Core Specification
 **Version**: 0.1
+**Maturity**: Draft
 
 ## 1. Overview
 
