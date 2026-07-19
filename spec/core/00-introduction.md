@@ -38,7 +38,7 @@ The CDX format addresses these issues through the following design goals:
 
 2. **Content-Addressable Identity**: A document's cryptographic hash serves as its canonical identifier. Any modification creates a new document with a lineage pointer to its predecessor.
 
-3. **Explicit State Machine**: Documents have explicit states (draft, review, frozen, published) with clear transition rules. Signatures bind to specific states.
+3. **Explicit State Machine**: Documents have explicit states (draft, review, frozen, published) with clear transition rules. Signatures on frozen and published documents bind the lifecycle state (Security Extension section 9.8).
 
 4. **Modern Security**: Support for current cryptographic standards with algorithm agility to accommodate future advances, including post-quantum cryptography.
 

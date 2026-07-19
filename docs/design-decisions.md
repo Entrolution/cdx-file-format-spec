@@ -494,6 +494,28 @@ This document records key design decisions made during the CDX format specificat
 
 ---
 
+## DD-021: Review-State Projection Binding Considered and Rejected
+
+**Decision**: Signatures on `draft`/`review` documents remain permitted to be content-only (`scope.documentId` alone); the manifest-projection coverage requirement stays scoped to `frozen`/`published` (security extension section 9.8). The lifecycle-downgrade residual is instead *argued minimal* — the section 9.8 reduction note decomposes every downgraded presentation into reuse of an honestly-made content-only signature, a fresh content-only attestation under a pinned credential (the minting party's own identity over genuine content), or unsigned content; in no case is tampered content presented as signed or an honest non-signer impersonated.
+
+**Alternatives Considered**:
+1. Require `scope.manifest` on every signature once the document ID is computed (review state included)
+2. Add a minimal signed `scope.state` field short of the full projection
+3. Keep content-only review signatures and document the reduction (chosen)
+
+**Rationale**:
+- **The hardening buys little** — requiring review-state projection coverage narrows the residual only from "replay an honest review-era artifact with a spoofable manifest" to "replay the exact review-era artifact"; the replay itself — the substantive attack — remains, because freshness is unsolvable inside a self-contained file (the provenance chain's no-external-infrastructure principle names the transparency-log alternative a deliberate non-goal, core 09 §2.1)
+- **And costs real workflow** — a review document's manifest legitimately churns (presentation layers added, lineage notes edited, extensions declared); binding the projection would invalidate every signature on each such edit, precisely at the lifecycle stage where signatures are optional advisory attestations rather than the frozen contract
+- **A signed `scope.state` alone (alternative 2)** inherits the same churn problem for state transitions while authenticating too little to close anything the full projection would not
+- **Fail-honest posture preserved** — the verifier obligations stand: state is never represented as authenticated on a content-only signature, and a content-only presentation draws a warning (section 9.8)
+
+**Consequences**:
+- Content-only signatures remain available below `frozen`, preserving signature survival across review-stage manifest churn
+- The lifecycle-downgrade disclosure is upgraded from "known limitation" to "disclosed residual with a minimality argument" (section 9.8 reduction note; State Machine section 5.4.2 note 3)
+- Closing the replay case, if ever required, is external-infrastructure work (a transparency log or verifier-side expected-ID pinning), not a signature-scope change
+
+---
+
 ## Open Questions
 
 ### OQ-001: Binary Variant
