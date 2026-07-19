@@ -28,6 +28,7 @@ This security policy covers:
 
 The specification includes several security-relevant sections:
 
+- **Security Model** (spec/core/11-security-model.md) - The consolidated map: attacker model, guarantees and non-guarantees, disclosed limitations, and the verifier-obligations index — start here
 - **Document Hashing** (spec/core/06-document-hashing.md) - Content integrity
 - **State Machine** (spec/core/07-state-machine.md) - Document lifecycle security
 - **Security Extension** (spec/extensions/security/) - Signatures and encryption

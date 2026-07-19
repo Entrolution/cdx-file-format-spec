@@ -175,6 +175,9 @@ This specification is organized into the following sections:
 - **Document Hashing**: Content-addressable identity
 - **State Machine**: Document lifecycle management
 - **Metadata**: Dublin Core and extended metadata
+- **Provenance and Lineage**: Hash chains, Merkle trees, and timestamp anchoring
+- **Renderer Safety**: Safe URIs and untrusted-content sanitization
+- **Security Model**: Consolidated attacker model, guarantees, and disclosed limitations
 
 Extension specifications (optional modules) are defined separately:
 

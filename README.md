@@ -153,6 +153,7 @@ The specification is modular:
 - [Metadata](spec/core/08-metadata.md) - Dublin Core and extensions
 - [Provenance and Lineage](spec/core/09-provenance-and-lineage.md) - Hash chains, Merkle trees, timestamping
 - [Renderer Safety](spec/core/10-renderer-safety.md) - Safe URIs and untrusted-content sanitization
+- [Security Model](spec/core/11-security-model.md) - Attacker model, guarantees, disclosed limitations, PDF attack-class comparison
 
 ### Extension Specifications (Optional)
 
