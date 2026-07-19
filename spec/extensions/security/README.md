@@ -375,6 +375,22 @@ AES-256-GCM and ChaCha20-Poly1305 are AEAD ciphers that fail catastrophically on
 - A distinct `iv` MUST be used for every encryption operation under a given content-encryption key. An implementation MUST NOT reuse a (CEK, `iv`) pair across parts, across documents, or when re-encrypting an edited part. Derive each `iv` from a cryptographically secure source (a random 96-bit nonce, or a counter that never repeats under one key).
 - With password-based key wrapping (`PBES2-HS256+A256KW`), each recipient MUST carry a unique per-document salt `p2s` (at least 8 octets) and an iteration count `p2c` of at least 600000, raised over time. Omitting the salt enables cross-document precomputation; a low iteration count makes offline password cracking cheap (RFC 7518 section 4.8).
 
+### 4.7 Signing and Encryption Together
+
+A document MAY be both signed (Section 3) and encrypted (Section 4). The two compose in exactly one order, and the composition determines what a consumer can verify without the decryption key.
+
+**Order of operations (normative): sign, then encrypt.** Signatures are computed over plaintext-derived values: the document ID is the hash of the canonical plaintext content (plus the projected Dublin Core terms — Document Hashing section 4.1), and the manifest projection is computed from the plaintext-referencing manifest. Encryption is applied afterwards, to the content part and optionally the Dublin Core part (Section 4.4). Because no signature scope covers ciphertext bytes, encrypting a signed document does not invalidate its signatures, and re-encrypting (for example to add a recipient) does not either — the same re-packaging invariance as Section 3.1. An encrypt-then-sign construction — a signature over ciphertext — is not defined by this extension, and a verifier MUST NOT treat a signature as attesting ciphertext bytes.
+
+**Manifest references stay logical.** The manifest remains unencrypted (Section 4.4) and its `content` reference continues to name the logical plaintext part: `content.path` is the plaintext path and `content.hash` is the hash of the plaintext bytes. The encryption metadata (Section 4.3) maps each encrypted part to its stored entry — the logical path plus the `.enc` suffix, matching an `encryptedContent[].path`. A consumer resolves the part through `encryption.json`, decrypts and verifies the AEAD tag (Section 4.5), and only then checks `content.hash` and recomputes the document ID against the released plaintext.
+
+**An encrypted part is present, not missing.** A referenced part whose logical path is mapped by `encryption.json` to a stored `.enc` entry **satisfies** the core existence requirements for that part (Container Format section 3.3.1; Manifest section 5.1) — a consumer MUST NOT apply the missing-required-part or missing-referenced-part dispositions (State Machine section 5.4.2) to it. Its hash verification is deferred to post-decryption; a consumer that holds no key falls under the integrity-indeterminate rule below, never the missing-part REJECT. So that consumers *without* security-extension support fail cleanly rather than misread the archive, a document with an encrypted required part MUST declare `cdx.security` with `required: true` — an extension-unaware consumer then rejects it as an unsupported required extension (State Machine section 5.4.2), which is the intended disposition.
+
+**Verification requires the plaintext.** Signature verification begins by recomputing the document ID from the content (Section 3.7 step 1) — and, when Dublin Core is encrypted, the ID's Dublin Core projection also requires that plaintext. A consumer that cannot decrypt therefore cannot execute step 1; the JWS itself and the trust path remain computable, but the `documentId` binding — what makes a signature attest *this* document — cannot be confirmed:
+
+- A consumer that cannot decrypt MUST NOT report any signature state stronger than `unknown`, and MUST NOT present the document, its content, or its manifest claims as verified or authentic. The plaintext manifest and its projection are readable, but unconfirmable — a projection cross-check without a recomputed document ID verifies nothing.
+- The frozen/published load-time validation (State Machine section 5.3) requires recomputing the document ID, so it runs **after** decryption. An encrypted frozen document presented to a consumer without the key is integrity-indeterminate: the consumer MUST surface that verification is unavailable rather than report a verified document, and the declared state's mutability contract still applies (no in-place editing).
+- Decryption order is fixed by Section 4.5: verify the AEAD tag **before** releasing plaintext, then verify `content.hash` and recompute the document ID from the released plaintext **before** reporting any signature state. A tag failure discards the plaintext (Section 8.7); a subsequent hash or ID mismatch is the ordinary integrity failure of State Machine section 5.4.
+
 ## 5. Access Control
 
 ### 5.1 Overview
@@ -430,6 +446,8 @@ The access-control policy lives in its own file, `security/access-control.json` 
 | `edit` | Edit content (draft only) |
 | `sign` | Add signatures |
 | `decrypt` | Decrypt if encrypted |
+
+These permission names are **workflow declarations, not enforcement primitives** (Section 5.2, Enforcement Model). In particular `print` and `copy` describe the author's intended handling of already-readable content: once a consumer can render the plaintext, no declaration can prevent a non-compliant one from printing or copying it, and this extension claims no such control — the PDF permission-flags model is deliberately not reproduced. What the security model actually provides is: `decrypt` grants map to key distribution when encryption is applied (Section 4), and a manifest-covering signature attests the policy's *integrity* (Section 9.9) — never its enforcement.
 
 ### 5.4 Principals
 
@@ -585,7 +603,16 @@ Implementations SHOULD warn about weak algorithms and support migration.
 
 ### 8.2 Post-Quantum Readiness
 
-ML-DSA (formerly Dilithium) is included for post-quantum readiness. Hybrid signatures (classical + PQC) are supported.
+ML-DSA-65 (formerly Dilithium) is included in the algorithm table (section 3.2) for post-quantum readiness, with **Experimental** status.
+
+**Hybrid signing profile.** A hybrid (classical + PQC) posture is expressed with existing primitives — no new mechanism:
+
+1. The signer produces **two independent signatures over the same scope** (section 3.1): one under a classical algorithm (e.g. `ES256`), one under `ML-DSA-65`, each with its own credential.
+2. The document's `signaturePolicy.requiredSigners` (section 3.12) names **both** credentials. Because the policy rides the signed manifest projection, a `frozen`/`published` document then verifies only if **each** signature is independently `valid` — stripping either one is the section 3.12 downgrade case and MUST be rejected.
+
+**What the profile guarantees — and against whom.** The two signatures share no key material, and each is evaluated by the ordinary per-signature machine (section 3.8). Against an attacker who can forge under **neither** credential, the set is tamper-evident exactly as section 3.12 provides. But the dual-algorithm bar is **not** unconditional, because the `requiredSigners` policy is itself protected only by the signatures it governs: an attacker who fully breaks **one** algorithm can re-author the manifest with a policy naming only the broken credential, forge that manifest-covering signature over the doctored projection, and strip the surviving signature — now merely optional, whose removal section 3.12 does not detect. A single broken algorithm likewise suffices to mint a fresh document in the signer's name under an attacker-authored policy, or to forge a content-only `draft`/`review` presentation via the lifecycle-downgrade residual (section 9.8). The in-document policy therefore hardens the set only while both algorithms stand; **surviving a full break of one algorithm additionally requires a verifier-side expectation** — deployment configuration that documents from this signer must carry a valid signature under the still-secure credential — which this version does not standardize (in-document material is never self-authorizing, section 3.9, and that cuts both ways). Deployments adopting this profile during migration SHOULD configure exactly that expectation.
+
+The profile inherits the weakest declared status of its parts: with `ML-DSA-65` marked Experimental, a hybrid set carrying it is Experimental as a whole, and interoperability of the ML-DSA-65 JWS encoding is not yet pinned by this version's conformance gates. A single-envelope **composite** signature algorithm (one signature object binding both keys, e.g. the emerging composite ML-DSA drafts) is future work; when standardized it can join section 3.2 without changing this profile.
 
 ### 8.3 Timing Attacks
 
@@ -623,6 +650,8 @@ The encryption model (Section 4) uses AEAD ciphers (AES-256-GCM, ChaCha20-Poly13
 - **Nonce reuse is catastrophic.** Two ciphertexts sharing a (key, `iv`) pair leak plaintext and let an attacker forge authenticated ciphertext. An implementation MUST enforce a unique `iv` per encryption under each content-encryption key (Section 4.6).
 - **No release of unverified plaintext.** A reader MUST verify the authentication tag before releasing or acting on any decrypted bytes; the decryption procedure (Section 4.5) is defined so verification gates plaintext use, and a failed tag MUST discard the plaintext.
 - **Weak password KDF.** Password-based wrapping (`PBES2-HS256+A256KW`) MUST use a unique per-document salt (`p2s`) and a high iteration count (`p2c` ≥ 600000) (Section 4.6); otherwise the encrypted archive is open to offline password cracking and cross-document precomputation.
+
+When encryption is combined with signatures, the composition rules of Section 4.7 govern: sign-then-encrypt only, tag verification before plaintext release, and document-ID recomputation before any signature state stronger than `unknown` is reported — a consumer without the key MUST NOT present the document as verified.
 
 ## 9. Scoped Signatures
 
@@ -754,6 +783,14 @@ Implementations MUST NOT represent a signature as covering anything beyond the a
 - For a document in state `draft` or `review`, a signature MAY be content-only; such a signature does not attest the manifest, and an implementation MUST surface that limitation rather than implying manifest coverage.
 
 > **Lifecycle downgrade.** A content-only signature binds neither the lifecycle state nor any other manifest field, so it cannot establish that a document was not `frozen` or `published`. An attacker can take a frozen document, rewrite its manifest (including `state`), and present only a content-only signature over the unchanged content. A verifier MUST NOT represent a document's state — or any manifest field — as authenticated on the strength of a content-only signature, and SHOULD warn when a document is presented this way. A declared required-signer set (Section 3.12) binds the signature set against stripping and downgrade, but only through *manifest-covering* signatures: an attacker who rewrites `state` to `draft`/`review` and presents only a content-only signature escapes the policy exactly as it escapes lifecycle binding, because a content-only signature attests no manifest field, the policy included. A signature-timestamp (Section 3.6) binds a signature's existence, not the manifest state, so it does not close this gap; closing it requires authenticating the manifest state against a content-only downgrade, which this version does not provide.
+>
+> **Why this residual is minimal (reduction).** Walk through what the attacker actually needs. On a `frozen` or `published` document **every** signature covers the manifest projection (the coverage requirement above), and the projection binds `state` — so rewriting the state breaks every frozen-era signature's `scope.manifest` match, and none of them can appear in the downgraded presentation. Every presentation the attacker can still construct is one of three:
+>
+> - **(a) Reuse of an honestly-made content-only signature** over the same content — typically from a `draft`/`review`-stage archive that circulated before freezing, though any honestly-produced content-only signature over that content serves. Because such a signature binds only `scope.documentId`, it can be re-hosted on an attacker-crafted manifest (arbitrary state, lineage, policy — none of it authenticated); if the attacker instead reuses a review-era *manifest-covering* signature, the manifest fields **are** authenticated and cannot be spoofed, forcing exact-projection replay. Either way this is a *freshness* problem — presenting a superseded or re-hosted honest attestation — which no self-contained format can solve (detecting it requires external state; the provenance chain's no-external-infrastructure design names the transparency-log alternative a deliberate non-goal, Provenance and Lineage section 2.1).
+> - **(b) A fresh content-only signature by a credential the verifier pins** — including the attacker's own legitimately-pinned credential — since a content-only scope over public content is mintable by any key-holder. This is not forgery: the authenticated identity is genuinely the minting party's, attesting genuine content in an unauthenticated state, with the mandatory content-only warning attached. The attacker gains only the ability to attach *their own* name to content that exists.
+> - **(c) Unsigned content**, which carries no authenticity claim at all.
+>
+> The load-bearing guarantee survives every case: **tampered content is never presented as signed** (any content change breaks every signature's `scope.documentId`), and **no honest party is impersonated** (a signature reaching `valid` was made by the holder of that pinned credential). What the downgrade escape yields is presentations of *genuine* content whose lifecycle state is unauthenticated — which is precisely what the verifier warning discloses. The residual is thus the floor left by the format's own commitments (self-contained files, deterministic re-packagable signatures), not an unclosed gap in the signature model. Requiring review-state signatures to bind the projection as well was considered and rejected — it narrows case (a) to exact-projection replay but breaks signatures on routine manifest churn during review, and it leaves (b) and (c) untouched (see the design-decisions register, DD-021).
 
 ### 9.9 Access-Control Policy Binding
 
