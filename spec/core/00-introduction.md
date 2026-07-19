@@ -114,7 +114,7 @@ document.cdx
 ├── manifest.json           # Document manifest (required)
 ├── content/
 │   ├── document.json       # Semantic content blocks (required)
-│   └── block-index.json    # Block hashes for Merkle proofs (optional)
+│   └── block-index.json    # Leaf hashes for Merkle proofs (optional)
 ├── presentation/
 │   ├── paginated.json      # Fixed layout presentation (optional)
 │   ├── continuous.json     # Reflow presentation (optional)

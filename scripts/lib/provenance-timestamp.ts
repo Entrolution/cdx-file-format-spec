@@ -91,11 +91,16 @@ function hashConcat(algorithm: string, left: Buffer, right: Buffer): Buffer {
 }
 
 /**
- * Recompute an aggregated timestamp's Merkle inclusion proof (09 §6.5, the §5.2
- * algorithm pinned to raw-digest-byte concatenation): fold each sibling into the
+ * Recompute an aggregated timestamp's Merkle inclusion proof (09 §6.5):
+ * UNTAGGED raw-digest-byte concatenation — fold each sibling into the
  * accumulator — a `left` sibling on the left (`H(sibling || acc)`), a `right`
  * sibling on the right (`H(acc || sibling)`) — and compare the result to `root`.
  * All hashes MUST share one algorithm. Returns true iff the path reproduces root.
+ *
+ * This is deliberately NOT the tagged cdx-bmt-1 block-tree fold of 09 §5.2
+ * (./block-merkle.ts): an aggregated proof's shape is fixed by the external
+ * aggregator (e.g. OpenTimestamps), so CDX domain tags cannot be imposed on it.
+ * check-block-merkle.ts pins the divergence in both directions.
  */
 export function verifyMerkleInclusion(leaf: string, path: MerklePathElement[], root: string): boolean {
   if (!Array.isArray(path)) {

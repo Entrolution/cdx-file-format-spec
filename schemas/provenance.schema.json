@@ -76,6 +76,11 @@
           "type": "string",
           "description": "Hash algorithm used",
           "enum": ["sha256", "sha384", "sha512", "sha3-256", "sha3-512", "blake3"]
+        },
+        "construction": {
+          "type": "string",
+          "description": "Merkle tree construction identifier (core 09 §4.3–4.4). Absent is read as cdx-bmt-1.",
+          "enum": ["cdx-bmt-1"]
         }
       },
       "additionalProperties": false

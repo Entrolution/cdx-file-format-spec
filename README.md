@@ -176,7 +176,7 @@ document.cdx
 ├── manifest.json          # Document manifest (includes lineage, Merkle root)
 ├── content/
 │   ├── document.json      # Semantic content blocks
-│   └── block-index.json   # Block hashes for Merkle proofs
+│   └── block-index.json   # Leaf hashes for Merkle proofs
 ├── presentation/
 │   ├── paginated.json     # Print hints (reactive)
 │   ├── continuous.json    # Screen hints (reactive)

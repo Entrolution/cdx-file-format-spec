@@ -24,6 +24,7 @@ export const dependentSchemas: DependentSchema[] = [
   { schema: 'academic.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'annotations.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'asset-index.schema.json', refs: ['anchor.schema.json'] },
+  { schema: 'block-index.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'collaboration.schema.json', refs: ['anchor.schema.json'] },
   { schema: 'content.schema.json', refs: ['anchor.schema.json', 'semantic.schema.json', 'academic.schema.json', 'presentation.schema.json', 'legal.schema.json', 'forms.schema.json'] },
   { schema: 'dublin-core.schema.json', refs: ['anchor.schema.json'] },

@@ -470,6 +470,30 @@ This document records key design decisions made during the CDX format specificat
 
 ---
 
+## DD-020: Tagged Block Merkle Construction (cdx-bmt-1)
+
+**Decision**: The block-level Merkle tree (core 09 §4) uses RFC 6962-style tagged hashing — leaf = `H(0x00 ‖ JCS(block))`, internal = `H(0x01 ‖ left ‖ right)` — and promotes an unpaired odd node unchanged to the next level. The construction carries a wire identifier (`cdx-bmt-1`) in the block index, the manifest `content` reference, and the provenance `merkle` summary. The §5.2 block-proof fold is thereby **decoupled** from the §6.5 aggregated-timestamp fold, which remains untagged raw concatenation.
+
+**Alternatives Considered**:
+1. Keep the disclosed-but-open construction (untagged, duplicate-odd) — the prior status quo
+2. RFC 6962 Merkle Tree Hash exactly (split at the largest power of two below n)
+3. Reject odd node counts outright (require padding at the data layer)
+4. Tagged hashing with odd-node promotion (chosen)
+
+**Rationale**:
+- **Pre-ossification window** — no code, fixture, or implementation had yet computed a block-level root, so the construction could be hardened with zero migration cost; domain-separation tags are exactly the kind of change that cannot be retrofitted compatibly once roots circulate
+- **Closes both disclosed defects** — duplicate-odd lets two distinct block sets share one root (the CVE-2012-2459 pattern); untagged nodes let an internal value be replayed as a leaf. Tags plus promotion close both, and promotion is collision-safe precisely *because* of the tags (a promoted value can never be reinterpreted at the other role)
+- **Promotion over the 6962 split** — promotion keeps the §4.3 pairing algorithm a three-line loop and yields the same security properties under tagging; the 6962 split changes tree shape for no additional guarantee here
+- **Why §6.5 stays untagged** — the aggregated-anchor proof shape is fixed by external aggregators (OpenTimestamps); CDX tags cannot be imposed on it. The two folds were previously pinned identical in prose; they are now defined as deliberately distinct, and `check:block-merkle` regression-pins the divergence in both directions
+- **Wire-detectable evolution** — the `construction` identifier means any future change produces a detectably different declaration instead of silently altering what a stored root means
+
+**Consequences**:
+- The block-level root remains **advisory** in this version: it is bound by neither the document ID nor the manifest projection (`construction`, like `merkleRoot`/`blockCount`, is dropped from the projection — pinned by a manifest-projection KAT vector). Binding the root, and with it trusted redaction/inclusion proofs, is deferred future work
+- `scripts/lib/block-merkle.ts` is the executable reference (independent-oracle KATs, corpus grounding of the shipped block index); `check:block-merkle` gates it in CI
+- An implementation that applied the §6.5 untagged fold to block proofs (or vice versa) now fails verification instead of silently interoperating with the wrong construction
+
+---
+
 ## Open Questions
 
 ### OQ-001: Binary Variant

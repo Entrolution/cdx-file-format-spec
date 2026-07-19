@@ -28,6 +28,7 @@ export interface ClosureVector {
 export const CLOSED_SCHEMAS: string[] = [
   'dublin-core.schema.json',
   'asset-index.schema.json',
+  'block-index.schema.json',
   'precise-layout.schema.json',
   'provenance.schema.json',
   'presentation.schema.json',
@@ -120,6 +121,21 @@ export const closureVectors: ClosureVector[] = [
     description: 'license',
     validInstance: { name: 'CC-BY-4.0' },
     invalidInstance: { name: 'CC-BY-4.0', bogus: 1 },
+  },
+
+  // --- block-index ---------------------------------------------------------
+  {
+    schema: 'block-index.schema.json',
+    description: 'root (single-leaf identity: root == the one leaf hash; blocks is minItems:1 — no root exists for zero leaves)',
+    validInstance: { version: '0.1', algorithm: 'sha256', construction: 'cdx-bmt-1', root: HASH, blocks: [{ id: 'block-1', hash: HASH, index: 0 }] },
+    invalidInstance: { version: '0.1', algorithm: 'sha256', construction: 'cdx-bmt-1', root: HASH, blocks: [{ id: 'block-1', hash: HASH, index: 0 }], bogus: 1 },
+  },
+  {
+    schema: 'block-index.schema.json',
+    ref: '#/$defs/blockEntry',
+    description: 'blockEntry',
+    validInstance: { id: 'block-1', hash: HASH, index: 0 },
+    invalidInstance: { id: 'block-1', hash: HASH, index: 0, bogus: 1 },
   },
 
   // --- precise-layout ------------------------------------------------------

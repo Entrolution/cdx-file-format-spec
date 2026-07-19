@@ -95,6 +95,7 @@ function exampleUsesSchema(exampleDir: string, schemaName: string): boolean {
   const schemaFileMap: Record<string, string[]> = {
     'manifest.schema.json': ['manifest.json'],
     'content.schema.json': ['content/document.json'],
+    'block-index.schema.json': ['content/block-index.json'],
     'dublin-core.schema.json': ['metadata/dublin-core.json'],
     'collaboration.schema.json': ['collaboration/comments.json', 'collaboration/changes.json'],
     'forms.schema.json': ['forms/data.json'],

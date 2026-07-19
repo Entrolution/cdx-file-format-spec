@@ -20,6 +20,7 @@
     "check:signature-set": "npx tsx scripts/check-signature-set.ts",
     "check:lineage": "npx tsx scripts/check-lineage.ts",
     "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
+    "check:block-merkle": "npx tsx scripts/check-block-merkle.ts",
     "check:schema-closure": "npx tsx scripts/check-schema-closure.ts",
     "check:spec-examples": "npx tsx scripts/check-spec-examples.ts",
     "check:structural": "npx tsx scripts/check-structural-constraints.ts",

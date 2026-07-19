@@ -206,39 +206,50 @@ Content blocks form a Merkle tree, enabling efficient proofs:
                              │
               ┌──────────────┴──────────────┐
               │                             │
-       ┌──────┴──────┐               ┌──────┴──────┐
-       │  Hash(L+R)  │               │  Hash(L+R)  │
-       └──────┬──────┘               └──────┬──────┘
+      ┌───────┴───────┐             ┌───────┴───────┐
+      │ H(0x01‖L‖R)   │             │ H(0x01‖L‖R)   │
+      └───────┬───────┘             └───────┬───────┘
               │                             │
        ┌──────┴──────┐               ┌──────┴──────┐
        │             │               │             │
-   ┌───┴───┐    ┌───┴───┐       ┌───┴───┐    ┌───┴───┐
-   │Block 1│    │Block 2│       │Block 3│    │Block 4│
-   └───────┘    └───────┘       └───────┘    └───────┘
+  ┌────┴────┐   ┌────┴────┐     ┌────┴────┐   ┌────┴────┐
+  │ Leaf 1  │   │ Leaf 2  │     │ Leaf 3  │   │ Leaf 4  │
+  │H(0x00‖b)│   │H(0x00‖b)│     │H(0x00‖b)│   │H(0x00‖b)│
+  └─────────┘   └─────────┘     └─────────┘   └─────────┘
 ```
 
-### 4.2 Block Hash Computation
+### 4.2 Leaf Hash Computation
 
-Each block's hash is computed from its canonical JSON representation:
+The tree's leaves are the document's **top-level content blocks** — the direct children of the content root, in document order (the example manifest's `blockCount` counts exactly these). Each leaf hash is computed over the block's canonical JSON representation, prefixed by a one-byte **leaf tag**:
 
 ```
-BlockHash = SHA256(CanonicalJSON(block))
+LeafHash = Hash(0x00 ‖ CanonicalJSON(block))
 ```
 
-Where canonical JSON follows RFC 8785 (JCS):
+Where `‖` is byte concatenation and canonical JSON follows RFC 8785 (JCS):
 - Keys sorted by UTF-16 code unit (per JCS)
 - No whitespace
 - Deterministic number formatting (per RFC 8785)
 
+The `0x00` prefix is the leaf domain-separation tag (the RFC 6962 §2.1 construction): together with the `0x01` internal tag (Section 4.3) it guarantees a leaf hash and an internal-node hash can never collide, so an internal node value cannot be presented as a leaf, nor a leaf as an internal node.
+
 ### 4.3 Tree Construction
 
+This construction is identified on the wire as **`cdx-bmt-1`** (Sections 4.4–4.5):
+
 ```
-1. Compute hash of each content block
-2. If odd number of blocks, duplicate last hash
-3. Pair hashes and compute parent: Hash(left + right)
-4. Repeat until single root hash remains
-5. Store root hash in manifest
+1. Compute the leaf hash of each top-level content block (Section 4.2)
+2. Pair adjacent hashes left-to-right and compute each parent:
+   Hash(0x01 ‖ left ‖ right)
+3. If a level holds an odd number of nodes, promote the final unpaired
+   node to the next level unchanged (never duplicate, never re-hash it)
+4. Repeat until a single root hash remains
+5. Store the root hash in the manifest (Section 4.4)
 ```
+
+`left` and `right` are the raw digest bytes of the child hashes; `0x01` is the one-byte **internal tag**. Every hash in one tree MUST use the same algorithm.
+
+The tags and the promotion rule close two known weaknesses of naive constructions: duplicating the last hash to pad an odd level lets two distinct block sets share one root (the CVE-2012-2459 pattern), and untagged nodes let an internal value be replayed as a leaf. Promotion is unambiguous *because* of the tags — a promoted node keeps its value and level-role, and the tag prevents its reinterpretation. For example, five leaves `L1..L5` reduce as `N(N(N(L1,L2), N(L3,L4)), L5)`: `L5` is promoted unchanged through two levels and pairs last.
 
 ### 4.4 Manifest Integration
 
@@ -248,36 +259,45 @@ Where canonical JSON follows RFC 8785 (JCS):
     "path": "content/document.json",
     "hash": "sha256:contenthash...",
     "merkleRoot": "sha256:merkleroot...",
-    "blockCount": 42
+    "blockCount": 42,
+    "construction": "cdx-bmt-1"
   }
 }
 ```
 
+`construction` names the tree construction the root was computed under; the only value this version defines is `cdx-bmt-1` (Section 4.3). The identifier makes any future construction change detectable on the wire rather than silently altering what a stored root means. A consumer that recomputes or verifies against a root MUST NOT assume the `cdx-bmt-1` rules for a root whose declared construction it does not recognize; an absent `construction` on a document declaring this specification version is read as `cdx-bmt-1`.
+
 ### 4.5 Block Index
 
-For efficient proof generation, store block hashes:
+For efficient proof generation, store the leaf hashes (Section 4.2):
 
 Location: `content/block-index.json`
 
+<!-- cdx-schema: block-index.schema.json -->
 ```json
 {
   "version": "0.1",
   "algorithm": "sha256",
-  "root": "sha256:merkleroot...",
+  "construction": "cdx-bmt-1",
+  "root": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf",
   "blocks": [
     {
       "id": "block-1",
-      "hash": "sha256:blockhash1...",
+      "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "index": 0
     },
     {
       "id": "block-2",
-      "hash": "sha256:blockhash2...",
+      "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
       "index": 1
     }
   ]
 }
 ```
+
+The example's `root` is real: it is `H(0x01 ‖ leaf₀ ‖ leaf₁)` over the two fixed-pattern leaf hashes shown, so an implementation can check its fold against this file (the same vectors the conformance gate pins).
+
+Each `blocks[].hash` is the block's tagged **leaf hash** (Section 4.2), not an untagged hash of the block bytes; `index` is the block's zero-based position in document order, and `root` MUST equal the root the `blocks[]` leaves reduce to under the declared `construction`.
 
 ## 5. Merkle Proofs
 
@@ -305,20 +325,24 @@ Prove a block exists in a document without revealing other blocks:
 }
 ```
 
+Because an odd node is promoted rather than duplicated (Section 4.3), a promoted level contributes **no** path element: the path holds one sibling per level at which the running node was actually paired, so its length is at most ⌈log₂(blockCount)⌉ and may be shorter for a block whose ancestors were promoted.
+
 ### 5.2 Proof Verification
 
 ```
-1. Start with block hash
+1. Start with the block's leaf hash (Section 4.2)
 2. For each path element:
-   a. If position is "left": hash = Hash(element.hash + hash)
-   b. If position is "right": hash = Hash(hash + element.hash)
+   a. If position is "left":  hash = Hash(0x01 ‖ element.hash ‖ hash)
+   b. If position is "right": hash = Hash(0x01 ‖ hash ‖ element.hash)
 3. Final hash must equal merkleRoot
 4. merkleRoot must match document's manifest
 ```
 
-The `+` in the construction (Section 4.3) and in this verification is **raw-digest-byte concatenation**, identical to the aggregated-anchor recomputation (Section 6.5): each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm. Pinning the encoding here keeps a block proof built from Section 5.2 alone interoperable with the aggregated construction rather than diverging between implementations.
+`‖` concatenates the one-byte internal tag and the **raw digest bytes** of the two children: each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm. To verify that a *given block* is the proof's subject, recompute its leaf hash as `Hash(0x00 ‖ CanonicalJSON(block))` (Section 4.2) and require it to equal `block.hash` before folding.
 
-**Construction limitations (disclosed, not closed).** The tree construction (Section 4.3) hashes an odd node count by duplicating the last hash, and it applies no domain-separation tag distinguishing a leaf from an internal node. Duplicating the last hash lets two distinct block sets share one root (the CVE-2012-2459 pattern), and the absence of a leaf/internal tag lets an internal node value be presented as a leaf; a hardened construction would tag leaves and internal nodes distinctly and reject rather than duplicate an odd node. Neither is changed in this version, and both are bounded by the fact that the block-level `merkle.root` is itself unverified here (Section 6.7): Section 5's proofs are defined for interoperability but are not yet a trusted redaction/inclusion oracle, and a verifier MUST NOT rely on a block-level Merkle proof as authenticated evidence until the root is bound.
+This tagged fold is the `cdx-bmt-1` construction and is **deliberately distinct** from the aggregated-anchor recomputation (Section 6.5), which folds by *untagged* raw concatenation because its proof shape is fixed by external aggregators. A verifier MUST NOT apply the Section 6.5 fold to a block proof, or this fold to an aggregated proof.
+
+**Construction rationale, and the remaining limitation.** The leaf/internal tags and the promotion rule exist to close two classic weaknesses of naive Merkle trees — odd-node duplication lets two distinct block sets share one root (the CVE-2012-2459 pattern), and untagged nodes let an internal value be presented as a leaf (Section 4.3). What remains open is the root's own authentication: the block-level `merkle.root` is itself unverified in this version (Section 6.7) — it is advisory in the manifest and is dropped from the signed manifest projection (Security Extension section 9.7). Section 5's proofs are therefore defined for interoperability but are not yet a trusted redaction/inclusion oracle, and a verifier MUST NOT rely on a block-level Merkle proof as authenticated evidence until the root is bound.
 
 ### 5.3 Exclusion Proofs
 
@@ -473,7 +497,7 @@ The Merkle leaf `proof.documentHash` MUST equal the record `documentId` and the 
 
 **Verification.**
 
-1. Recompute the Merkle root from `proof.documentHash` along `proof.path`: fold each sibling by **raw-digest-byte concatenation** — a `left` sibling on the left (`H(sibling || acc)`), a `right` sibling on the right (`H(acc || sibling)`), under the leaf's hash algorithm — and require the result to equal `merkleRoot`. This is the Section 5.2 inclusion-proof algorithm, pinned to raw-byte concatenation: each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm.
+1. Recompute the Merkle root from `proof.documentHash` along `proof.path`: fold each sibling by **untagged raw-digest-byte concatenation** — a `left` sibling on the left (`H(sibling || acc)`), a `right` sibling on the right (`H(acc || sibling)`), under the leaf's hash algorithm — and require the result to equal `merkleRoot`. Each hash's `algorithm:hexdigest` is decoded to its raw digest bytes before hashing, and every hash in one proof MUST share an algorithm. This fold is **deliberately not** the tagged `cdx-bmt-1` block-tree fold (Section 5.2): an aggregated proof's shape is fixed by the external aggregator that built the tree (e.g. OpenTimestamps), so CDX-specific domain tags cannot be imposed on it. A verifier MUST NOT apply the Section 5.2 tagged fold here, nor this fold to a block proof.
 2. Verify that `anchor` commits `merkleRoot` on-chain, by the blockchain rules of Section 6.4 (locate by `anchor.blockHash`, chain-relative finality, block time as an upper bound).
 3. Take T from the anchor block (Section 6.6).
 
@@ -732,4 +756,4 @@ If an ancestor cannot be resolved, chain verification is **INCOMPLETE**, not "va
 }
 ```
 
-Verification: Starting with block hash, apply path to reach root.
+Verification: starting with the block's leaf hash (Section 4.2), fold each path element under the internal tag (Section 5.2) to reach the root.

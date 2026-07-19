@@ -1,0 +1,363 @@
+{
+  "version": "0.1",
+  "algorithm": "sha256",
+  "construction": "cdx-bmt-1",
+  "root": "sha256:13f84a9cc6d35b9a94cec11fdd67259b772ed59be155ef55be45d279bec67339",
+  "blocks": [
+    {
+      "id": "title",
+      "hash": "sha256:3b5869018650ae1c6c3c3f64778ecef9ea273801e894235cf476f34e0dba7261",
+      "index": 0
+    },
+    {
+      "id": "intro",
+      "hash": "sha256:c8273ca745b32eb3f08c039f3f5f9860966695f7fbc4c668fa72b9131d482914",
+      "index": 1
+    },
+    {
+      "id": "hr-1",
+      "hash": "sha256:1ab5ad5e35bfdb255b0b1139a36351cff045f8881bc7d0664f227cea48f90c0e",
+      "index": 2
+    },
+    {
+      "id": "text-content-heading",
+      "hash": "sha256:d81453d0cca3cde2ffb07b3e416b199f7cf5511d8c1c671c2d795b911606cfcc",
+      "index": 3
+    },
+    {
+      "id": "paragraph-heading",
+      "hash": "sha256:5fa701ae39c4d19c83da7cb723d1594cbe0712d1be1f37d5870af13089204163",
+      "index": 4
+    },
+    {
+      "id": "text-marks-demo",
+      "hash": "sha256:f4e0c219c31a6f7199b00ea29429ff675ced67d96a355e63ce74f4132f9bd91a",
+      "index": 5
+    },
+    {
+      "id": "link-demo",
+      "hash": "sha256:2ff5e6d8a69bb31ceff779f6d1e5d7f8805d38a04d9eabeba396c96c5ead4e42",
+      "index": 6
+    },
+    {
+      "id": "lists-heading",
+      "hash": "sha256:92766e31a2892adf8e02efae2285edd872fb0dd65c99d121025f44e961b26f5c",
+      "index": 7
+    },
+    {
+      "id": "unordered-list-intro",
+      "hash": "sha256:57d0eee450d1108b126daffc88f37d2c6b68d69613bbf398d2c96b6b7bdd2614",
+      "index": 8
+    },
+    {
+      "id": "unordered-list",
+      "hash": "sha256:303096227698a28e73d1e69f10a5d64821fed43995ce9d90fad42c630f662f17",
+      "index": 9
+    },
+    {
+      "id": "ordered-list-intro",
+      "hash": "sha256:e2d7c8cdf2d45c0d698646c140960b198aa132fe729dd6ca0033e4ebe50a809e",
+      "index": 10
+    },
+    {
+      "id": "ordered-list",
+      "hash": "sha256:7df6b30b6b7887e2c7cc08f79b1b4a5e8b9c224a26fc7ac6e6351e8b0a6e9ddc",
+      "index": 11
+    },
+    {
+      "id": "task-list-intro",
+      "hash": "sha256:f7f7915aba938cb552588287494b5e36278f1ed0659216b9e1a268ca4dae7b29",
+      "index": 12
+    },
+    {
+      "id": "task-list",
+      "hash": "sha256:57b0d535d9e8b8e07deabcbbf3811697c0101e07783991b10a3e505ec3f93eca",
+      "index": 13
+    },
+    {
+      "id": "blockquote-heading",
+      "hash": "sha256:68d1693186e6b4fe08eccc83dfb584e1db3ad1bbd8ed5919633135ffbddd2363",
+      "index": 14
+    },
+    {
+      "id": "blockquote-demo",
+      "hash": "sha256:e7b0592835db769a19250bcab78113aa3331478d4f46d040e5d460f9eba28a0f",
+      "index": 15
+    },
+    {
+      "id": "definition-list-heading",
+      "hash": "sha256:22dbd07b618840f957f499ee39f0723d079a98593f78cf58f4cd047938cd20d1",
+      "index": 16
+    },
+    {
+      "id": "definition-list-demo",
+      "hash": "sha256:e677a1cfe8c730a3f8ee3c373554463716081dcc4e8276a78270e69bdd266779",
+      "index": 17
+    },
+    {
+      "id": "hr-2",
+      "hash": "sha256:2f80354e6b82be13bc7f2dfd238a15a26033d532e1d21974300f14dc192c6dca",
+      "index": 18
+    },
+    {
+      "id": "code-heading",
+      "hash": "sha256:cd4b5e99948d4b042acbeea2ce26b455275b1ca447922a0a7bd3b11bc3f9c0be",
+      "index": 19
+    },
+    {
+      "id": "code-block-demo",
+      "hash": "sha256:f0e51b74074349aa200461d7439e588f3a38c33264fb31888b5d35f676e3dea7",
+      "index": 20
+    },
+    {
+      "id": "hr-3",
+      "hash": "sha256:71b511cdb6c3bab5b0a2e5c06ba8ce7f2fb0eda837f284455eef0c58560532aa",
+      "index": 21
+    },
+    {
+      "id": "table-section",
+      "hash": "sha256:c437f63befde04b0bb8938bc046d78665e03f4b5f6a2227243fea97eaec5f510",
+      "index": 22
+    },
+    {
+      "id": "table-demo",
+      "hash": "sha256:1d94be49a3fc382621a7c610a045af675b45975b9e28e41b586b1a07905b74be",
+      "index": 23
+    },
+    {
+      "id": "hr-4",
+      "hash": "sha256:616056a8cb3ccb972e1c504d758e3d0718ba98e17852aad94e8390d4097d1da8",
+      "index": 24
+    },
+    {
+      "id": "math-heading",
+      "hash": "sha256:f07539d01b75639b5ca41941ad5f549755a5aa253e1a3507fabea87336587c1f",
+      "index": 25
+    },
+    {
+      "id": "math-intro",
+      "hash": "sha256:600bb099769bb619deb126128c3e7b8ec51440f871ab3b1093a705e5b8a88585",
+      "index": 26
+    },
+    {
+      "id": "math-display",
+      "hash": "sha256:faa990a68b877b408bfa8eaf137ea04f5ea4f98489296519f80eba0a10cfc58c",
+      "index": 27
+    },
+    {
+      "id": "inline-math-demo",
+      "hash": "sha256:bf03f9e2e68b229f09fc9783d9ae41250ef5f2f463383def3058858a3859b5c5",
+      "index": 28
+    },
+    {
+      "id": "hr-5",
+      "hash": "sha256:e1bcfbfd7c57bd9f8db73f57253385a0c80833150180781b6cf33a9af4118951",
+      "index": 29
+    },
+    {
+      "id": "media-heading",
+      "hash": "sha256:fe64cda48f4e66233d6363b22c20ddbdb37fbc05646b00d48b97f01d113628b3",
+      "index": 30
+    },
+    {
+      "id": "image-heading",
+      "hash": "sha256:8fe732b577a7cb48d30c10a508a1ac01713d48f0c3d6586bf32266a3087e461a",
+      "index": 31
+    },
+    {
+      "id": "image-demo",
+      "hash": "sha256:3820a4b164bfb21e6d110e44b71c3762c005bfbaf55bfda59dbb5bb4d35f2a07",
+      "index": 32
+    },
+    {
+      "id": "svg-heading",
+      "hash": "sha256:9a6ef2ffe1b7fa81b55ccee1fae619aeddc031101810af2b91a148e58f0ee657",
+      "index": 33
+    },
+    {
+      "id": "svg-demo",
+      "hash": "sha256:f207a59e1833ad9c63868631fd3e0daf8fbb4d76616315f6a8c69bc6b0acfa3e",
+      "index": 34
+    },
+    {
+      "id": "figure-heading",
+      "hash": "sha256:dbe4ece30005fc9762b023a0562dc48d5a873f231728a279a15806aad2555b39",
+      "index": 35
+    },
+    {
+      "id": "figure-demo",
+      "hash": "sha256:7398298a3834183b256516c2b3182c341572c643de7dd8ea16520ba8651d6d96",
+      "index": 36
+    },
+    {
+      "id": "barcode-heading",
+      "hash": "sha256:b1c65f647766dcd8f11741dd5f311bd89c5768895f5e57fa2b1fe82a74c9271f",
+      "index": 37
+    },
+    {
+      "id": "qr-demo",
+      "hash": "sha256:b23b5651b243b18ad3daaaebbd63a3ff36fa4105f7a328a7c9cd958b6a71efe9",
+      "index": 38
+    },
+    {
+      "id": "barcode-demo",
+      "hash": "sha256:84203510996dd22f8589159613e8f91e541dc2f4e1bd43fba1c546b2cdd4bfdf",
+      "index": 39
+    },
+    {
+      "id": "hr-6",
+      "hash": "sha256:32fe959c5c261ae0f8803e1cfdd6569b83fccc3c6ab70b1b6aeb4a6cda618f77",
+      "index": 40
+    },
+    {
+      "id": "metrology-heading",
+      "hash": "sha256:94af52eb533b8baa7443effa78fc84834dc59bc36c52423e88099befb3c2b1a6",
+      "index": 41
+    },
+    {
+      "id": "measurement-intro",
+      "hash": "sha256:72dba0b37422732f5b373f0203c062dcde7ac144cd9bbee8afd2f2f88d70be86",
+      "index": 42
+    },
+    {
+      "id": "measurement-demo-1",
+      "hash": "sha256:7144b60d55f33157fe0261cea8ebc5a11364379aea1c8297c31230a38939163c",
+      "index": 43
+    },
+    {
+      "id": "measurement-demo-2",
+      "hash": "sha256:9bd9e5e75b35240d9c1e88503e2ca6f3eb2955956f8afe6614bba51c6fa18ccc",
+      "index": 44
+    },
+    {
+      "id": "hr-7",
+      "hash": "sha256:0a4a3a0c99fea7adbd63e1b76bb18880658ab213c0051217a98dad1c7cd4a9f2",
+      "index": 45
+    },
+    {
+      "id": "signature-heading",
+      "hash": "sha256:194cb33fed87a65818d0f7bf1ad794660ebb9959e657cfd7f6741c2a420fa5f1",
+      "index": 46
+    },
+    {
+      "id": "signature-intro",
+      "hash": "sha256:7fbb5a73f3c2b74b15afc4b701e238d2d4264211daf73c8fcc91fc39e491331d",
+      "index": 47
+    },
+    {
+      "id": "signature-demo",
+      "hash": "sha256:3fe21404889ebd937617b5f917ff37770c31eecd9c6a53f95939a0cd1660789d",
+      "index": 48
+    },
+    {
+      "id": "hr-8",
+      "hash": "sha256:c17fb2075c6109df3b56efc703b1f1836d85ed9bbc504a85ac7892c5f4105229",
+      "index": 49
+    },
+    {
+      "id": "break-heading",
+      "hash": "sha256:5761cc70c8ccb8f7b80115d275f1eebc90c8824cd86ba1af535302fb7bed7feb",
+      "index": 50
+    },
+    {
+      "id": "break-intro",
+      "hash": "sha256:75dc0724afd4b2d45e9bfbb0328c4331b04f44755c47a0b51e889b9f21f633b4",
+      "index": 51
+    },
+    {
+      "id": "break-demo",
+      "hash": "sha256:0a1277a29043dd6a61b4cd8731b6b55800d23814ab86a0d7fb6d4919046b748b",
+      "index": 52
+    },
+    {
+      "id": "break-outro",
+      "hash": "sha256:2b183736ea7595cf8b9a1ebd71e2961402c88b8c3527dfae46ff18a5db113dc9",
+      "index": 53
+    },
+    {
+      "id": "hr-9",
+      "hash": "sha256:b909ff387cdc1e0622239752fff019321e835aebbf347837df9d4dc94e087085",
+      "index": 54
+    },
+    {
+      "id": "admonition-heading",
+      "hash": "sha256:ab5db67efe7f6ccf2dc544c3298bb03bbb9eb547195e29592a9ce29f4ee7b994",
+      "index": 55
+    },
+    {
+      "id": "admonition-intro",
+      "hash": "sha256:5b2bdba03137a1bd9af8ee5102088ef8aee9f8e2a8d2048b6638e4efe90598fc",
+      "index": 56
+    },
+    {
+      "id": "admonition-note",
+      "hash": "sha256:857ffdd9a9b90c453ea413608d2f93756fd68f28cf0d8d620bbef3ac8b116f01",
+      "index": 57
+    },
+    {
+      "id": "admonition-warning",
+      "hash": "sha256:2eba018701a2d505a3a5c6214d41242938eb9c0e63c5a7c74ab0a25ae87a40d2",
+      "index": 58
+    },
+    {
+      "id": "admonition-tip",
+      "hash": "sha256:b45fe60a4540523c970b8deff3a4920a8e63d9448f9ff60ad920e05dfa103bfe",
+      "index": 59
+    },
+    {
+      "id": "admonition-danger",
+      "hash": "sha256:88ba218181019eaebf4be99e8537a44608f0b10195d4effcbb6ef8c2d45193d4",
+      "index": 60
+    },
+    {
+      "id": "hr-admonition",
+      "hash": "sha256:b06c31ead571d62a067b283f673882e447fefe515d381ddce6479ec636a793cb",
+      "index": 61
+    },
+    {
+      "id": "subfigure-heading",
+      "hash": "sha256:0ee535c2d65a8b0240cb6c4065155b313b1dedeebe2132e8339dd2b4efbe13ad",
+      "index": 62
+    },
+    {
+      "id": "subfigure-intro",
+      "hash": "sha256:7a0634414e2add8094a0ad95809d79edaf2f247762f23958a85e18cfa01c9825",
+      "index": 63
+    },
+    {
+      "id": "fig-comparison",
+      "hash": "sha256:4f08e2d1273834adbf08229f6be7ac7f7a432a55c839ed28f06062691cb029be",
+      "index": 64
+    },
+    {
+      "id": "hr-subfigure",
+      "hash": "sha256:63e9c42c431fe33cf17ec15b94c9c61b74cfa61a5c9b20b9404c47edb62fa02c",
+      "index": 65
+    },
+    {
+      "id": "i18n-heading",
+      "hash": "sha256:24d2473d28f094ab063a2bc9299e15e8df8d947cfaf0068c9d3fadb492708e50",
+      "index": 66
+    },
+    {
+      "id": "rtl-demo",
+      "hash": "sha256:b0608241f65b8239808df8a0cbc4c9186e864617eb2e52f4658e574fdbe752c2",
+      "index": 67
+    },
+    {
+      "id": "vertical-demo",
+      "hash": "sha256:cd789641d7495ab44de10e3326dfa7b869110634a9f3c40aac849730ca0a7078",
+      "index": 68
+    },
+    {
+      "id": "hr-final",
+      "hash": "sha256:44e154e448a3dfbac72c4516d2ed4a530b5b0bdc28b09dd8310552c66cb9913c",
+      "index": 69
+    },
+    {
+      "id": "conclusion",
+      "hash": "sha256:0e4330d782a534c1a9073954bd61268cd1b32e8acf18e5407b3fb9d88855468d",
+      "index": 70
+    }
+  ]
+}
