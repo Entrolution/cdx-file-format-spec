@@ -503,7 +503,7 @@ test('merge: adjacent text nodes with equal mark-sets merge; differing marks do 
   ]);
 });
 
-test('merge: a text node carrying an id is a boundary (not merged; id alpha-renamed)', () => {
+test('merge: a text node carrying an id is a boundary; its id is preserved verbatim, not relabeled', () => {
   const children = canonContent({
     content: {
       version: '0.1',
@@ -518,8 +518,11 @@ test('merge: a text node carrying an id is a boundary (not merged; id alpha-rena
       ],
     },
   }).blocks[0].children;
+  // §4.3.1 item 4: a text node with an id is preserved unchanged and acts as a
+  // boundary. A text-node id is NOT in the relabeled namespace (item 5), so it
+  // stays 'anchor1' — never rewritten to a canonical b<N> name.
   assert.deepEqual(children, [
-    { type: 'text', value: 'a', id: 'b0' },
+    { type: 'text', value: 'a', id: 'anchor1' },
     { type: 'text', value: 'b' },
   ]);
 });
@@ -1176,7 +1179,7 @@ test('purity: an unresolved #bN reference is rejected (cannot alias a generated 
   assert.equal(href, '#b');
 });
 
-test('purity: alpha-equivalence holds across a text-node id boundary and merge', () => {
+test('purity: a text-node id is content-significant — differing text-node ids yield different document ids', () => {
   const mk = (id: string) =>
     makeParts({
       content: {
@@ -1186,14 +1189,17 @@ test('purity: alpha-equivalence holds across a text-node id boundary and merge',
             type: 'paragraph',
             children: [
               { type: 'text', value: 'Hello ' },
-              { type: 'text', value: 'world', id }, // id makes this a merge boundary; relabeled
+              { type: 'text', value: 'world', id }, // id makes this a merge boundary AND is preserved verbatim
               { type: 'text', value: '!' },
             ],
           },
         ],
       },
     });
-  assert.equal(computeDocumentId(mk('w'), 'sha256'), computeDocumentId(mk('other'), 'sha256'));
+  // Unlike a BLOCK id (a normalized label), a text-node id is outside the
+  // relabeled namespace (§4.3.1 items 4-5) and preserved verbatim, so it is part
+  // of the content identity: two documents differing only in it are distinct.
+  assert.notEqual(computeDocumentId(mk('w'), 'sha256'), computeDocumentId(mk('other'), 'sha256'));
 });
 
 test('resource bounds: content nested past MAX_CANONICALIZATION_DEPTH throws a typed error, not a RangeError', () => {

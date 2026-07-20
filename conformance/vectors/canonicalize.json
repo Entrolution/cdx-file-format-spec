@@ -134,6 +134,17 @@
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
       },
       "expectReject": true
+    },
+    {
+      "name": "text-id-boundary-preserved",
+      "description": "A text node carrying an id is a merge boundary AND its id is preserved verbatim (anchor1 stays anchor1): a text-node id is not in the relabeled namespace (§4.3.1 items 4-5) and is content-significant (item 4 preserves it unchanged).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"id\":\"anchor1\"},{\"type\":\"text\",\"value\":\"b\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"id\":\"anchor1\",\"type\":\"text\",\"value\":\"a\"},{\"type\":\"text\",\"value\":\"b\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:73f87fe20f1159fc10b0574219c2ddef32d8ac8d37dbd7d2551023124c67bac7"
     }
   ]
 }

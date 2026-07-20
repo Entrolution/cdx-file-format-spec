@@ -700,6 +700,13 @@ function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: bool
     return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
   }
   if (typeof obj.id !== 'string') return undefined;
+  // A text node is typed but is NOT a content block: its `id` addresses no
+  // relabeled namespace and is preserved verbatim (§4.3.1 item 4 — "a text node
+  // that also carries an `id` … is preserved unchanged"; item 5's namespace is
+  // exhaustively blocks, `anchor` marks, and equation-line/subfigure sub-blocks).
+  // Because it is preserved, a text-node id is content-significant, not a
+  // normalized label — two documents differing only in one do not share an id.
+  if (obj.type === 'text') return undefined;
   const namedArrayItem = inArray && parentKey !== undefined;
   if (typeof obj.type === 'string') {
     // A typed object is a content block unless it is an item of a data-payload array.

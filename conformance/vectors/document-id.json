@@ -75,14 +75,14 @@
     },
     {
       "name": "merge-and-id-boundary",
-      "description": "Adjacent equal-mark text nodes merge; a text node carrying an id is a boundary, and that id is alpha-renamed (k → b0).",
+      "description": "Adjacent equal-mark text nodes merge; a text node carrying an id is a boundary, and that id is preserved verbatim (k stays k) — a text-node id is outside the relabeled namespace (§4.3.1 items 4-5) and is content-significant.",
       "parts": {
         "manifest": "{}",
         "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Hello \"},{\"type\":\"text\",\"value\":\"world\"},{\"type\":\"text\",\"value\":\"!\",\"id\":\"k\"},{\"type\":\"text\",\"value\":\"?\"}]}]}",
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
       },
-      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"Hello world\"},{\"id\":\"b0\",\"type\":\"text\",\"value\":\"!\"},{\"type\":\"text\",\"value\":\"?\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
-      "expectedId": "sha256:ae20d2e4a55e2113d93e4c99bc5b6abf3654b0ae177211cc5845fcdfcce2d4c8"
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"Hello world\"},{\"id\":\"k\",\"type\":\"text\",\"value\":\"!\"},{\"type\":\"text\",\"value\":\"?\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:2032746c797a75e9c34b8ea01cfc8caae33006830150cb8980b3bf983b118bb0"
     },
     {
       "name": "strip-derived-and-crdt",
