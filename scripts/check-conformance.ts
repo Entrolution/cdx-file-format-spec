@@ -175,6 +175,9 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['provenance problemsEmpty', 'provenance-timestamp', { name: 'n', expected: { boundToDocument: true, problemsEmpty: true } } as unknown as SuiteVector, val({ boundToDocument: true, problemsEmpty: false })],
     ['provenance merkleVerified', 'provenance-timestamp', { name: 'n', expected: { boundToDocument: true, merkleVerified: true, problemsEmpty: true } } as unknown as SuiteVector, val({ boundToDocument: true, merkleVerified: false, problemsEmpty: true })],
     ['provenance leaf', 'provenance-timestamp', { name: 'n', expected: { boundToDocument: true, leaf: 'sha256:aa', problemsEmpty: true } } as unknown as SuiteVector, val({ boundToDocument: true, leaf: 'sha256:bb', problemsEmpty: true })],
+    ['canonicalize jcs', 'canonicalize', { name: 'n', expectedCanonicalJcs: '{}', expectedId: 'sha256:aa' }, val({ canonicalJcs: '{"x":1}', id: 'sha256:aa' })],
+    ['canonicalize id', 'canonicalize', { name: 'n', expectedCanonicalJcs: '{}', expectedId: 'sha256:aa' }, val({ canonicalJcs: '{}', id: 'sha256:bb' })],
+    ['canonicalize reject-not-rejected', 'canonicalize', { name: 'n', expectReject: true } as unknown as SuiteVector, val({ canonicalJcs: '{}', id: 'sha256:aa' })],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',
@@ -201,6 +204,14 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
   );
   if (reorder.cases[0]?.status === 'pass') ok('multibase JWK compared by value (member order ignored)');
   else fail(`multibase reordered JWK should PASS, got ${reorder.cases[0]?.status}: ${reorder.cases[0]?.detail}`);
+
+  // A canonicalize reject vector PASSES when the adapter reports the input errored.
+  const rejectPass = evaluate(
+    [{ kind: 'canonicalize', vectors: [{ name: 'n', expectReject: true } as unknown as SuiteVector] }],
+    report('canonicalize', err('CDX-E-ANY')),
+  );
+  if (rejectPass.cases[0]?.status === 'pass') ok('canonicalize reject vector passes when the input is rejected');
+  else fail(`canonicalize reject vector should PASS on an error outcome, got ${rejectPass.cases[0]?.status}`);
 }
 
 // 1c. Scoping helpers, file-level requires, and the requires-key lint.

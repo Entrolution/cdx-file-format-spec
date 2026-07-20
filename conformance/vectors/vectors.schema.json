@@ -37,7 +37,8 @@
         "block-merkle-root",
         "block-merkle-inclusion",
         "block-merkle-leaf",
-        "provenance-timestamp"
+        "provenance-timestamp",
+        "canonicalize"
       ]
     },
     "clause": {
@@ -82,6 +83,23 @@
         "name",
         "description"
       ],
+      "allOf": [
+        {
+          "$comment": "A vector asserts a value or a rejection, never both: expectReject is mutually exclusive with expectedCanonicalJcs.",
+          "if": {
+            "required": [
+              "expectReject"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "expectedCanonicalJcs"
+              ]
+            }
+          }
+        }
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -101,6 +119,14 @@
         },
         "expectedSha256": {
           "$ref": "#/$defs/contentHash"
+        },
+        "expectedCanonicalJcs": {
+          "type": "string",
+          "description": "The RFC 8785 (JCS) byte string a faithful canonicalizer MUST produce. Present on a transform vector; absent on a reject vector."
+        },
+        "expectReject": {
+          "const": true,
+          "description": "Marks a vector whose input a conformant implementation MUST reject (the operation errors). Used where no portable defect code exists — the assertion is rejection, not an identifier. Mutually exclusive with expectedCanonicalJcs."
         },
         "expect": {
           "type": "object",

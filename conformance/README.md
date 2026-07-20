@@ -15,6 +15,7 @@
 | `capabilities.json` | The catalogue of capability keys an adapter declares support for. `core` is mandatory; optional capabilities scope the cases that require them. |
 | `vectors/` | Portable known-answer vectors (`vectors/*.json`), validated by `vectors/vectors.schema.json`. The source of truth for the Level-0 track. |
 | `report.schema.json` | Schema for the JSON an adapter writes to stdout under the file-based protocol. |
+| `oracles/` | Independent oracle tools that derive vector expectations without this repository's own libraries, so the vectors cannot silently snapshot the code under test. `oracles/canonicalize_oracle.py` (Python stdlib only) generates and re-verifies the `canonicalize` vectors' JCS bytes and digests; `check:canonicalize-oracle` runs it in CI. |
 | `errors.json` | The defect-code vocabulary — stable identifiers for defect classes, each carrying the specification clause it comes from and the load-time disposition the specification assigns. |
 | `errors.schema.json` | Schema for `errors.json`, enforced by `check:enumeration-coverage`. Lives here rather than in `schemas/` because everything in `schemas/` describes normative CDX structures. |
 

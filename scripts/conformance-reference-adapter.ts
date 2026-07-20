@@ -103,6 +103,19 @@ const RUNNERS: Record<string, (v: Record<string, any>) => RunOutcome> = {
 
   'block-merkle-leaf': (v) => ({ outcome: 'value', values: { leafJcs: jcsOf(v.block), leafHash: blockLeafHash(v.block, 'sha256') } }),
 
+  canonicalize: (v) => {
+    // Transform: the canonical JCS and the document id. On invalid input the
+    // library throws, which run() reports as outcome 'error' — exactly what a
+    // reject vector asserts, so reject vectors need no special handling here.
+    return {
+      outcome: 'value',
+      values: {
+        canonicalJcs: jcsOf(canonicalContent(v.parts)),
+        id: computeDocumentId(v.parts, v.algorithm ?? 'sha256'),
+      },
+    };
+  },
+
   'provenance-timestamp': (v) => {
     const got = checkTimestampBinding(v.timestamp, v.documentId);
     return {
