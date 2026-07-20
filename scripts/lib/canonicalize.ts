@@ -24,11 +24,26 @@
 import canonicalize from 'canonicalize';
 import * as crypto from 'crypto';
 
-/** Thrown for any input that cannot be canonicalized per §4.3. */
+/**
+ * Thrown for any input that cannot be canonicalized per §4.3.
+ *
+ * The optional `code` is a stable, language-independent defect identifier from
+ * the conformance vocabulary (`conformance/errors.json`). It exists so a
+ * known-answer vector can assert *which defect* was detected without asserting
+ * on an English message — the message stays free to change, the code does not.
+ *
+ * Codes are **diagnostics, not normativity**: the specification mandates
+ * dispositions (State Machine §5.4), never error identifiers, and a conforming
+ * implementation is free to use its own internal errors. Codes are assigned at
+ * the throw sites a conformance vector exercises; sites without a vector carry
+ * no code yet, and `code` is therefore optional by design.
+ */
 export class CanonicalizationError extends Error {
-  constructor(message: string) {
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'CanonicalizationError';
+    this.code = code;
   }
 }
 

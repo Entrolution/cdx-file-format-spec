@@ -34,9 +34,14 @@
 import * as crypto from 'crypto';
 
 export class ProvenanceTimestampError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'ProvenanceTimestampError';
+    this.code = code;
   }
 }
 

@@ -34,9 +34,14 @@ import { jcsOf, parseStrictJson } from './canonicalize.js';
 
 /** Thrown for a malformed JWS envelope or protected header. */
 export class JwsEnvelopeError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'JwsEnvelopeError';
+    this.code = code;
   }
 }
 

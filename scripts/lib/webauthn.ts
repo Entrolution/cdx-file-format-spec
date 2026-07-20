@@ -26,9 +26,14 @@ import * as crypto from 'crypto';
 import { jcsOf, parseStrictJson } from './canonicalize.js';
 
 export class WebauthnError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'WebauthnError';
+    this.code = code;
   }
 }
 

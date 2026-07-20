@@ -35,9 +35,14 @@ const IMPRINT_HASHES: Record<string, string> = {
 const BASE64URL = /^[A-Za-z0-9_-]*$/;
 
 export class TimestampError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'TimestampError';
+    this.code = code;
   }
 }
 

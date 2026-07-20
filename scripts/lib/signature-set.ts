@@ -37,9 +37,14 @@
 import type { SignatureState } from './signature-state.js';
 
 export class SignatureSetError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'SignatureSetError';
+    this.code = code;
   }
 }
 

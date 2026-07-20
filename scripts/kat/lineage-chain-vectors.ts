@@ -23,6 +23,10 @@ export interface LineageVector {
     outcome: LineageOutcome;
     resolvedDepth?: number;
     /** A substring the `reason` must contain (rejected/incomplete). */
+    /** Stable defect code the result must carry — the portable assertion. */
+    reasonCode?: string;
+    /** Substring of the human-readable reason. Advisory: pins THIS
+     * implementation's wording, not portable across implementations. */
     reasonIncludes?: string;
     /** Expected number of advisory warnings. */
     warnings?: number;
@@ -116,7 +120,7 @@ export const lineageVectors: LineageVector[] = [
       { id: B, parent: A, ancestors: [A] },
     ],
     subject: A,
-    expected: { outcome: 'rejected', reasonIncludes: 'cycle' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-CYCLE', reasonIncludes: 'cycle' },
   },
   {
     name: 'rejected-forged-tail',
@@ -127,7 +131,7 @@ export const lineageVectors: LineageVector[] = [
       { id: B, parent: A, ancestors: [A, FAKE] },
     ],
     subject: B,
-    expected: { outcome: 'rejected', reasonIncludes: 'contradicts' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'contradicts' },
   },
   {
     name: 'rejected-ancestors-first-mismatch',
@@ -137,28 +141,28 @@ export const lineageVectors: LineageVector[] = [
       { id: A, parent: ROOT, ancestors: [FAKE] },
     ],
     subject: A,
-    expected: { outcome: 'rejected', reasonIncludes: 'ancestors[0]' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'ancestors[0]' },
   },
   {
     name: 'rejected-root-with-ancestors',
     description: 'A root (parent:null) declaring a non-empty ancestors chain is inconsistent.',
     docs: [{ id: ROOT, parent: null, ancestors: [FAKE] }],
     subject: ROOT,
-    expected: { outcome: 'rejected', reasonIncludes: 'non-empty ancestors' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ROOT-WITH-ANCESTORS', reasonIncludes: 'non-empty ancestors' },
   },
   {
     name: 'incomplete-unresolvable-parent',
     description: 'A parent the verifier cannot resolve yields incomplete (NOT valid), with no claim about it.',
     docs: [{ id: A, parent: GHOST, ancestors: [GHOST] }],
     subject: A,
-    expected: { outcome: 'incomplete', resolvedDepth: 1, reasonIncludes: 'could not be resolved' },
+    expected: { outcome: 'incomplete', resolvedDepth: 1, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'could not be resolved' },
   },
   {
     name: 'incomplete-subject-unresolvable',
     description: 'A subject the verifier cannot resolve yields incomplete at depth 0.',
     docs: [],
     subject: A,
-    expected: { outcome: 'incomplete', resolvedDepth: 0, reasonIncludes: 'subject' },
+    expected: { outcome: 'incomplete', resolvedDepth: 0, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'subject' },
   },
   {
     name: 'incomplete-depth-cap',
@@ -171,7 +175,7 @@ export const lineageVectors: LineageVector[] = [
     ],
     subject: C,
     maxDepth: 2,
-    expected: { outcome: 'incomplete', reasonIncludes: 'traversal bound' },
+    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-BOUND-REACHED', reasonIncludes: 'traversal bound' },
   },
   {
     name: 'verified-merge-diamond',
@@ -208,7 +212,7 @@ export const lineageVectors: LineageVector[] = [
       { id: D, parent: B, mergedFrom: [GHOST] },
     ],
     subject: D,
-    expected: { outcome: 'incomplete', reasonIncludes: 'could not be resolved' },
+    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'could not be resolved' },
   },
   {
     name: 'rejected-merge-parent-forged',
@@ -220,6 +224,6 @@ export const lineageVectors: LineageVector[] = [
       { id: D, parent: B, mergedFrom: [C] },
     ],
     subject: D,
-    expected: { outcome: 'rejected', reasonIncludes: 'ancestors[0]' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'ancestors[0]' },
   },
 ];

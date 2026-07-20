@@ -38,9 +38,14 @@
  */
 
 export class LineageError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'LineageError';
+    this.code = code;
   }
 }
 
@@ -67,6 +72,13 @@ export interface LineageResult {
   resolvedDepth: number;
   /** For `incomplete`/`rejected`: a human-readable explanation. */
   reason?: string;
+  /**
+   * Stable defect identifier accompanying `reason` (`conformance/errors.json`).
+   * Lets a conformance vector assert *which* inconsistency was found without
+   * asserting on English prose. Diagnostics only — the normative outcome is
+   * `outcome` (09 §3.3); a conforming verifier need not use these identifiers.
+   */
+  reasonCode?: string;
   /** For `incomplete`: the id whose link could not be resolved (chain unverified from here up). */
   brokenAt?: string;
   /** Advisory, non-fatal observations (claimed depth/version mismatches). */
@@ -107,6 +119,7 @@ interface VisitResult {
   /** Verified: the longest resolved path to a root; otherwise where the walk stopped. */
   depth: number;
   reason?: string;
+  reasonCode?: string;
   brokenAt?: string;
 }
 
@@ -143,7 +156,7 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
     if (onPath.has(id)) {
       // A content-addressed chain cannot revisit an id on one path — a document
       // cannot be its own ancestor — so this is a proven inconsistency.
-      return { outcome: 'rejected', depth: d - 1, reason: `cycle detected at ${id}` };
+      return { outcome: 'rejected', depth: d - 1, reason: `cycle detected at ${id}`, reasonCode: 'CDX-E-LINEAGE-CYCLE' };
     }
     const cached = memo.get(id);
     if (cached !== undefined) return { outcome: 'verified', depth: cached };
@@ -153,13 +166,13 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
     // whose nodes never verify (an unresolvable base, or every node at the depth
     // bound) is not memoised, so its re-walk is what this cap stops.
     if (++resolveCount > maxNodes) {
-      return { outcome: 'incomplete', depth: d - 1, reason: `traversal node bound (${maxNodes}) reached`, brokenAt: id };
+      return { outcome: 'incomplete', depth: d - 1, reason: `traversal node bound (${maxNodes}) reached`, reasonCode: 'CDX-E-LINEAGE-BOUND-REACHED', brokenAt: id };
     }
 
     const doc = resolve(id);
     if (doc === undefined) {
       const what = d === 1 ? 'subject' : 'ancestor';
-      return { outcome: 'incomplete', depth: d - 1, reason: `${what} ${id} could not be resolved`, brokenAt: id };
+      return { outcome: 'incomplete', depth: d - 1, reason: `${what} ${id} could not be resolved`, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', brokenAt: id };
     }
 
     const parents: string[] = [];
@@ -176,7 +189,7 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
       // Root. (The root test precedes the bound test, so a root sitting exactly
       // at the bound still verifies; a non-root at the bound is incomplete.)
       if (Array.isArray(doc.ancestors) && doc.ancestors.length > 0) {
-        return { outcome: 'rejected', depth: d, reason: `root ${id} declares a non-empty ancestors chain` };
+        return { outcome: 'rejected', depth: d, reason: `root ${id} declares a non-empty ancestors chain`, reasonCode: 'CDX-E-LINEAGE-ROOT-WITH-ANCESTORS' };
       }
       if (typeof doc.depth === 'number' && doc.depth !== 1) {
         warnings.push(`root ${id} claims depth ${doc.depth}, expected 1`);
@@ -186,7 +199,7 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
     }
 
     if (d >= maxDepth) {
-      return { outcome: 'incomplete', depth: d, reason: `traversal bound (${maxDepth}) reached`, brokenAt: parents[0] };
+      return { outcome: 'incomplete', depth: d, reason: `traversal bound (${maxDepth}) reached`, reasonCode: 'CDX-E-LINEAGE-BOUND-REACHED', brokenAt: parents[0] };
     }
 
     // Cross-check the advisory ancestors array against the resolved PRIMARY
@@ -197,13 +210,13 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
       const parent = resolve(doc.parent);
       if (parent !== undefined) {
         if (doc.ancestors.length === 0 || doc.ancestors[0] !== doc.parent) {
-          return { outcome: 'rejected', depth: d, reason: `ancestors[0] does not equal parent at ${id}` };
+          return { outcome: 'rejected', depth: d, reason: `ancestors[0] does not equal parent at ${id}`, reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT' };
         }
         const expected = [doc.parent, ...(Array.isArray(parent.ancestors) ? parent.ancestors : [])];
         const overlap = Math.min(doc.ancestors.length, expected.length);
         for (let i = 0; i < overlap; i++) {
           if (doc.ancestors[i] !== expected[i]) {
-            return { outcome: 'rejected', depth: d, reason: `ancestors chain at index ${i} of ${id} contradicts the resolved parent's committed chain` };
+            return { outcome: 'rejected', depth: d, reason: `ancestors chain at index ${i} of ${id} contradicts the resolved parent's committed chain`, reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT' };
           }
         }
       }
@@ -249,5 +262,5 @@ export function verifyLineageChain(subjectId: string, resolve: LineageResolver, 
   }
 
   const r = visit(subjectId, 1);
-  return { outcome: r.outcome, resolvedDepth: r.depth, reason: r.reason, brokenAt: r.brokenAt, warnings };
+  return { outcome: r.outcome, resolvedDepth: r.depth, reason: r.reason, reasonCode: r.reasonCode, brokenAt: r.brokenAt, warnings };
 }

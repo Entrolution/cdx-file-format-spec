@@ -26,7 +26,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { jcsOf } from './lib/canonicalize.js';
+import { jcsOf, CanonicalizationError } from './lib/canonicalize.js';
+import { unregisteredCodes } from './lib/error-codes.js';
 import { projectManifest, projectManifestToJcs } from './lib/manifest-projection.js';
 import { projectionVectors, scopeVectors, errorVectors } from './kat/manifest-projection-vectors.js';
 import { getValidator } from './lib/part-schema.js';
@@ -106,15 +107,32 @@ console.log('\nProjection error vectors:');
 for (const v of errorVectors) {
   try {
     projectManifest(v.manifest);
-    fail(`${v.name} — expected an error containing "${v.expectedError}", but none was thrown`);
+    fail(`${v.name} — expected ${v.expectedCode}, but no error was thrown`);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!msg.includes(v.expectedError)) {
-      fail(`${v.name} — error "${msg}" does not contain "${v.expectedError}"`);
+    // Assert the TYPE, the CODE, and the message. The code is the portable
+    // assertion; the message pins the specific throw site, so a vector that
+    // starts failing closed at a *different* site than the one its code was
+    // assigned to is caught rather than silently passing on the wrong defect.
+    if (!(err instanceof CanonicalizationError)) {
+      fail(`${v.name} — expected a CanonicalizationError, got ${err instanceof Error ? err.name : typeof err}: ${String(err)}`);
+      continue;
+    }
+    const problems: string[] = [];
+    if (err.code !== v.expectedCode) problems.push(`code "${err.code ?? '(none)'}" != "${v.expectedCode}"`);
+    if (!err.message.includes(v.expectedError)) problems.push(`message "${err.message}" does not contain "${v.expectedError}"`);
+    if (problems.length > 0) {
+      fail(`${v.name} — ${problems.join('; ')}`);
     } else {
-      console.log(`  ✓ ${v.name}`);
+      console.log(`  ✓ ${v.name} (${err.code})`);
     }
   }
+}
+
+// Defence-in-depth: every code a vector expects must be REGISTERED in the
+// vocabulary shipped to external implementations — otherwise a typo'd code
+// would assert against something no implementation could ever emit.
+for (const problem of unregisteredCodes(errorVectors.map((v) => v.expectedCode))) {
+  fail(`projection error vectors — ${problem}`);
 }
 
 // --- Part 4: example corpus ------------------------------------------------
