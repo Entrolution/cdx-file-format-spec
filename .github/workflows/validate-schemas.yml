@@ -101,6 +101,9 @@ jobs:
       - name: Check conformance suite
         run: npm run check:conformance
 
+      - name: Check canonicalize oracle (independent, non-Node)
+        run: npm run check:canonicalize-oracle
+
       - name: Check block merkle
         run: npm run check:block-merkle
 

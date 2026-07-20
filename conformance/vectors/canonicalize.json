@@ -1,0 +1,139 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "canonicalize",
+  "clause": "Document Hashing section 4.3 (canonical content form)",
+  "description": "Canonical content form (§4.3): fine-grained transform behaviours (marks normalization, text-node merge, derived-field and crdt stripping) and inputs a conformant canonicalizer MUST reject (§4.3.2).",
+  "oracle": "Expected canonical objects are HAND-AUTHORED by reasoning about the §4.3 rules; their JCS bytes and digests come from the independent Python oracle at conformance/oracles/canonicalize_oracle.py (stdlib json + hashlib, sharing no code with this repository’s canonicalizer). A reject vector asserts only that a conformant implementation refuses the input; §4.3.2 makes these inputs ones a reader MUST reject, and canonicalization defects carry no portable code, so no identifier is asserted.",
+  "vectors": [
+    {
+      "name": "marks-empty-omitted",
+      "description": "An empty marks array on a text node is omitted entirely (absent ≡ []); §4.3.1 item 3.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:2c37b02419f2e517fab21b3f775609c6a8ba3ed6a2147be448616892b26a172f"
+    },
+    {
+      "name": "text-merge-differing-marks-preserved",
+      "description": "Adjacent text nodes with equal (here empty) mark-sets merge; a node with a differing mark-set does not (§4.3.1 item 4).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Hello \"},{\"type\":\"text\",\"value\":\"brave \"},{\"type\":\"text\",\"value\":\"world\",\"marks\":[\"bold\"]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"Hello brave \"},{\"marks\":[\"bold\"],\"type\":\"text\",\"value\":\"world\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:21983ca242620aad1bf09ecc462515802cc7971a874a3bf542ef0df861677f91"
+    },
+    {
+      "name": "crdt-stripped-from-block",
+      "description": "A block’s crdt field is stripped and its author-chosen id is alpha-renamed to b0 (§4.3.1 items 1 and 5; §4.1a).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"para1\",\"crdt\":{\"seq\":5},\"children\":[{\"type\":\"text\",\"value\":\"hi\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"hi\"}],\"id\":\"b0\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:ad2d4b942fd00819c6c679fbfbda58af3a6ab998d21e80dda806be770c8f1837"
+    },
+    {
+      "name": "reject-duplicate-key-manifest",
+      "description": "A duplicate key anywhere in a part (here manifest) is rejected by strict parsing (§4.3.2 item 3).",
+      "parts": {
+        "manifest": "{\"assets\":{},\"assets\":{}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-non-nfc-text",
+      "description": "A stored string not in Unicode NFC is rejected, never silently normalized (§4.3.2). Here “cafe” + combining acute (NFD).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"café\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unsafe-integer",
+      "description": "An integer beyond the 2^53-1 safe range is rejected (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"measurement\",\"value\":9007199254740992}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "text-non-text-child-breaks-run",
+      "description": "A non-text inline child breaks a run of text nodes: the surrounding text nodes are not merged across it (§4.3.1 item 4).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"},{\"type\":\"break\"},{\"type\":\"text\",\"value\":\"b\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"a\"},{\"type\":\"break\"},{\"type\":\"text\",\"value\":\"b\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:d44399a95ec3cdeb074d4cef5e140fcfaf2cb9bc00515f304e9fa1639af8b0c8"
+    },
+    {
+      "name": "crdt-stripped-from-text-then-merges",
+      "description": "crdt is stripped from a text node; the node, now bearing no distinguishing field, merges with its equal-marked neighbour (§4.3.1 items 1 and 4).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"crdt\":{\"seq\":1}},{\"type\":\"text\",\"value\":\"b\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"ab\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:5023030a0678e05fd137f822df253997a181aa2a07aa833de0fc072846832158"
+    },
+    {
+      "name": "crdt-stripped-from-extension-block",
+      "description": "crdt stripping is namespace-agnostic: it applies to an unknown namespace:type extension block just as to a core block (§4.3.1 item 1).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"forms:textInput\",\"name\":\"email\",\"crdt\":{\"seq\":1}}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"name\":\"email\",\"type\":\"forms:textInput\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:26969ece0bb4b5be8a37194e92d656777b425195bf9cbc9df9c3bd2a5b58cbb7"
+    },
+    {
+      "name": "alpha-rename-nested-block-document-order",
+      "description": "Block ids are assigned b0,b1,… in document order, and a nested block follows its parent (§4.3.1 item 5): blockquote b0 > paragraph b1, then paragraph b2.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"blockquote\",\"id\":\"q\",\"children\":[{\"type\":\"paragraph\",\"id\":\"p\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]},{\"type\":\"paragraph\",\"id\":\"after\",\"children\":[{\"type\":\"text\",\"value\":\"y\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"id\":\"b1\",\"type\":\"paragraph\"}],\"id\":\"b0\",\"type\":\"blockquote\"},{\"children\":[{\"type\":\"text\",\"value\":\"y\"}],\"id\":\"b2\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:aa1d6cece174c557a7dc2d5d8298ffd50999853af94b2a8332df9616af378972"
+    },
+    {
+      "name": "alpha-rename-href-offset-suffix-and-unresolved",
+      "description": "A #blockId reference is rewritten to the canonical name and keeps its /offset suffix (#sec/10-25 → #b0/10-25); an unresolved #ref (#ghost) is left verbatim; the marks re-sort after rewriting (§4.3.1 items 3 and 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"level\":1,\"id\":\"sec\",\"children\":[{\"type\":\"text\",\"value\":\"H\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#sec/10-25\"},{\"type\":\"link\",\"href\":\"#ghost\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"H\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"marks\":[{\"href\":\"#b0/10-25\",\"type\":\"link\"},{\"href\":\"#ghost\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"see\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:5b62221fee1ef652b6fcef9f4189ff53de0b80c0c56288fd1a76eb68c8ebf9ef"
+    },
+    {
+      "name": "reject-duplicate-block-id",
+      "description": "Two blocks sharing an id in the identifier namespace is a duplicate-id error (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"dup\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]},{\"type\":\"paragraph\",\"id\":\"dup\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    }
+  ]
+}

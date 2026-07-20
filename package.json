@@ -22,6 +22,7 @@
     "check:provenance-timestamp": "npx tsx scripts/check-provenance-timestamp.ts",
     "check:conformance-vectors": "npx tsx scripts/check-conformance-vectors.ts",
     "check:conformance": "npx tsx scripts/check-conformance.ts",
+    "check:canonicalize-oracle": "python3 conformance/oracles/canonicalize_oracle.py check",
     "check:block-merkle": "npx tsx scripts/check-block-merkle.ts",
     "check:schema-closure": "npx tsx scripts/check-schema-closure.ts",
     "check:spec-examples": "npx tsx scripts/check-spec-examples.ts",

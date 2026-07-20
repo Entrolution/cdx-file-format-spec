@@ -217,6 +217,23 @@ const COMPARATORS: Record<string, Comparator> = {
     return eq(a.v.leafHash, v.hash, 'leafHash');
   },
 
+  canonicalize: (v, r) => {
+    // A reject vector asserts only that the implementation REJECTS the input
+    // (the operation errors). No portable defect code exists for canonicalization
+    // failures, so the assertion is rejection, never an identifier — §4.3.2 makes
+    // these inputs ones a conformant reader MUST reject.
+    if (v.expectReject === true) {
+      return r.outcome === 'error'
+        ? { pass: true }
+        : { pass: false, detail: `expected the input to be rejected, adapter reported outcome "${r.outcome}"` };
+    }
+    const a = values(r);
+    if (!a.ok) return a.comparison;
+    const jcs = eq(a.v.canonicalJcs, v.expectedCanonicalJcs, 'canonicalJcs');
+    if (!jcs.pass) return jcs;
+    return v.expectedId !== undefined ? eq(a.v.id, v.expectedId, 'id') : { pass: true };
+  },
+
   'provenance-timestamp': (v, r) => {
     const a = values(r);
     if (!a.ok) return a.comparison;
