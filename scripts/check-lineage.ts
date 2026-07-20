@@ -48,7 +48,8 @@ for (const vec of lineageVectors) {
   // implementation's wording, so a code that starts being emitted from a
   // different site than the one it was assigned to is caught, not masked.
   if (e.reasonCode !== undefined && got.reasonCode !== e.reasonCode) problems.push(`reasonCode ${JSON.stringify(got.reasonCode)} != ${JSON.stringify(e.reasonCode)}`);
-  if (e.reasonIncludes !== undefined && !(got.reason ?? '').includes(e.reasonIncludes)) problems.push(`reason ${JSON.stringify(got.reason)} lacks ${JSON.stringify(e.reasonIncludes)}`);
+  const localReason = vec.local?.reasonIncludes;
+  if (localReason !== undefined && !(got.reason ?? '').includes(localReason)) problems.push(`reason ${JSON.stringify(got.reason)} lacks ${JSON.stringify(localReason)}`);
   if (e.warnings !== undefined && got.warnings.length !== e.warnings) problems.push(`warnings ${got.warnings.length} != ${e.warnings}`);
   if (problems.length > 0) {
     fail(`${vec.name} — ${problems.join('; ')}`);
@@ -204,6 +205,41 @@ const GRID_LEVELS = 15; // ~2^15 resolve-calls under the old walk (the finding's
     fail(`huge mergedFrom fan-out — expected incomplete, got ${res.outcome}`);
   } else if (res) {
     console.log(`  ✓ ${fanout}-way mergedFrom fan-out → incomplete in ${count()} resolutions (no crash)`);
+  }
+}
+
+// Defence-in-depth: `local.reasonIncludes` only pins a result site if exactly
+// ONE site in the walker can produce it — read the source and count, rather
+// than asserting it by convention (mirrors check-manifest-projection.ts).
+{
+  const walkerSrc = fs.readFileSync(path.join(__dirname, 'lib', 'lineage-chain.ts'), 'utf8');
+  const reasons = [...walkerSrc.matchAll(/reason:\s*([`'][^`']*[`'])/g)]
+    .map((m) => m[1].slice(1, -1).replace(/\$\{[^}]*\}/g, ' '));
+  if (reasons.length === 0) fail('site-uniqueness check found no reason strings to scan (regex out of date)');
+
+  for (const vec of lineageVectors) {
+    const inc = vec.local?.reasonIncludes;
+    if (inc === undefined) continue;
+    const matches = reasons.filter((r) => r.includes(inc));
+    if (matches.length === 0) {
+      fail(`${vec.name} — reasonIncludes "${inc}" matches no result site in the walker`);
+    } else if (matches.length > 1 && vec.local?.site === undefined) {
+      fail(`${vec.name} — reasonIncludes "${inc}" matches ${matches.length} result sites, so it does not pin one`);
+    }
+  }
+
+  const groups = new Map<string, string[]>();
+  for (const vec of lineageVectors) {
+    if (vec.expected.reasonCode === undefined) continue;
+    const key = `${vec.expected.reasonCode} + ${vec.local?.reasonIncludes ?? '(none)'}`;
+    groups.set(key, [...(groups.get(key) ?? []), vec.name]);
+  }
+  for (const [key, names] of groups) {
+    if (names.length === 1) continue;
+    const sites = new Set(lineageVectors.filter((v) => names.includes(v.name)).map((v) => v.local?.site));
+    if (sites.size !== 1 || sites.has(undefined)) {
+      fail(`vectors ${names.join(', ')} share the assertion pair (${key}) without agreeing on a declared local.site`);
+    }
   }
 }
 

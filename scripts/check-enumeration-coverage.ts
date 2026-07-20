@@ -19,7 +19,9 @@ import * as path from 'path';
 import { CLOSED_SCHEMAS } from './kat/schema-closure-vectors.js';
 import { standaloneSchemas, dependentSchemas } from './lib/schema-registry.js';
 import { CONFIG_SLOTS } from './lib/config-slots.js';
-import { loadSchema } from './lib/ajv-utils.js';
+import { loadSchema, createAjv } from './lib/ajv-utils.js';
+
+import { errorVocabulary, unregisteredCodes } from './lib/error-codes.js';
 
 const rootDir = path.join(__dirname, '..');
 const schemasDir = path.join(rootDir, 'schemas');
@@ -120,6 +122,62 @@ console.log('\nCI-step coverage:');
   }
   if (!/\bnpm test\b/.test(workflow)) fail('the workflow never runs `npm test` (validate:schemas/validate:examples are unrun)');
   if (failures === before) pass('every gate script is invoked by the workflow');
+}
+
+// --- 5. the defect-code vocabulary covers every emitting site ---------------
+// conformance/errors.json is a hand-maintained list published to third-party
+// implementers, so it drifts by exactly the mechanism this gate exists to catch.
+// The check-* gates only validate codes a VECTOR expects; a code literal typo'd
+// at a throw site that no vector targets is otherwise emitted by the reference
+// implementation while absent from the registry that describes it.
+console.log('\nDefect-code vocabulary coverage:');
+{
+  const before = failures;
+
+  // The vocabulary is machine-read by third parties, so it is schema-validated
+  // like every other machine-read artifact here. Its schema lives beside it in
+  // conformance/, not in schemas/ — everything in schemas/ describes normative
+  // CDX structures, and this describes a testing artifact.
+  {
+    const ajv = createAjv();
+    const schema = JSON.parse(fs.readFileSync(path.join(rootDir, 'conformance', 'errors.schema.json'), 'utf8'));
+    const validate = ajv.compile(schema);
+    const instance = JSON.parse(fs.readFileSync(path.join(rootDir, 'conformance', 'errors.json'), 'utf8'));
+    if (!validate(instance)) {
+      fail(`conformance/errors.json does not validate: ${JSON.stringify(validate.errors)}`);
+    }
+  }
+
+  const vocab = errorVocabulary();
+  const registered = new Set(Object.keys(vocab.codes));
+
+  const emitted = new Set<string>();
+  const libDir = path.join(rootDir, 'scripts', 'lib');
+  for (const file of fs.readdirSync(libDir).filter((f) => f.endsWith('.ts'))) {
+    const src = fs.readFileSync(path.join(libDir, file), 'utf8');
+    // Accept any quoting style: a double-quoted or backticked code would
+    // otherwise be invisible here, which is the very drift this check exists
+    // to catch. (A code built by concatenation remains undetectable — the
+    // convention is to write codes as whole literals.)
+    for (const m of src.matchAll(/['"`](CDX-E-[A-Z0-9-]*)['"`]/g)) emitted.add(m[1]);
+  }
+
+  for (const problem of unregisteredCodes(emitted)) {
+    fail(`a scripts/lib site emits ${problem}`);
+  }
+  for (const code of registered) {
+    const entry = vocab.codes[code];
+    if (!emitted.has(code) && entry.deprecated !== true) {
+      fail(`registered code "${code}" is emitted by no scripts/lib site (orphan; deprecate it rather than deleting)`);
+    }
+    if (typeof entry.summary !== 'string' || typeof entry.clause !== 'string') {
+      fail(`registered code "${code}" is missing a summary or clause`);
+    }
+    if (!('disposition' in entry)) {
+      fail(`registered code "${code}" declares no disposition (use null with a dispositionClause when the spec assigns none)`);
+    }
+  }
+  if (failures === before) pass(`every defect code is registered, documented, and emitted (${registered.size} codes)`);
 }
 
 console.log('');
