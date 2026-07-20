@@ -137,6 +137,9 @@
     {
       "name": "sha384-document",
       "description": "The document-ID algorithm follows the id prefix (sha384), not a hardcoded default.",
+      "requires": [
+        "hash:sha-384"
+      ],
       "algorithm": "sha384",
       "parts": {
         "manifest": "{}",

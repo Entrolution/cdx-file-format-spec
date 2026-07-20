@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdx.dev/conformance/report.schema.json",
+  "title": "CDX Conformance Adapter Report",
+  "description": "NON-NORMATIVE. The JSON an adapter writes to stdout under the file-based conformance protocol. It reports what the implementation under test PRODUCED for each vector; it never states pass or fail. The suite decides the verdict (see conformance/ADAPTER.md).",
+  "type": "object",
+  "required": ["suite", "suiteVersion", "specVersion", "adapter", "capabilities", "results"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "suite": { "const": "cdx-conformance" },
+    "suiteVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "The suite version the adapter ran against. The harness rejects a report whose suiteVersion is not the running suite's."
+    },
+    "specVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "adapter": {
+      "type": "object",
+      "required": ["name", "version", "level"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "The highest adapter level implemented (0 = vectors, 1 = fixtures + clock, 2 = trust + resolver injection)."
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(:[a-z0-9-]+)?$" },
+      "uniqueItems": true,
+      "contains": { "const": "core" },
+      "description": "Capability keys the adapter declares (from capabilities.json). MUST contain `core`. A vector whose `requires[]` names a key absent here is scoped out."
+    },
+    "results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/result" }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "required": ["kind", "name", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "outcome": {
+          "enum": ["value", "error", "skip"],
+          "description": "`value`: the operation produced `values`. `error`: it raised (report the mapped suite code in `error`). `skip`: the adapter declined this vector."
+        },
+        "values": {
+          "type": "object",
+          "description": "The actual outputs, keyed as the kind's contract defines (see ADAPTER.md). Present when outcome is `value`."
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": ["string", "null"],
+              "description": "The suite defect code (conformance/errors.json) the adapter mapped its native error to, or null if it has no mapping."
+            }
+          },
+          "description": "Present when outcome is `error`."
+        },
+        "skip": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reason": { "type": "string" }
+          },
+          "description": "Present when outcome is `skip`."
+        }
+      }
+    }
+  }
+}

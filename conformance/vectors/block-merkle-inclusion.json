@@ -6,6 +6,9 @@
   "clause": "Provenance and Lineage section 5.2",
   "description": "cdx-bmt-1 inclusion-proof verification, including must-NOT-verify cases: the legacy duplicate-odd root (CVE-2012-2459 pattern) and an untagged fold value.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "provenance"
+  ],
   "vectors": [
     {
       "name": "a-in-two-leaf-tree",

@@ -10,11 +10,29 @@
 
 | File | Purpose |
 |------|---------|
+| `suite.json` | The suite manifest: binds a suite version to the specification version its expectations were derived against, defines the adapter levels, and states what a passing run does and does not certify. Start here. |
+| `ADAPTER.md` | How to write an adapter for your implementation — the tiered levels, the file-based protocol, the per-kind report contract, capability scoping, and what a PASS means. |
+| `capabilities.json` | The catalogue of capability keys an adapter declares support for. `core` is mandatory; optional capabilities scope the cases that require them. |
+| `vectors/` | Portable known-answer vectors (`vectors/*.json`), validated by `vectors/vectors.schema.json`. The source of truth for the Level-0 track. |
+| `report.schema.json` | Schema for the JSON an adapter writes to stdout under the file-based protocol. |
 | `errors.json` | The defect-code vocabulary — stable identifiers for defect classes, each carrying the specification clause it comes from and the load-time disposition the specification assigns. |
 | `errors.schema.json` | Schema for `errors.json`, enforced by `check:enumeration-coverage`. Lives here rather than in `schemas/` because everything in `schemas/` describes normative CDX structures. |
 
-More arrives as the conformance suite is built out (portable known-answer
-vectors, document fixtures, test trust material, and an adapter contract).
+The reference Level-0 adapter and the enforcing harness are repo-internal test
+infrastructure: `scripts/conformance-reference-adapter.ts` (the worked example
+that wraps this repository's libraries) and `scripts/check-conformance.ts` (the
+`check:conformance` gate that self-tests the verdict engine and runs the
+reference adapter end-to-end over every published vector).
+
+Document fixtures, test trust material, and the Level-1/2 tracks arrive in later
+phases; `suite.json` records their status.
+
+## The Level-0 vector track
+
+The vectors are deterministic input → deterministic output: no archive, no
+clock, no trust store, no network. An adapter loads them, runs the
+implementation, and reports the actuals; the suite owns every assertion. See
+`ADAPTER.md` for the full contract and the smallest working adapter.
 
 ## The defect-code vocabulary
 

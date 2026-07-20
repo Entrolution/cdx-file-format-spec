@@ -1,0 +1,86 @@
+{
+  "normative": false,
+  "$comment": "NON-NORMATIVE. This is the entry-point manifest for the CDX conformance suite, a testing artifact that references the specification and never extends it. The specification (spec/) and the published schemas (schemas/) are the only normative artifacts. Where anything here appears to disagree with spec/, the specification governs.",
+  "suite": "cdx-conformance",
+  "suiteVersion": "0.1.0",
+  "specVersion": "0.1",
+  "title": "CDX Conformance Suite",
+  "description": "An independently-runnable suite that lets a third-party implementation check itself against the CDX specification. This manifest binds a suite version to the specification version its expectations were derived against.",
+  "versioning": {
+    "summary": "suiteVersion is the suite's own semantic version; specVersion is the CDX specification version every expectation in the suite was derived against.",
+    "rules": [
+      "suiteVersion follows semantic versioning. A patch bump fixes a vector or a harness bug without changing any expectation an implementation is held to; a minor bump adds cases or capabilities; a major bump changes or removes an existing expectation.",
+      "specVersion pins the specification revision the suite's clause citations and expectations resolve against. A suite release targets exactly one specVersion.",
+      "An implementation claims conformance against a (suiteVersion, specVersion) pair, never against 'the suite' unqualified."
+    ]
+  },
+  "levels": {
+    "$comment": "The adapter contract is tiered so the common case is trivial to adopt and the intrusive hooks are only required where a case actually needs them. A case declares the lowest level it requires; an adapter declares the highest level it implements. `hooks` names the harness injection points a level needs — distinct from the vector-level capability keys in capabilities.json.",
+    "0": {
+      "title": "Vectors",
+      "summary": "Pure known-answer vectors: deterministic input in, deterministic output out. No document archive, no clock, no trust store, no network. Adoptable in a few dozen lines — load the vectors, run your function, compare.",
+      "hooks": [],
+      "status": "shipped"
+    },
+    "1": {
+      "title": "Fixtures + clock",
+      "summary": "Whole-document archive fixtures verified against a per-case virtual reference clock. Adds an archive reader and an injectable clock.",
+      "hooks": ["archive-reader", "virtual-clock"],
+      "status": "planned"
+    },
+    "2": {
+      "title": "Trust + resolver injection",
+      "summary": "Fixtures whose verdict depends on an injected trust store and an injected identity resolver (DID / key resolution). The intrusive hooks most implementations hard-wire.",
+      "hooks": ["trust-store-injection", "resolver-injection"],
+      "status": "planned"
+    }
+  },
+  "tracks": {
+    "vectors": {
+      "level": 0,
+      "status": "shipped",
+      "location": "vectors/",
+      "schema": "vectors/vectors.schema.json",
+      "summary": "Portable known-answer vectors. Each file's `oracle` field records how its expected values were derived — never from the implementation under test."
+    },
+    "fixtures": {
+      "level": 1,
+      "status": "planned",
+      "summary": "Whole-document archive fixtures with per-finding verdicts. Requires the reference reader and test trust material that later phases add."
+    }
+  },
+  "artifacts": {
+    "readme": "README.md",
+    "adapterContract": "ADAPTER.md",
+    "vectors": "vectors/",
+    "vectorSchema": "vectors/vectors.schema.json",
+    "capabilities": "capabilities.json",
+    "errorVocabulary": "errors.json",
+    "errorVocabularySchema": "errors.schema.json",
+    "reportSchema": "report.schema.json"
+  },
+  "referenceAdapter": {
+    "$comment": "This repository's own Level-0 adapter, which wraps its reference libraries and is the subject of the check:conformance gate. It is repo-internal test infrastructure, not a redistributable artifact — a third-party implementation writes its own adapter (see ADAPTER.md).",
+    "path": "../scripts/conformance-reference-adapter.ts",
+    "level": 0
+  },
+  "conformanceClaim": {
+    "$comment": "What a passing run does and does not mean. This mirrors the specification's own honesty about the limits of what a signature attests (Security Extension section 8.5).",
+    "summary": "A passing run is evidence, not a certificate.",
+    "statements": [
+      "A PASS means the implementation reproduced the suite's expected outputs for the cases it ran, at the (suiteVersion, specVersion) recorded in the report. It is not a certification, an endorsement, or a warranty of specification conformance.",
+      "The suite is a floor, not a ceiling: passing every shipped case does not prove the absence of defects the suite does not exercise.",
+      "No trademark, certification mark, or 'CDX conformant' badge is conferred by a PASS. An implementation MUST NOT represent a suite PASS as certification by the specification's authors.",
+      "A claim MUST state the suiteVersion, the specVersion, the adapter level, and the declared capabilities under which it was produced. A claim that omits these is unfalsifiable and MUST NOT be made."
+    ]
+  },
+  "license": {
+    "$comment": "Redistribution terms for the suite artifacts, so an implementation may vendor and ship the vectors with its own test tree.",
+    "summary": "The conformance artifacts in this directory may be copied, embedded, and redistributed for the purpose of testing and demonstrating CDX implementations, provided this notice and the non-normative disclaimers are preserved.",
+    "terms": [
+      "The artifacts under conformance/ are licensed under the same terms as the specification repository (see the repository LICENSE).",
+      "Redistribution — vendored into an implementation's test tree, republished, or embedded — is permitted, provided the NON-NORMATIVE disclaimers and this manifest's conformanceClaim are carried with them.",
+      "Redistribution does not grant any right to represent the redistribution, or an implementation that passes it, as certified or endorsed by the specification's authors."
+    ]
+  }
+}

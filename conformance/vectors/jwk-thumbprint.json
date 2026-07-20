@@ -6,6 +6,9 @@
   "clause": "Security Extension section 3.11",
   "description": "RFC 7638 JWK thumbprints over the canonical member set (RFC 8037 for OKP).",
   "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "requires": [
+    "ext:security"
+  ],
   "vectors": [
     {
       "name": "ed25519-rfc8037",

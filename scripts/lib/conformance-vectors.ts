@@ -27,6 +27,8 @@ export interface VectorFile<T> {
   description: string;
   /** How the expected values were derived — never from the code under test. */
   oracle: string;
+  /** File-level capability keys every vector in the file needs (capabilities.json). */
+  requires?: string[];
   vectors: T[];
 }
 

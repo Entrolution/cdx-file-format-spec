@@ -6,6 +6,9 @@
   "clause": "Provenance and Lineage section 4.2",
   "description": "The tagged leaf hash H(0x00 || JCS(block)) of a content block.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "provenance"
+  ],
   "vectors": [
     {
       "name": "paragraph-leaf",

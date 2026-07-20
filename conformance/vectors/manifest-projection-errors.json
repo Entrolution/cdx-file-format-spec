@@ -6,6 +6,9 @@
   "clause": "Security Extension section 9.7",
   "description": "Manifests a conforming projector MUST reject, each with the defect code it fails closed on (see ../errors.json for each code's disposition).",
   "oracle": "Expected outcomes are hand-derived from the specification's written rule table; the rule text itself is the independent oracle.",
+  "requires": [
+    "ext:security"
+  ],
   "vectors": [
     {
       "name": "pending-id-forbidden",

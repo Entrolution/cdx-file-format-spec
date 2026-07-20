@@ -91,8 +91,11 @@ console.log('\nDigest self-consistency:');
 {
   const before = failures;
   let checked = 0;
+  // Node's digest names carry the hyphen for the SHA-3 family ('sha3-256'), so
+  // the algorithm prefix is used verbatim — stripping the hyphen would turn
+  // 'sha3-256' into the invalid name 'sha3256'.
   const digest = (alg: string, s: string): string =>
-    `${alg}:${crypto.createHash(alg.replace('-', '')).update(s, 'utf8').digest('hex')}`;
+    `${alg}:${crypto.createHash(alg).update(s, 'utf8').digest('hex')}`;
 
   for (const kind of kinds) {
     for (const v of loadVectorFile<Record<string, string>>(kind).vectors) {

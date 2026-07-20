@@ -98,6 +98,9 @@ jobs:
       - name: Check conformance vectors
         run: npm run check:conformance-vectors
 
+      - name: Check conformance suite
+        run: npm run check:conformance
+
       - name: Check block merkle
         run: npm run check:block-merkle
 

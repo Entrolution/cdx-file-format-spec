@@ -53,6 +53,15 @@
       "minLength": 20,
       "description": "How the expected values were derived. Required because a vector whose expectations came from the implementation under test proves nothing — it snapshots a bug instead of catching it."
     },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(:[a-z0-9-]+)?$"
+      },
+      "uniqueItems": true,
+      "description": "Capability keys (capabilities.json) that EVERY vector in this file needs — the file exercises a feature gated on them (e.g. the security extension, or provenance verification). Merged with each vector's own `requires`. Absent means the file is pure core and always in scope."
+    },
     "vectors": {
       "type": "array",
       "minItems": 1,
@@ -105,6 +114,22 @@
             }
           },
           "additionalProperties": false
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(:[a-z0-9-]+)?$"
+          },
+          "uniqueItems": true,
+          "description": "Capability keys (from capabilities.json) this vector needs. An adapter that does not declare all of them has the vector SKIPPED — reported explicitly, never counted as a pass. Absent means the vector is pure core and always in scope."
+        },
+        "severity": {
+          "enum": [
+            "MUST",
+            "SHOULD"
+          ],
+          "description": "Normative weight of this vector. Absent defaults to MUST: a failure is fatal. SHOULD failures are advisory and never fatal."
         }
       }
     }

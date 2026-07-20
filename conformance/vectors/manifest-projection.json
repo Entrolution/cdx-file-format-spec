@@ -6,6 +6,9 @@
   "clause": "Security Extension section 9.7",
   "description": "The signed manifest projection: the canonical JCS bytes a manifest projects to, and their digest. Several vectors assert on exact key ORDER and carry astral/PUA identifiers to pin UTF-16 code-unit sorting.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "ext:security"
+  ],
   "vectors": [
     {
       "name": "signed-document-corpus",

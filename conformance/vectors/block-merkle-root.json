@@ -6,6 +6,9 @@
   "clause": "Provenance and Lineage section 4.3",
   "description": "cdx-bmt-1 tagged Merkle roots, including the single-leaf identity and odd-node promotion.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "provenance"
+  ],
   "vectors": [
     {
       "name": "single-leaf-root-leaf",
