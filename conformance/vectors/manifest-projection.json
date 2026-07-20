@@ -1,0 +1,102 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "manifest-projection",
+  "clause": "Security Extension section 9.7",
+  "description": "The signed manifest projection: the canonical JCS bytes a manifest projects to, and their digest. Several vectors assert on exact key ORDER and carry astral/PUA identifiers to pin UTF-16 code-unit sorting.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "signed-document-corpus",
+      "description": "The signed-document manifest: id/created/modified/hashAlgorithm/security/metadata and content.compression all drop; content{path,hash} + extensions + lineage(parent:null) + signaturePolicy(requiredSigners) bind.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7\",\"state\":\"frozen\",\"hashAlgorithm\":\"sha256\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-15T14:22:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026\",\"compression\":\"zstd\"},\"security\":{\"signatures\":\"security/signatures.json\",\"encryption\":null},\"extensions\":[{\"id\":\"cdx.security\",\"version\":\"0.1\",\"required\":true}],\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"lineage\":{\"parent\":null,\"version\":1},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:web:acme.example.com:notary\"}]}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026\",\"path\":\"content/document.json\"},\"extensions\":[{\"id\":\"cdx.security\",\"required\":true,\"version\":\"0.1\"}],\"lineage\":{\"parent\":null,\"version\":1},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:web:acme.example.com:notary\"}]},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:e3de84b5784ee062a800d46b7e619d5a7ec79f3c3f1a6289e036117648954b80"
+    },
+    {
+      "name": "content-advisory-hints-drop",
+      "description": "Every advisory storage hint on the content reference — compression, merkleRoot, blockCount, and the cdx-bmt-1 construction identifier (§9.7/§9.8: the projection binds content as {path, hash} only) — drops from the projection, so the advisory block-Merkle fields can never reach signed bytes.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"compression\":\"zstd\",\"merkleRoot\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"blockCount\":42,\"construction\":\"cdx-bmt-1\"}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:711be22dd3851024d9d2cf761c6b32d5e72707aa50fd675b2db3e103d666fc1d"
+    },
+    {
+      "name": "presentation-and-default",
+      "description": "presentation[] is sorted by JCS (paginated before responsive) and only the default entry carries default:true; a default:false is dropped (no default-value materialization).",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"published\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"presentation\":[{\"type\":\"responsive\",\"path\":\"presentation/responsive.json\",\"hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"default\":false},{\"type\":\"paginated\",\"path\":\"presentation/paginated.json\",\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"default\":true}]}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"path\":\"content/document.json\"},\"presentation\":[{\"default\":true,\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"path\":\"presentation/paginated.json\",\"type\":\"paginated\"},{\"hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"path\":\"presentation/responsive.json\",\"type\":\"responsive\"}],\"state\":\"published\"}",
+      "expectedSha256": "sha256:1d912c4633e1c65d26df8808455fd239340c7f7638415599051bbc9b56c05b85"
+    },
+    {
+      "name": "extensions-config-required-only",
+      "description": "config binds for the required extension (cdx.security) and is dropped for the non-required one (cdx.academic); entries sort by JCS (security first).",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\"},\"extensions\":[{\"id\":\"cdx.academic\",\"version\":\"0.2\",\"required\":false,\"config\":{\"numbering\":\"academic/numbering.json\"}},{\"id\":\"cdx.security\",\"version\":\"0.1\",\"required\":true,\"config\":{\"policy\":\"strict\"}}]}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"path\":\"content/document.json\"},\"extensions\":[{\"config\":{\"policy\":\"strict\"},\"id\":\"cdx.security\",\"required\":true,\"version\":\"0.1\"},{\"id\":\"cdx.academic\",\"required\":false,\"version\":\"0.2\"}],\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:ea799b1b6f03b7f4fba5dfe01a06381cefd10e802af76cbe664f57c296f9a02a"
+    },
+    {
+      "name": "extensions-utf16-astral-sort",
+      "description": "extensions[] sort by comparing JCS serializations by UTF-16 code unit (§9.7): an astral-plane id (U+10000, first UTF-16 unit U+D800) sorts BEFORE a BMP id (U+E000), even though it is GREATER by Unicode code point. Authored in code-point order; the projection reverses it to UTF-16 order — pinning the reference impl against a code-point-sorting implementation.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"},\"extensions\":[{\"id\":\"z\",\"version\":\"0.1\",\"required\":false},{\"id\":\"z𐀀\",\"version\":\"0.1\",\"required\":false}]}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"path\":\"content/document.json\"},\"extensions\":[{\"id\":\"z𐀀\",\"required\":false,\"version\":\"0.1\"},{\"id\":\"z\",\"required\":false,\"version\":\"0.1\"}],\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:cd0615f6da4049efb3e4f929a9997a1ae2290164df3c46521d89475f6056a59d"
+    },
+    {
+      "name": "empty-lineage-omitted",
+      "description": "A manifest carrying `lineage: {}` (an empty object) omits lineage from the projection, like any absent optional field (§9.7) — otherwise it would bind different signed bytes than an absent lineage.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"lineage\":{}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:ac84c227c60021051e7462bd16ab7517343a72985f14b0d63a362282eb512510"
+    },
+    {
+      "name": "minimal-no-optionals",
+      "description": "Only the always-present fields; absent presentation/extensions/lineage are omitted, never null-materialized.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\"}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:711be22dd3851024d9d2cf761c6b32d5e72707aa50fd675b2db3e103d666fc1d"
+    },
+    {
+      "name": "lineage-with-ancestors",
+      "description": "lineage binds verbatim; the ancestors array preserves its authored (nearest-first) order while object keys sort.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"state\":\"published\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"lineage\":{\"version\":3,\"depth\":3,\"parent\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"ancestors\":[\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"]}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"content/document.json\"},\"lineage\":{\"ancestors\":[\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"],\"depth\":3,\"parent\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"version\":3},\"state\":\"published\"}",
+      "expectedSha256": "sha256:7c9e3d98dcc4b7977860156c35b58995046c64a3c8b0067c5dcf79e61d8dc4d1"
+    },
+    {
+      "name": "signature-policy-multikind",
+      "description": "signaturePolicy.requiredSigners binds all three identity kinds; entries sort by JCS (did < jkt < x5tS256), so authored order is not significant.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"},\"signaturePolicy\":{\"requiredSigners\":[{\"x5tS256\":\"x5tThumbprintAAAA\"},{\"jkt\":\"jktThumbprintBBBB\"},{\"did\":\"did:key:zABC123\"}]}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"path\":\"content/document.json\"},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:key:zABC123\"},{\"jkt\":\"jktThumbprintBBBB\"},{\"x5tS256\":\"x5tThumbprintAAAA\"}]},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:906acae5439950e154ae402e847359b019058dddef91f216973e81a2c5b58783"
+    },
+    {
+      "name": "config-file-references",
+      "description": "Extension config slots (academic.numbering, semantic.bibliography/glossary) declaring {path,hash} references bind their hashes into configFiles, sorted by JCS; the document id and advisory (non-{path,hash}) config are not bound.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"academic\":{\"numbering\":{\"path\":\"academic/numbering.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},\"semantic\":{\"bibliography\":{\"path\":\"semantic/bibliography.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"glossary\":{\"path\":\"semantic/glossary.json\",\"hash\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}}}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"configFiles\":[{\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"academic/numbering.json\"},{\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"path\":\"semantic/bibliography.json\"},{\"hash\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"path\":\"semantic/glossary.json\"}],\"content\":{\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:e4d8c6fb8d85054294bea0ad852c3b514ee31b074f07f1c048eb06b08526097c"
+    },
+    {
+      "name": "asset-index-references",
+      "description": "Each declared asset category (images, fonts) binds its index file {path, hash} into `assets`, sorted by JCS; the advisory count/totalSize and the document id are not bound. Hash-pinning the index transitively attests out-of-content assets — fonts and image variants.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"assets\":{\"images\":{\"count\":2,\"totalSize\":170,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"fonts\":{\"count\":1,\"totalSize\":35000,\"index\":\"assets/fonts/index.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+      "expectedJcs": "{\"assets\":[{\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"assets/images/index.json\"},{\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"path\":\"assets/fonts/index.json\"}],\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:781a77097306db621695b02d20a76c2939052381b3bebb4bcb04939fc6437046"
+    },
+    {
+      "name": "access-control-bound",
+      "description": "manifest.security.accessControl, declared as a {path, hash}, binds its policy-file hash into the projection as `accessControl` (only {path, hash}; advisory storage hints are dropped). A manifest-covering signature then attests the access-control policy, so it cannot be swapped while a signature verifies; the path-only signatures/encryption references remain unbound.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"security\":{\"accessControl\":{\"path\":\"security/access-control.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+      "expectedJcs": "{\"accessControl\":{\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"security/access-control.json\"},\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"path\":\"content/document.json\"},\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:35225c282ba4aa2d88d3fad4d3b4a2dc85474ae23a7896bf71edcddeb500a438"
+    },
+    {
+      "name": "precise-layout-in-presentation",
+      "description": "A precise layout declared as a presentation[] entry (type \"precise\") binds its file hash into the projection alongside reactive presentations; entries sort by JCS (the paginated default before precise), so a frozen document's precise layout is attested by a manifest-covering signature.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"presentation\":[{\"type\":\"paginated\",\"path\":\"presentation/paginated.json\",\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"default\":true},{\"type\":\"precise\",\"path\":\"presentation/layouts/letter.json\",\"hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\"}]}",
+      "expectedJcs": "{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"path\":\"content/document.json\"},\"presentation\":[{\"default\":true,\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"path\":\"presentation/paginated.json\",\"type\":\"paginated\"},{\"hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"path\":\"presentation/layouts/letter.json\",\"type\":\"precise\"}],\"state\":\"frozen\"}",
+      "expectedSha256": "sha256:f04f9a36ff374bb092ad47e87bb150bcaf9a18c9f23a19495274eafcf4e430d9"
+    }
+  ]
+}

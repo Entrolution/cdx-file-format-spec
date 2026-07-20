@@ -1,0 +1,34 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "multibase",
+  "clause": "Security Extension section 3.11",
+  "description": "did:key multibase decoding.",
+  "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "vectors": [
+    {
+      "name": "ed25519-multikey",
+      "description": "Ed25519 publicKeyMultibase (the RFC 8037 key) → JWK; thumbprint matches the JWK vector.",
+      "multibase": "z6MktwupdmLXVVqTzCw4i46r4uGyosGXRnR3XjN4Zq7oMMsw",
+      "expectedJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expectedJkt": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+    },
+    {
+      "name": "p256-multikey",
+      "description": "P-256 compressed publicKeyMultibase → JWK (point decompressed); thumbprint matches the JWK vector.",
+      "multibase": "zDnaer52RTwabaBeMkKYYwZmEFqPabLW78cRK62iovMUQhFif",
+      "expectedJwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "fPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXg",
+        "y": "B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E"
+      },
+      "expectedJkt": "AhqHzaYXA5MzmDCrsseUsVBGKyfhDhvekx0THjH_xIE"
+    }
+  ]
+}

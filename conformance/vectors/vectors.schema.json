@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdx.dev/conformance/vectors.schema.json",
+  "title": "Conformance Known-Answer Vector File",
+  "description": "Schema for conformance/vectors/*.json. NON-NORMATIVE: it validates testing artifacts, not CDX documents. Its job is to catch corruption or typos in a file that third parties consume, so the constraints are deliberately tight.",
+  "type": "object",
+  "required": [
+    "suite",
+    "specVersion",
+    "kind",
+    "clause",
+    "description",
+    "oracle",
+    "vectors"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "suite": {
+      "const": "cdx-conformance"
+    },
+    "specVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "kind": {
+      "enum": [
+        "document-id",
+        "manifest-projection",
+        "manifest-scope",
+        "manifest-projection-errors",
+        "jws-header",
+        "jws-signing-input",
+        "jwk-thumbprint",
+        "multibase",
+        "block-merkle-root",
+        "block-merkle-inclusion",
+        "block-merkle-leaf",
+        "provenance-timestamp"
+      ]
+    },
+    "clause": {
+      "type": "string",
+      "description": "The specification section these vectors pin."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20
+    },
+    "oracle": {
+      "type": "string",
+      "minLength": 20,
+      "description": "How the expected values were derived. Required because a vector whose expectations came from the implementation under test proves nothing — it snapshots a bug instead of catching it."
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/vector"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "contentHash": {
+      "type": "string",
+      "pattern": "^(sha256:[a-f0-9]{64}|sha384:[a-f0-9]{96}|sha512:[a-f0-9]{128}|sha3-256:[a-f0-9]{64}|sha3-512:[a-f0-9]{128}|blake3:[a-f0-9]{64})$"
+    },
+    "vector": {
+      "type": "object",
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9.]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10
+        },
+        "local": {
+          "not": {},
+          "description": "MUST NOT appear: `local` is this-implementation-only data and is stripped at the export boundary. Its presence means the boundary leaked."
+        },
+        "expectedId": {
+          "$ref": "#/$defs/contentHash"
+        },
+        "expectedSha256": {
+          "$ref": "#/$defs/contentHash"
+        },
+        "expect": {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^CDX-E-[A-Z0-9]+(-[A-Z0-9]+)*$"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}

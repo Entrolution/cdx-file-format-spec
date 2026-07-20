@@ -1,0 +1,27 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "block-merkle-leaf",
+  "clause": "Provenance and Lineage section 4.2",
+  "description": "The tagged leaf hash H(0x00 || JCS(block)) of a content block.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "paragraph-leaf",
+      "description": "A simple paragraph block, its JCS form, and its tagged leaf hash.",
+      "block": {
+        "type": "paragraph",
+        "id": "p-1",
+        "children": [
+          {
+            "type": "text",
+            "value": "Hello"
+          }
+        ]
+      },
+      "jcs": "{\"children\":[{\"type\":\"text\",\"value\":\"Hello\"}],\"id\":\"p-1\",\"type\":\"paragraph\"}",
+      "hash": "sha256:9d0c48691cece62ce6a930b73f353e4e6f34618a372fd1c656bafaf2bdbb728f"
+    }
+  ]
+}

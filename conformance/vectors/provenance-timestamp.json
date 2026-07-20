@@ -1,0 +1,294 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "provenance-timestamp",
+  "clause": "Provenance and Lineage section 6",
+  "description": "Provenance timestamp binding: which member each type keys on, and the untagged section 6.5 aggregated Merkle fold.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "rfc3161-bound",
+      "description": "An rfc3161 entry keys on its `hash` member; equal to the documentId, so the timestamp attests this document.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "rfc3161",
+        "time": "2025-01-15T10:00:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0",
+        "authority": "https://timestamp.digicert.com"
+      },
+      "expected": {
+        "boundToDocument": true,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": true
+      }
+    },
+    {
+      "name": "rfc3161-mismatch",
+      "description": "An rfc3161 `hash` that is not the documentId does not attest this document and is not bound.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "rfc3161",
+        "time": "2025-01-15T10:00:00Z",
+        "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "token": "MIIEjDAVBgkqhkiG9w0BCQUxCDAGBgQBMjM0"
+      },
+      "expected": {
+        "boundToDocument": false,
+        "leaf": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "problemsEmpty": false
+      }
+    },
+    {
+      "name": "blockchain-bound",
+      "description": "A blockchain entry keys on its `hash` member; equal to the documentId, so it is bound.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "blockchain",
+        "time": "2025-01-15T10:05:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "chain": "bitcoin",
+        "blockHeight": 880000,
+        "blockHash": "0000000000000000000209b4f1e8a2c9d3b7e6f5a4c3d2e1f0a9b8c7d6e5f4a3",
+        "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+      },
+      "expected": {
+        "boundToDocument": true,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": true
+      }
+    },
+    {
+      "name": "blockchain-mismatch",
+      "description": "A blockchain `hash` that is not the documentId is not bound.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "blockchain",
+        "time": "2025-01-15T10:05:00Z",
+        "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "chain": "ethereum",
+        "blockHeight": 19000000,
+        "blockHash": "0000000000000000000209b4f1e8a2c9d3b7e6f5a4c3d2e1f0a9b8c7d6e5f4a3",
+        "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+      },
+      "expected": {
+        "boundToDocument": false,
+        "leaf": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "problemsEmpty": false
+      }
+    },
+    {
+      "name": "aggregated-single-verified",
+      "description": "An aggregated entry keys on `proof.documentHash` (the Merkle leaf), recomputed to `merkleRoot` along a one-element path.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "path": [
+            {
+              "position": "right",
+              "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:5189c77d29fe5d546a045ec46986852785fea5c13ac7da9c115ff5fb6edf817c",
+        "anchor": {
+          "chain": "bitcoin",
+          "blockHeight": 880000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": true,
+        "merkleVerified": true,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": true
+      }
+    },
+    {
+      "name": "aggregated-double-verified",
+      "description": "A two-element aggregated path, exercising both fold positions.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "path": [
+            {
+              "position": "right",
+              "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            {
+              "position": "left",
+              "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:277b6f43115f5bfd44a875c69575ec332ca5cae7eb76566270a122038611e48f",
+        "anchor": {
+          "chain": "bitcoin",
+          "blockHeight": 880000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": true,
+        "merkleVerified": true,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": true
+      }
+    },
+    {
+      "name": "aggregated-triple-verified",
+      "description": "A three-element aggregated path.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "path": [
+            {
+              "position": "left",
+              "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+            },
+            {
+              "position": "right",
+              "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            {
+              "position": "right",
+              "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:ccc3f7fe01a5288154e5edfa8e6942b8022c51533954453f1aabb6eb8723efd4",
+        "anchor": {
+          "chain": "ethereum",
+          "blockHeight": 19000000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": true,
+        "merkleVerified": true,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": true
+      }
+    },
+    {
+      "name": "aggregated-hash-decoy-rejected",
+      "description": "The fail-open guard: the top-level `hash` equals the documentId while `proof.documentHash` does NOT. The Merkle path still verifies, so a verifier keying only on `hash` would wrongly accept an entry anchoring a different leaf. Binding MUST key on the leaf.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "path": [
+            {
+              "position": "right",
+              "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:c8e5ff41fdd4ca636d8fa244e9600532589f5023c7c17c3e02f7e0fa743e7fe1",
+        "anchor": {
+          "chain": "bitcoin",
+          "blockHeight": 880000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": false,
+        "merkleVerified": true,
+        "leaf": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "problemsEmpty": false
+      }
+    },
+    {
+      "name": "aggregated-wrong-root",
+      "description": "A path that does not reproduce the declared `merkleRoot` fails Merkle verification even though the leaf is bound.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "path": [
+            {
+              "position": "right",
+              "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "anchor": {
+          "chain": "bitcoin",
+          "blockHeight": 880000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": true,
+        "merkleVerified": false,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": false
+      }
+    },
+    {
+      "name": "aggregated-swapped-position",
+      "description": "Aggregated fold positions are load-bearing: swapping left for right yields a different root.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "aggregated",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "proof": {
+          "documentHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "path": [
+            {
+              "position": "left",
+              "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        },
+        "merkleRoot": "sha256:5189c77d29fe5d546a045ec46986852785fea5c13ac7da9c115ff5fb6edf817c",
+        "anchor": {
+          "chain": "bitcoin",
+          "blockHeight": 880000,
+          "txId": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+        }
+      },
+      "expected": {
+        "boundToDocument": true,
+        "merkleVerified": false,
+        "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "problemsEmpty": false
+      }
+    },
+    {
+      "name": "unknown-type-rejected",
+      "description": "An unrecognized timestamp type is rejected rather than ignored — an unknown proof is never treated as absent.",
+      "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": {
+        "type": "otherchain",
+        "time": "2025-01-15T10:10:00Z",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "expected": {
+        "boundToDocument": false,
+        "problemsEmpty": false
+      }
+    }
+  ]
+}

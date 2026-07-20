@@ -1,0 +1,32 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "jwk-thumbprint",
+  "clause": "Security Extension section 3.11",
+  "description": "RFC 7638 JWK thumbprints over the canonical member set (RFC 8037 for OKP).",
+  "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "vectors": [
+    {
+      "name": "ed25519-rfc8037",
+      "description": "RFC 8037 Appendix A.3 Ed25519 JWK thumbprint (authoritative published value).",
+      "jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expectedJkt": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+    },
+    {
+      "name": "p256-deterministic",
+      "description": "P-256 JWK thumbprint (deterministic key, private scalar d=2).",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "fPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXg",
+        "y": "B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E"
+      },
+      "expectedJkt": "AhqHzaYXA5MzmDCrsseUsVBGKyfhDhvekx0THjH_xIE"
+    }
+  ]
+}

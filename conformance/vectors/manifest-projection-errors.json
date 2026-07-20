@@ -1,0 +1,147 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "manifest-projection-errors",
+  "clause": "Security Extension section 9.7",
+  "description": "Manifests a conforming projector MUST reject, each with the defect code it fails closed on (see ../errors.json for each code's disposition).",
+  "oracle": "Expected outcomes are hand-derived from the specification's written rule table; the rule text itself is the independent oracle.",
+  "vectors": [
+    {
+      "name": "pending-id-forbidden",
+      "description": "A draft manifest (id:\"pending\") has no fixed identity, so a projection over it is forbidden.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-ID-PENDING"
+      }
+    },
+    {
+      "name": "malformed-content-hash",
+      "description": "A content hash that is not a well-formed algorithm:hexdigest is rejected.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:1234\"}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-HASH-MALFORMED"
+      }
+    },
+    {
+      "name": "duplicate-extension-id",
+      "description": "Two extensions with the same id make the projection ambiguous and are rejected.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"extensions\":[{\"id\":\"cdx.security\",\"version\":\"0.1\",\"required\":true},{\"id\":\"cdx.security\",\"version\":\"0.2\",\"required\":false}]}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-EXTENSION-DUPLICATE"
+      }
+    },
+    {
+      "name": "unknown-state-rejected",
+      "description": "A state outside the lifecycle enum fails closed rather than binding a bogus state into a signature.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"archived\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-STATE-UNKNOWN"
+      }
+    },
+    {
+      "name": "duplicate-required-signer",
+      "description": "Two identical required-signer entries make the required set ambiguous and are rejected.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:key:zABC\"},{\"did\":\"did:key:zABC\"}]}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REQUIRED-SIGNER-DUPLICATE"
+      }
+    },
+    {
+      "name": "empty-required-signers",
+      "description": "An empty required-signer set is forbidden so \"absent policy\" and \"empty policy\" are not both expressible.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"signaturePolicy\":{\"requiredSigners\":[]}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REQUIRED-SIGNER-SET-INVALID"
+      }
+    },
+    {
+      "name": "required-signer-two-kinds",
+      "description": "A required-signer entry carrying two identity kinds is malformed and fails closed.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:key:zABC\",\"jkt\":\"thumbprint\"}]}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REQUIRED-SIGNER-KIND-AMBIGUOUS"
+      }
+    },
+    {
+      "name": "config-file-conflicting-hash",
+      "description": "The same config-file path declared with two different hashes (across config slots) makes the binding ambiguous and is rejected.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"academic\":{\"numbering\":{\"path\":\"shared.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},\"semantic\":{\"bibliography\":{\"path\":\"shared.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REFERENCE-HASH-CONFLICT"
+      }
+    },
+    {
+      "name": "asset-index-missing-hash",
+      "description": "An asset category declared without a well-formed index hash would escape the transitive asset binding, so the projection fails closed rather than dropping it.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"assets\":{\"images\":{\"count\":2,\"totalSize\":170,\"index\":\"assets/images/index.json\"}}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-HASH-MALFORMED"
+      }
+    },
+    {
+      "name": "malformed-cdx-version",
+      "description": "A `cdx` that is not a \"<major>.<minor>\" string fails closed rather than binding a bogus version into the projection.",
+      "manifest": "{\"cdx\":\"0.1.2\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-VERSION-MALFORMED"
+      }
+    },
+    {
+      "name": "presentation-unknown-type",
+      "description": "A presentation entry whose type is outside the enum fails closed.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"presentation\":[{\"type\":\"pdf\",\"path\":\"presentation/x.json\",\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\"}]}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-PRESENTATION-TYPE-UNKNOWN"
+      }
+    },
+    {
+      "name": "presentation-traversal-path",
+      "description": "A presentation entry whose path escapes the archive root fails closed.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"presentation\":[{\"type\":\"paginated\",\"path\":\"../evil.json\",\"hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\"}]}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-PATH-TRAVERSAL"
+      }
+    },
+    {
+      "name": "required-signer-malformed-did",
+      "description": "A required-signer `did` that is not a well-formed did:(key|jwk|web) fails closed rather than binding a bogus credential into the required set.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"not-a-did\"}]}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REQUIRED-SIGNER-ID-MALFORMED"
+      }
+    },
+    {
+      "name": "access-control-malformed-hash",
+      "description": "A security.accessControl reference whose hash is not a valid content hash fails closed rather than binding an unverifiable policy reference.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"security\":{\"accessControl\":{\"path\":\"security/access-control.json\",\"hash\":\"notahash\"}}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-HASH-MALFORMED"
+      }
+    },
+    {
+      "name": "access-control-traversal-path",
+      "description": "A security.accessControl reference whose path escapes the archive root fails closed.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"security\":{\"accessControl\":{\"path\":\"../evil.json\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-PATH-TRAVERSAL"
+      }
+    },
+    {
+      "name": "access-control-reference-malformed",
+      "description": "A security.accessControl reference with no string path is a malformed {path, hash} reference (a shape defect), NOT a hash defect — the two carry different codes so a consumer can tell them apart.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"security\":{\"accessControl\":{\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REFERENCE-MALFORMED"
+      }
+    },
+    {
+      "name": "required-signer-zero-kinds",
+      "description": "A requiredSigners entry carrying NO identity kind fails closed on the same rule as one carrying two — the specification requires exactly one. Pins the zero-kind branch, which the two-kind vector does not reach.",
+      "manifest": "{\"cdx\":\"0.1\",\"id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"state\":\"frozen\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"},\"signaturePolicy\":{\"requiredSigners\":[{}]}}",
+      "expect": {
+        "code": "CDX-E-MANIFEST-REQUIRED-SIGNER-KIND-AMBIGUOUS"
+      }
+    }
+  ]
+}

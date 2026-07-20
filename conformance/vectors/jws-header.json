@@ -1,0 +1,64 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "jws-header",
+  "clause": "Security Extension section 3.3",
+  "description": "JWS protected-header base64url encoding.",
+  "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "vectors": [
+    {
+      "name": "minimal-es256",
+      "description": "The smallest valid header: alg + the mandatory b64:false / crit:[\"b64\"].",
+      "header": {
+        "alg": "ES256",
+        "b64": false,
+        "crit": [
+          "b64"
+        ]
+      },
+      "expectedProtected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19"
+    },
+    {
+      "name": "minimal-eddsa",
+      "description": "A different algorithm in the same minimal header shape.",
+      "header": {
+        "alg": "EdDSA",
+        "b64": false,
+        "crit": [
+          "b64"
+        ]
+      },
+      "expectedProtected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19"
+    },
+    {
+      "name": "kid-did-key-eddsa",
+      "description": "A keyId-path header: a self-certifying did:key DID plus sigT, in place of x5c/x5t#S256 (§3.11).",
+      "header": {
+        "alg": "EdDSA",
+        "b64": false,
+        "crit": [
+          "b64"
+        ],
+        "kid": "did:key:z6MkUNVERIFIEDplaceholderEd25519keyForIllustration",
+        "sigT": "2025-01-15T10:00:00Z"
+      },
+      "expectedProtected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImRpZDprZXk6ejZNa1VOVkVSSUZJRURwbGFjZWhvbGRlckVkMjU1MTlrZXlGb3JJbGx1c3RyYXRpb24iLCJzaWdUIjoiMjAyNS0wMS0xNVQxMDowMDowMFoifQ"
+    },
+    {
+      "name": "kid-did-web-jkt",
+      "description": "A did:web keyId header: an out-of-band-resolved key bound by a jkt thumbprint, with a colon-delimited path (§3.11).",
+      "header": {
+        "alg": "EdDSA",
+        "b64": false,
+        "crit": [
+          "b64"
+        ],
+        "kid": "did:web:example.com:alice",
+        "jkt": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+        "sigT": "2025-01-15T10:00:00Z"
+      },
+      "expectedProtected": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImprdCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJraWQiOiJkaWQ6d2ViOmV4YW1wbGUuY29tOmFsaWNlIiwic2lnVCI6IjIwMjUtMDEtMTVUMTA6MDA6MDBaIn0"
+    }
+  ]
+}
