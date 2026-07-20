@@ -17,7 +17,17 @@ import * as path from 'path';
 export interface ErrorCodeEntry {
   summary: string;
   clause: string;
+  /** Load-time disposition the SPECIFICATION assigns (State Machine §5.4).
+   * null means the spec assigns none — not that a consumer may ignore it. */
+  disposition?: string | null;
+  /** The §5.4 row relied on for `disposition`, so a reviewer can check it. */
+  dispositionClause?: string;
+  /** Lineage only: the 09 §3.3 outcome. A REJECTED outcome is NOT the REJECT
+   * disposition — see the dispositionNote in conformance/errors.json. */
   outcome?: string;
+  /** Retired codes keep their entry forever (append-only vocabulary). */
+  deprecated?: boolean;
+  supersededBy?: string;
   note?: string;
 }
 

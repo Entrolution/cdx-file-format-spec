@@ -1,84 +1,140 @@
 {
-  "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and OUTCOMES (Provenance and Lineage section 3.3) — never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code is therefore a diagnostic that sharpens a failure report, and is never the pass criterion for a MUST.",
-  "version": "0.1",
+  "normative": false,
+  "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
+  "version": "0.2",
   "specVersion": "0.1",
+  "compatibilityPolicy": {
+    "summary": "Codes are append-only and permanently stable once published.",
+    "rules": [
+      "A code is NEVER re-pointed at a different defect. If the meaning must change, a new code is added and the old one is deprecated.",
+      "A deprecated code keeps its entry forever, gaining `deprecated: true` and, where applicable, `supersededBy`. Entries are never deleted.",
+      "`version` is the vocabulary's own semantic version and bumps on any addition or deprecation.",
+      "`specVersion` is the CDX specification version the `clause` citations resolve against."
+    ]
+  },
+  "dispositionNote": "`disposition` records the load-time disposition the SPECIFICATION assigns to this defect class (State Machine section 5.4), with `dispositionClause` naming the row relied on. It is the normative half of an entry. A null disposition means the specification assigns no document-level disposition to this defect \u2014 not that a consumer may ignore it. NOTE for lineage entries: the lineage OUTCOME vocabulary (VERIFIED/INCOMPLETE/REJECTED, Provenance and Lineage section 3.3) is a different axis from the DISPOSITION vocabulary (IGNORE/WARNING/INTEGRITY-ERROR/REJECT). A lineage outcome of REJECTED does NOT mean the disposition REJECT: a proven-forged lineage is a WARNING, because the document's content identity is unaffected and it is not blocked on lineage grounds.",
   "codes": {
-    "CDX-E-ID-PENDING": {
+    "CDX-E-MANIFEST-ID-PENDING": {
       "summary": "A manifest projection was requested for a document whose id is still `pending`.",
       "clause": "Security Extension section 9.7",
+      "disposition": null,
+      "dispositionClause": "Not a document defect: the manifest is well-formed and the projection is simply undefined until the document id is assigned. No load-time disposition applies.",
       "note": "The projection is defined only once the document id is fixed."
     },
-    "CDX-E-HASH-MALFORMED": {
-      "summary": "A declared content hash is not a well-formed `algorithm:hexdigest`.",
-      "clause": "Security Extension section 9.7"
+    "CDX-E-MANIFEST-HASH-MALFORMED": {
+      "summary": "A declared content hash is absent, or is not a well-formed `algorithm:hexdigest`.",
+      "clause": "Security Extension section 9.7",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)"
     },
-    "CDX-E-PATH-TRAVERSAL": {
+    "CDX-E-MANIFEST-REFERENCE-MALFORMED": {
+      "summary": "A declared file reference is not a well-formed `{path, hash}` object (not an object, or a missing/non-string path).",
+      "clause": "Security Extension section 9.9",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)",
+      "note": "Distinct from CDX-E-MANIFEST-HASH-MALFORMED: the defect is the shape of the reference, not the hash value."
+    },
+    "CDX-E-MANIFEST-PATH-TRAVERSAL": {
       "summary": "A declared path is not a safe archive-relative path (escapes the archive root).",
-      "clause": "Security Extension section 9.7; Container Format section 9.1"
+      "clause": "Security Extension section 9.7; Container Format section 9.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (an unsafe archive path or symlink always REJECTs, in every state)"
     },
-    "CDX-E-CDX-VERSION-MALFORMED": {
+    "CDX-E-MANIFEST-VERSION-MALFORMED": {
       "summary": "`manifest.cdx` is not a \"<major>.<minor>\" version string.",
-      "clause": "Security Extension section 9.7"
+      "clause": "Security Extension section 9.7",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)"
     },
-    "CDX-E-STATE-UNKNOWN": {
+    "CDX-E-MANIFEST-STATE-UNKNOWN": {
       "summary": "`manifest.state` is outside the lifecycle enum.",
-      "clause": "State Machine section 3.1; Security Extension section 9.7"
+      "clause": "State Machine section 3.1; Security Extension section 9.7",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (a `state` value outside the defined lifecycle enum, so the mutability-and-signature contract cannot be established)"
     },
-    "CDX-E-EXTENSION-DUPLICATE": {
+    "CDX-E-MANIFEST-EXTENSION-DUPLICATE": {
       "summary": "Two `manifest.extensions[]` entries share an id, making the projection ambiguous.",
-      "clause": "Security Extension section 9.7"
+      "clause": "Security Extension section 9.7",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap."
     },
-    "CDX-E-PRESENTATION-TYPE-UNKNOWN": {
+    "CDX-E-MANIFEST-PRESENTATION-TYPE-UNKNOWN": {
       "summary": "A `manifest.presentation[]` entry declares a type outside the enum.",
-      "clause": "Security Extension section 9.7"
+      "clause": "Security Extension section 9.7",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap."
     },
-    "CDX-E-REFERENCE-HASH-CONFLICT": {
+    "CDX-E-MANIFEST-REFERENCE-HASH-CONFLICT": {
       "summary": "The same declared path appears twice with conflicting hashes.",
       "clause": "Security Extension section 9.7",
-      "note": "Applies to both the config-file references and the asset-index references."
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap.",
+      "note": "Emitted for the config-file references and the asset-index references."
     },
-    "CDX-E-REQUIRED-SIGNER-SET-EMPTY": {
-      "summary": "`signaturePolicy.requiredSigners` is present but empty.",
+    "CDX-E-MANIFEST-REQUIRED-SIGNER-SET-INVALID": {
+      "summary": "`signaturePolicy.requiredSigners` is absent, is not an array, or is empty.",
       "clause": "Security Extension sections 3.12, 9.7",
-      "note": "Forbidden so an absent policy and an empty policy are not both expressible."
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap.",
+      "note": "An empty set is forbidden so an absent policy and an empty policy are not both expressible."
     },
-    "CDX-E-REQUIRED-SIGNER-DUPLICATE": {
+    "CDX-E-MANIFEST-REQUIRED-SIGNER-DUPLICATE": {
       "summary": "Two `requiredSigners` entries declare the same identity.",
-      "clause": "Security Extension sections 3.12, 9.7"
+      "clause": "Security Extension sections 3.12, 9.7",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap."
     },
-    "CDX-E-REQUIRED-SIGNER-KIND-AMBIGUOUS": {
+    "CDX-E-MANIFEST-REQUIRED-SIGNER-KIND-AMBIGUOUS": {
       "summary": "A `requiredSigners` entry carries zero, or more than one, identity kind.",
-      "clause": "Security Extension section 3.12"
+      "clause": "Security Extension section 3.12",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap.",
+      "note": "Spans both the zero-kind and multiple-kind cases: section 3.12 requires exactly one identity kind, and this implementation fails closed on either violation at a single guard."
     },
-    "CDX-E-REQUIRED-SIGNER-ID-MALFORMED": {
+    "CDX-E-MANIFEST-REQUIRED-SIGNER-ID-MALFORMED": {
       "summary": "A `requiredSigners` identity value is malformed for its declared kind.",
-      "clause": "Security Extension section 3.12"
+      "clause": "Security Extension section 3.12",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap."
     },
     "CDX-E-LINEAGE-CYCLE": {
       "summary": "The lineage walk revisited a document already on the current path.",
       "clause": "Provenance and Lineage section 3.3",
-      "outcome": "REJECTED"
+      "outcome": "REJECTED",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (REJECTED lineage \u2014 WARNING in every state)",
+      "note": "The lineage MUST be treated as forged \u2014 a verifier MUST NOT present any claimed ancestry as authenticated, and MUST surface the proven inconsistency as distinct from a merely unverifiable chain. The document's content identity is unaffected, so it is NOT blocked on lineage grounds: the outcome REJECTED is not the disposition REJECT."
     },
     "CDX-E-LINEAGE-ANCESTORS-CONTRADICT": {
       "summary": "A declared `ancestors` entry contradicts the resolved parent chain (forged tail).",
       "clause": "Provenance and Lineage section 3.3",
-      "outcome": "REJECTED"
+      "outcome": "REJECTED",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (REJECTED lineage \u2014 WARNING in every state)",
+      "note": "Forged lineage: claimed ancestry MUST NOT be presented as authenticated, but the document is not blocked on lineage grounds. The outcome REJECTED is not the disposition REJECT."
     },
     "CDX-E-LINEAGE-ROOT-WITH-ANCESTORS": {
       "summary": "A document declaring no parent also declares a non-empty ancestors chain.",
       "clause": "Provenance and Lineage section 3.3",
-      "outcome": "REJECTED"
+      "outcome": "REJECTED",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (REJECTED lineage \u2014 WARNING in every state)",
+      "note": "Forged lineage: claimed ancestry MUST NOT be presented as authenticated, but the document is not blocked on lineage grounds. The outcome REJECTED is not the disposition REJECT."
     },
     "CDX-E-LINEAGE-UNRESOLVABLE": {
       "summary": "A link in the chain could not be resolved, so the chain cannot be fully walked.",
       "clause": "Provenance and Lineage section 3.3",
       "outcome": "INCOMPLETE",
-      "note": "Unverified, never endorsed — and never grounds to reject the document."
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (INCOMPLETE lineage \u2014 WARNING in every state)",
+      "note": "Unverified, never endorsed: no ancestor beyond the break is presented as verified. An unverifiable proof never rejects the document (section 5.4.3)."
     },
     "CDX-E-LINEAGE-BOUND-REACHED": {
       "summary": "The traversal depth or breadth bound was reached before the walk completed.",
       "clause": "Provenance and Lineage section 3.3",
       "outcome": "INCOMPLETE",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (INCOMPLETE lineage \u2014 WARNING in every state)",
       "note": "A legitimately deep or wide history is not an inconsistency."
     }
   }

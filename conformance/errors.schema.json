@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdx.dev/conformance/errors.schema.json",
+  "title": "Conformance Defect-Code Vocabulary",
+  "description": "Schema for conformance/errors.json. NON-NORMATIVE: this validates a testing artifact, not a CDX document. It lives outside schemas/ deliberately \u2014 everything in schemas/ describes normative CDX structures.",
+  "type": "object",
+  "required": [
+    "normative",
+    "version",
+    "specVersion",
+    "compatibilityPolicy",
+    "codes"
+  ],
+  "properties": {
+    "normative": {
+      "const": false,
+      "description": "Always false: this vocabulary is never part of the specification."
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "The vocabulary's own version; bumps on any addition or deprecation."
+    },
+    "specVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "The CDX specification version the clause citations resolve against."
+    },
+    "compatibilityPolicy": {
+      "type": "object",
+      "required": [
+        "summary",
+        "rules"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "dispositionNote": {
+      "type": "string"
+    },
+    "codes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^CDX-E-[A-Z0-9]+(-[A-Z0-9]+)*$",
+        "description": "Domain-segmented defect code, e.g. CDX-E-MANIFEST-STATE-UNKNOWN."
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/codeEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "codeEntry": {
+      "type": "object",
+      "required": [
+        "summary",
+        "clause",
+        "disposition"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "What the defect is. MUST describe every branch of the guard that emits it."
+        },
+        "clause": {
+          "type": "string",
+          "description": "The specification clause defining the requirement."
+        },
+        "disposition": {
+          "description": "The load-time disposition the specification assigns (State Machine section 5.4). null means the specification assigns none \u2014 not that a consumer may ignore it.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "IGNORE",
+                "WARNING",
+                "INTEGRITY-ERROR",
+                "REJECT"
+              ]
+            }
+          ]
+        },
+        "dispositionClause": {
+          "type": "string",
+          "description": "The section 5.4 row relied on, so a reviewer can verify the disposition."
+        },
+        "outcome": {
+          "enum": [
+            "VERIFIED",
+            "INCOMPLETE",
+            "REJECTED"
+          ],
+          "description": "Lineage only (09 section 3.3). A REJECTED outcome is NOT the REJECT disposition."
+        },
+        "deprecated": {
+          "const": true,
+          "description": "Retired codes keep their entry forever; the vocabulary is append-only."
+        },
+        "supersededBy": {
+          "type": "string",
+          "pattern": "^CDX-E-[A-Z0-9]+(-[A-Z0-9]+)*$"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "dispositionClause"
+            ],
+            "description": "A non-null disposition MUST cite the section 5.4 row it was taken from, so a reviewer can verify it rather than trust it."
+          }
+        }
+      ]
+    }
+  }
+}

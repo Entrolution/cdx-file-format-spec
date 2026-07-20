@@ -120,7 +120,7 @@ function projectRequiredSigner(entry: unknown): Record<string, unknown> {
   }
   const present = REQUIRED_SIGNER_KINDS.filter((k) => entry[k] !== undefined);
   if (present.length !== 1) {
-    throw new CanonicalizationError(`each requiredSigners entry must carry exactly one of: ${REQUIRED_SIGNER_KINDS.join(', ')}`, 'CDX-E-REQUIRED-SIGNER-KIND-AMBIGUOUS');
+    throw new CanonicalizationError(`each requiredSigners entry must carry exactly one of: ${REQUIRED_SIGNER_KINDS.join(', ')}`, 'CDX-E-MANIFEST-REQUIRED-SIGNER-KIND-AMBIGUOUS');
   }
   const keys = Object.keys(entry);
   if (keys.length !== 1) {
@@ -129,7 +129,7 @@ function projectRequiredSigner(entry: unknown): Record<string, unknown> {
   const kind = present[0];
   const value = entry[kind];
   if (typeof value !== 'string' || !REQUIRED_SIGNER_PATTERNS[kind].test(value)) {
-    throw new CanonicalizationError(`requiredSigners ${kind} is malformed for its identity kind`, 'CDX-E-REQUIRED-SIGNER-ID-MALFORMED');
+    throw new CanonicalizationError(`requiredSigners ${kind} is malformed for its identity kind`, 'CDX-E-MANIFEST-REQUIRED-SIGNER-ID-MALFORMED');
   }
   return { [kind]: value };
 }
@@ -168,11 +168,11 @@ function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{
   const visit = (v: unknown): void => {
     if (isFileReference(v)) {
       if (!RELATIVE_PATH.test(v.path)) {
-        throw new CanonicalizationError(`config file path "${v.path}" is not a valid archive-relative path`, 'CDX-E-PATH-TRAVERSAL');
+        throw new CanonicalizationError(`config file path "${v.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
       }
       const existing = byPath.get(v.path);
       if (existing !== undefined && existing !== v.hash) {
-        throw new CanonicalizationError(`config file "${v.path}" is declared with conflicting hashes`, 'CDX-E-REFERENCE-HASH-CONFLICT');
+        throw new CanonicalizationError(`config file "${v.path}" is declared with conflicting hashes`, 'CDX-E-MANIFEST-REFERENCE-HASH-CONFLICT');
       }
       byPath.set(v.path, v.hash);
       return; // a file reference's members are scalars; nothing to recurse into
@@ -220,14 +220,14 @@ function collectAssetIndexReferences(manifest: Record<string, unknown>): Array<{
       throw new CanonicalizationError(`manifest.assets category "${category}" must declare a string index path`);
     }
     if (!RELATIVE_PATH.test(cat.index)) {
-      throw new CanonicalizationError(`manifest.assets category "${category}" index path "${cat.index}" is not a valid archive-relative path`);
+      throw new CanonicalizationError(`manifest.assets category "${category}" index path "${cat.index}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
     }
     if (!isValidContentHash(cat.hash)) {
-      throw new CanonicalizationError(`manifest.assets category "${category}" index hash "${String(cat.hash)}" is malformed`, 'CDX-E-HASH-MALFORMED');
+      throw new CanonicalizationError(`manifest.assets category "${category}" index hash "${String(cat.hash)}" is malformed`, 'CDX-E-MANIFEST-HASH-MALFORMED');
     }
     const existing = byPath.get(cat.index);
     if (existing !== undefined && existing !== cat.hash) {
-      throw new CanonicalizationError(`asset index "${cat.index}" is declared with conflicting hashes`);
+      throw new CanonicalizationError(`asset index "${cat.index}" is declared with conflicting hashes`, 'CDX-E-MANIFEST-REFERENCE-HASH-CONFLICT');
     }
     byPath.set(cat.index, cat.hash);
   }
@@ -255,7 +255,7 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   // carries `id: "pending"` (07 §5.3) and is never signed; forbid it explicitly
   // rather than project an unstable manifest.
   if (manifest.id === 'pending') {
-    throw new CanonicalizationError('manifest id is "pending"; a manifest projection is undefined until the document id is assigned', 'CDX-E-ID-PENDING');
+    throw new CanonicalizationError('manifest id is "pending"; a manifest projection is undefined until the document id is assigned', 'CDX-E-MANIFEST-ID-PENDING');
   }
 
   // Bound nesting depth before the recursive walks (config-ref collection, byte-invariant
@@ -269,26 +269,26 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   // Pattern-checked, not merely typed: a signer skipping manifest-schema validation
   // must not bind a malformed version into the signed projection (fail closed).
   if (typeof manifest.cdx !== 'string' || !VERSION_PATTERN.test(manifest.cdx)) {
-    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string', 'CDX-E-CDX-VERSION-MALFORMED');
+    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string', 'CDX-E-MANIFEST-VERSION-MALFORMED');
   }
   projection.cdx = manifest.cdx;
 
   // --- state (lifecycle) — always present ------------------------------------
   if (typeof manifest.state !== 'string' || !MANIFEST_STATES.has(manifest.state)) {
-    throw new CanonicalizationError(`manifest.state must be one of: ${[...MANIFEST_STATES].join(', ')}`, 'CDX-E-STATE-UNKNOWN');
+    throw new CanonicalizationError(`manifest.state must be one of: ${[...MANIFEST_STATES].join(', ')}`, 'CDX-E-MANIFEST-STATE-UNKNOWN');
   }
   projection.state = manifest.state;
 
   // --- content {path, hash} — always present; the content file's integrity ----
   const content = manifest.content;
   if (!isPlainObject(content) || typeof content.path !== 'string' || typeof content.hash !== 'string') {
-    throw new CanonicalizationError('manifest.content must be an object with string path and hash');
+    throw new CanonicalizationError('manifest.content must be an object with string path and hash', 'CDX-E-MANIFEST-REFERENCE-MALFORMED');
   }
   if (!RELATIVE_PATH.test(content.path)) {
-    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`, 'CDX-E-PATH-TRAVERSAL');
+    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
   }
   if (!isValidContentHash(content.hash)) {
-    throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`, 'CDX-E-HASH-MALFORMED');
+    throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`, 'CDX-E-MANIFEST-HASH-MALFORMED');
   }
   projection.content = { path: content.path, hash: content.hash };
 
@@ -306,16 +306,16 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   if (Array.isArray(presentation) && presentation.length > 0) {
     const items = presentation.map((entry) => {
       if (!isPlainObject(entry) || typeof entry.type !== 'string' || typeof entry.path !== 'string' || typeof entry.hash !== 'string') {
-        throw new CanonicalizationError('each manifest.presentation[] entry must have string type, path and hash');
+        throw new CanonicalizationError('each manifest.presentation[] entry must have string type, path and hash', 'CDX-E-MANIFEST-REFERENCE-MALFORMED');
       }
       if (!PRESENTATION_TYPES.has(entry.type)) {
-        throw new CanonicalizationError(`manifest.presentation[] type "${entry.type}" is not one of: ${[...PRESENTATION_TYPES].join(', ')}`, 'CDX-E-PRESENTATION-TYPE-UNKNOWN');
+        throw new CanonicalizationError(`manifest.presentation[] type "${entry.type}" is not one of: ${[...PRESENTATION_TYPES].join(', ')}`, 'CDX-E-MANIFEST-PRESENTATION-TYPE-UNKNOWN');
       }
       if (!RELATIVE_PATH.test(entry.path)) {
-        throw new CanonicalizationError(`manifest.presentation[] path "${entry.path}" is not a valid archive-relative path`, 'CDX-E-PATH-TRAVERSAL');
+        throw new CanonicalizationError(`manifest.presentation[] path "${entry.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
       }
       if (!isValidContentHash(entry.hash)) {
-        throw new CanonicalizationError(`presentation "${entry.path}" has a malformed hash "${entry.hash}"`);
+        throw new CanonicalizationError(`presentation "${entry.path}" has a malformed hash "${entry.hash}"`, 'CDX-E-MANIFEST-HASH-MALFORMED');
       }
       const projected: Record<string, unknown> = { type: entry.type, path: entry.path, hash: entry.hash };
       if (entry.default === true) projected.default = true;
@@ -343,7 +343,7 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
         throw new CanonicalizationError('each manifest.extensions[] entry must have a string id, string version and boolean required');
       }
       if (seen.has(entry.id)) {
-        throw new CanonicalizationError(`duplicate extension id "${entry.id}"`, 'CDX-E-EXTENSION-DUPLICATE');
+        throw new CanonicalizationError(`duplicate extension id "${entry.id}"`, 'CDX-E-MANIFEST-EXTENSION-DUPLICATE');
       }
       seen.add(entry.id);
       const projected: Record<string, unknown> = { id: entry.id, version: entry.version, required: entry.required };
@@ -389,13 +389,13 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
     }
     const required = policy.requiredSigners;
     if (!Array.isArray(required) || required.length === 0) {
-      throw new CanonicalizationError('manifest.signaturePolicy.requiredSigners must be a non-empty array', 'CDX-E-REQUIRED-SIGNER-SET-EMPTY');
+      throw new CanonicalizationError('manifest.signaturePolicy.requiredSigners must be a non-empty array', 'CDX-E-MANIFEST-REQUIRED-SIGNER-SET-INVALID');
     }
     const items = required.map((entry) => projectRequiredSigner(entry));
     items.sort(byJcs);
     for (let i = 1; i < items.length; i++) {
       if (jcsOf(items[i]) === jcsOf(items[i - 1])) {
-        throw new CanonicalizationError('duplicate manifest.signaturePolicy.requiredSigners entry', 'CDX-E-REQUIRED-SIGNER-DUPLICATE');
+        throw new CanonicalizationError('duplicate manifest.signaturePolicy.requiredSigners entry', 'CDX-E-MANIFEST-REQUIRED-SIGNER-DUPLICATE');
       }
     }
     projection.signaturePolicy = { requiredSigners: items };
@@ -438,11 +438,17 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
   const security = manifest.security;
   if (isPlainObject(security) && security.accessControl !== undefined && security.accessControl !== null) {
     const ref = security.accessControl;
-    if (!isPlainObject(ref) || typeof ref.path !== 'string' || !isValidContentHash(ref.hash)) {
-      throw new CanonicalizationError('manifest.security.accessControl must carry a string path and a valid content hash', 'CDX-E-HASH-MALFORMED');
+    // The reference SHAPE and the hash VALUE are distinct defects: a missing or
+    // non-string path is a malformed {path, hash} reference (§9.9), not a bad
+    // hash, and a conformance consumer must be able to tell them apart.
+    if (!isPlainObject(ref) || typeof ref.path !== 'string') {
+      throw new CanonicalizationError('manifest.security.accessControl must be a {path, hash} reference with a string path', 'CDX-E-MANIFEST-REFERENCE-MALFORMED');
+    }
+    if (!isValidContentHash(ref.hash)) {
+      throw new CanonicalizationError(`manifest.security.accessControl hash "${String(ref.hash)}" is malformed`, 'CDX-E-MANIFEST-HASH-MALFORMED');
     }
     if (!RELATIVE_PATH.test(ref.path)) {
-      throw new CanonicalizationError(`manifest.security.accessControl path "${ref.path}" is not a valid archive-relative path`, 'CDX-E-PATH-TRAVERSAL');
+      throw new CanonicalizationError(`manifest.security.accessControl path "${ref.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
     }
     projection.accessControl = { path: ref.path, hash: ref.hash };
   }

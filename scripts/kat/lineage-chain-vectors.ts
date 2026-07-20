@@ -19,17 +19,33 @@ export interface LineageVector {
   docs: LineageDoc[];
   subject: string;
   maxDepth?: number;
+  /**
+   * PORTABLE expectations — the only part exported to the conformance suite.
+   * `outcome` is the normative assertion (09 §3.3); `reasonCode` names the
+   * defect class and carries its disposition via conformance/errors.json.
+   */
   expected: {
     outcome: LineageOutcome;
     resolvedDepth?: number;
-    /** A substring the `reason` must contain (rejected/incomplete). */
     /** Stable defect code the result must carry — the portable assertion. */
     reasonCode?: string;
-    /** Substring of the human-readable reason. Advisory: pins THIS
-     * implementation's wording, not portable across implementations. */
-    reasonIncludes?: string;
     /** Expected number of advisory warnings. */
     warnings?: number;
+  };
+  /**
+   * NON-PORTABLE, this implementation only — never exported. Nested so the
+   * export boundary is structural rather than a denylist the exporter could
+   * silently fall out of date with.
+   */
+  local?: {
+    /** Substring of the human-readable reason; pins the result site. */
+    reasonIncludes?: string;
+    /**
+     * Stable label of the result site this vector targets. REQUIRED only when
+     * two vectors deliberately exercise the SAME site and therefore share a
+     * (reasonCode, reasonIncludes) pair.
+     */
+    site?: string;
   };
 }
 
@@ -120,7 +136,7 @@ export const lineageVectors: LineageVector[] = [
       { id: B, parent: A, ancestors: [A] },
     ],
     subject: A,
-    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-CYCLE', reasonIncludes: 'cycle' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-CYCLE' }, local: { reasonIncludes: 'cycle' },
   },
   {
     name: 'rejected-forged-tail',
@@ -131,7 +147,7 @@ export const lineageVectors: LineageVector[] = [
       { id: B, parent: A, ancestors: [A, FAKE] },
     ],
     subject: B,
-    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'contradicts' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT' }, local: { reasonIncludes: 'contradicts' },
   },
   {
     name: 'rejected-ancestors-first-mismatch',
@@ -141,28 +157,28 @@ export const lineageVectors: LineageVector[] = [
       { id: A, parent: ROOT, ancestors: [FAKE] },
     ],
     subject: A,
-    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'ancestors[0]' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT' }, local: { reasonIncludes: 'ancestors[0]', site: 'visit:ancestors-head-mismatch' },
   },
   {
     name: 'rejected-root-with-ancestors',
     description: 'A root (parent:null) declaring a non-empty ancestors chain is inconsistent.',
     docs: [{ id: ROOT, parent: null, ancestors: [FAKE] }],
     subject: ROOT,
-    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ROOT-WITH-ANCESTORS', reasonIncludes: 'non-empty ancestors' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ROOT-WITH-ANCESTORS' }, local: { reasonIncludes: 'non-empty ancestors' },
   },
   {
     name: 'incomplete-unresolvable-parent',
     description: 'A parent the verifier cannot resolve yields incomplete (NOT valid), with no claim about it.',
     docs: [{ id: A, parent: GHOST, ancestors: [GHOST] }],
     subject: A,
-    expected: { outcome: 'incomplete', resolvedDepth: 1, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'could not be resolved' },
+    expected: { outcome: 'incomplete', resolvedDepth: 1, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE' }, local: { reasonIncludes: 'could not be resolved', site: 'visit:unresolvable' },
   },
   {
     name: 'incomplete-subject-unresolvable',
     description: 'A subject the verifier cannot resolve yields incomplete at depth 0.',
     docs: [],
     subject: A,
-    expected: { outcome: 'incomplete', resolvedDepth: 0, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'subject' },
+    expected: { outcome: 'incomplete', resolvedDepth: 0, reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE' }, local: { reasonIncludes: 'could not be resolved', site: 'visit:unresolvable' },
   },
   {
     name: 'incomplete-depth-cap',
@@ -175,7 +191,7 @@ export const lineageVectors: LineageVector[] = [
     ],
     subject: C,
     maxDepth: 2,
-    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-BOUND-REACHED', reasonIncludes: 'traversal bound' },
+    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-BOUND-REACHED' }, local: { reasonIncludes: 'traversal bound' },
   },
   {
     name: 'verified-merge-diamond',
@@ -212,7 +228,7 @@ export const lineageVectors: LineageVector[] = [
       { id: D, parent: B, mergedFrom: [GHOST] },
     ],
     subject: D,
-    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE', reasonIncludes: 'could not be resolved' },
+    expected: { outcome: 'incomplete', reasonCode: 'CDX-E-LINEAGE-UNRESOLVABLE' }, local: { reasonIncludes: 'could not be resolved', site: 'visit:unresolvable' },
   },
   {
     name: 'rejected-merge-parent-forged',
@@ -224,6 +240,6 @@ export const lineageVectors: LineageVector[] = [
       { id: D, parent: B, mergedFrom: [C] },
     ],
     subject: D,
-    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT', reasonIncludes: 'ancestors[0]' },
+    expected: { outcome: 'rejected', reasonCode: 'CDX-E-LINEAGE-ANCESTORS-CONTRADICT' }, local: { reasonIncludes: 'ancestors[0]', site: 'visit:ancestors-head-mismatch' },
   },
 ];

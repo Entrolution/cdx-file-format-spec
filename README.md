@@ -166,6 +166,10 @@ The specification is modular:
 - [Phantoms Extension](spec/extensions/phantoms/) - Off-page annotation clusters
 - [Legal Extension](spec/extensions/legal/) - Legal citations, clause references, jurisdiction metadata
 
+### Conformance Artifacts (Non-Normative)
+
+- [Conformance](conformance/) - Testing artifacts for implementations: the defect-code vocabulary today, growing into the conformance suite. Nothing here is part of the specification; `spec/` and `schemas/` govern.
+
 ## Quick Start
 
 ### Document Structure
