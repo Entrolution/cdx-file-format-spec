@@ -38,7 +38,8 @@
         "block-merkle-inclusion",
         "block-merkle-leaf",
         "provenance-timestamp",
-        "canonicalize"
+        "canonicalize",
+        "canonicalize-robustness"
       ]
     },
     "clause": {
@@ -127,6 +128,57 @@
         "expectReject": {
           "const": true,
           "description": "Marks a vector whose input a conformant implementation MUST reject (the operation errors). Used where no portable defect code exists — the assertion is rejection, not an identifier. Mutually exclusive with expectedCanonicalJcs."
+        },
+        "robustness": {
+          "type": "object",
+          "description": "A canonicalize-robustness case: GENERATIVE (no literal deep structure, which could itself exceed a parser's own limits). The adapter expands it relative to ITS OWN declared canonicalization depth bound, so the case is portable across implementations with different bounds.",
+          "required": [
+            "part",
+            "depth",
+            "of",
+            "expect"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "part": {
+              "enum": [
+                "content",
+                "metadata"
+              ],
+              "description": "Which part carries the deep structure."
+            },
+            "depth": {
+              "type": "object",
+              "required": [
+                "boundOffset"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "boundOffset": {
+                  "type": "integer",
+                  "minimum": -2,
+                  "maximum": 1,
+                  "description": "Nest `of` to (the adapter's declared max canonicalization depth) + boundOffset, measured at the part's baseline. `boundOffset: 1` is one level past the bound and MUST reject with a catchable error (never a crash); `0` is the exact bound. The range is kept small so a generated depth stays near the bound on every implementation — a large literal depth could overflow a recursive-descent JSON parser UPSTREAM of the depth guard, turning a catchable rejection into an uncatchable crash. NOTE: a `metadata` term sits two levels below the root (dublinCore → terms → term), so its effective absolute depth is 2 higher than a `content` case at the same boundOffset — a `metadata` accept needs boundOffset ≤ -2."
+                }
+              }
+            },
+            "of": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ],
+              "description": "The innermost scalar the nesting wraps. Restricted to a scalar so a case cannot smuggle a literal deep structure in via `of`, defeating the generative design."
+            },
+            "expect": {
+              "enum": [
+                "accept",
+                "reject"
+              ],
+              "description": "`accept`: canonicalization succeeds. `reject`: it fails with a CATCHABLE error — a typed rejection the adapter reports, not a native stack overflow that crashes it."
+            }
+          }
         },
         "expect": {
           "type": "object",

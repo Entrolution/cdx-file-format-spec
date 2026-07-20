@@ -46,7 +46,7 @@ export interface AdapterReport {
   suite: string;
   suiteVersion: string;
   specVersion: string;
-  adapter: { name: string; version: string; level: number };
+  adapter: { name: string; version: string; level: number; maxCanonicalizationDepth?: number };
   capabilities: string[];
   results: AdapterResult[];
 }
@@ -232,6 +232,21 @@ const COMPARATORS: Record<string, Comparator> = {
     const jcs = eq(a.v.canonicalJcs, v.expectedCanonicalJcs, 'canonicalJcs');
     if (!jcs.pass) return jcs;
     return v.expectedId !== undefined ? eq(a.v.id, v.expectedId, 'id') : { pass: true };
+  },
+
+  'canonicalize-robustness': (v, r) => {
+    const rob = v.robustness as { expect: 'accept' | 'reject' };
+    // reject: a CATCHABLE rejection (outcome 'error'), never a native stack
+    // overflow — an adapter that crashes produces no report, so the harness sees
+    // a missing result and fails it. accept: canonicalization succeeds.
+    if (rob.expect === 'reject') {
+      return r.outcome === 'error'
+        ? { pass: true }
+        : { pass: false, detail: `expected a catchable rejection one past the depth bound, got outcome "${r.outcome}"` };
+    }
+    return r.outcome === 'value'
+      ? { pass: true }
+      : { pass: false, detail: `expected canonicalization to succeed at the depth bound, got outcome "${r.outcome}"${r.error?.code ? ` (error ${r.error.code})` : ''}` };
   },
 
   'provenance-timestamp': (v, r) => {

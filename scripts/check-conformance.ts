@@ -178,6 +178,8 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['canonicalize jcs', 'canonicalize', { name: 'n', expectedCanonicalJcs: '{}', expectedId: 'sha256:aa' }, val({ canonicalJcs: '{"x":1}', id: 'sha256:aa' })],
     ['canonicalize id', 'canonicalize', { name: 'n', expectedCanonicalJcs: '{}', expectedId: 'sha256:aa' }, val({ canonicalJcs: '{}', id: 'sha256:bb' })],
     ['canonicalize reject-not-rejected', 'canonicalize', { name: 'n', expectReject: true } as unknown as SuiteVector, val({ canonicalJcs: '{}', id: 'sha256:aa' })],
+    ['robustness reject-but-value', 'canonicalize-robustness', { name: 'n', robustness: { expect: 'reject' } } as unknown as SuiteVector, val({})],
+    ['robustness accept-but-error', 'canonicalize-robustness', { name: 'n', robustness: { expect: 'accept' } } as unknown as SuiteVector, err('CDX-E-X')],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',
@@ -212,6 +214,12 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
   );
   if (rejectPass.cases[0]?.status === 'pass') ok('canonicalize reject vector passes when the input is rejected');
   else fail(`canonicalize reject vector should PASS on an error outcome, got ${rejectPass.cases[0]?.status}`);
+
+  // canonicalize-robustness positive paths: reject→error and accept→value both pass.
+  const robReject = evaluate([{ kind: 'canonicalize-robustness', vectors: [{ name: 'n', robustness: { expect: 'reject' } } as unknown as SuiteVector] }], report('canonicalize-robustness', err('CDX-E-ANY')));
+  const robAccept = evaluate([{ kind: 'canonicalize-robustness', vectors: [{ name: 'n', robustness: { expect: 'accept' } } as unknown as SuiteVector] }], report('canonicalize-robustness', val({})));
+  if (robReject.cases[0]?.status === 'pass' && robAccept.cases[0]?.status === 'pass') ok('canonicalize-robustness: reject→error and accept→value both pass');
+  else fail(`canonicalize-robustness positive paths wrong: reject=${robReject.cases[0]?.status}, accept=${robAccept.cases[0]?.status}`);
 }
 
 // 1c. Scoping helpers, file-level requires, and the requires-key lint.
