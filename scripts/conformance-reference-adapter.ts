@@ -23,7 +23,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { canonicalContent, computeDocumentId, jcsOf } from './lib/canonicalize.js';
+import { canonicalContent, computeDocumentId, jcsOf, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
 import { projectManifest, projectManifestToJcs } from './lib/manifest-projection.js';
 import { encodeProtectedHeader, jwsSigningInput } from './lib/jws-envelope.js';
 import { jwkThumbprint, multibaseKeyToJwk } from './lib/keyid-resolution.js';
@@ -32,6 +32,13 @@ import { checkTimestampBinding } from './lib/provenance-timestamp.js';
 import type { AdapterReport, AdapterResult } from './lib/conformance-suite.js';
 
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+
+/** Wrap `leaf` in `depth` nested arrays — the generative expansion of a robustness case. */
+function nestDeep(depth: number, leaf: unknown): unknown {
+  let v: unknown = leaf;
+  for (let i = 0; i < depth; i++) v = [v];
+  return v;
+}
 
 /**
  * Capabilities this implementation genuinely supports at Level 0. Only what the
@@ -116,6 +123,22 @@ const RUNNERS: Record<string, (v: Record<string, any>) => RunOutcome> = {
     };
   },
 
+  'canonicalize-robustness': (v) => {
+    // Expand the generative case relative to THIS implementation's own bound, so
+    // the depth exercised tracks the reference libraries, not a fixed number.
+    const rob = v.robustness as { part: 'content' | 'metadata'; depth: { boundOffset: number }; of: unknown };
+    const nested = nestDeep(MAX_CANONICALIZATION_DEPTH + rob.depth.boundOffset, rob.of);
+    const parts =
+      rob.part === 'metadata'
+        ? { manifest: '{}', content: '{"version":"0.1","blocks":[]}', dublinCore: JSON.stringify({ version: '1.1', terms: { title: 'T', creator: nested } }) }
+        : { manifest: '{}', content: JSON.stringify(nested), dublinCore: '{"version":"1.1","terms":{"title":"T","creator":"C"}}' };
+    // computeDocumentId runs the up-front depth check (assertBoundedDepth) before
+    // any recursive walk: one past the bound throws a typed CanonicalizationError
+    // (caught by run() → outcome 'error'), never a native stack overflow.
+    computeDocumentId(parts, 'sha256');
+    return { outcome: 'value', values: {} };
+  },
+
   'provenance-timestamp': (v) => {
     const got = checkTimestampBinding(v.timestamp, v.documentId);
     return {
@@ -174,7 +197,7 @@ function main(): void {
     suite: 'cdx-conformance',
     suiteVersion: suite.suiteVersion,
     specVersion: suite.specVersion,
-    adapter: { name: 'cdx-reference', version: '0.1.0', level: 0 },
+    adapter: { name: 'cdx-reference', version: '0.1.0', level: 0, maxCanonicalizationDepth: MAX_CANONICALIZATION_DEPTH },
     capabilities: CAPABILITIES,
     results,
   };

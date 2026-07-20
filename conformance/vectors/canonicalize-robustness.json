@@ -1,0 +1,47 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "canonicalize-robustness",
+  "clause": "Document Hashing section 4.3 (bounded canonicalization depth; the bound is implementation-defined — Container Format section 5 resource bounds)",
+  "description": "Robustness of the canonicalization depth bound: one level past the implementation’s own maximum nesting depth MUST be rejected with a CATCHABLE error (never a native stack overflow that crashes the process), and the exact bound MUST still canonicalize. Cases are GENERATIVE and expanded by the adapter relative to its own declared bound, so they are portable across implementations with different limits and never ship a literal deep structure.",
+  "oracle": "No expected bytes: a robustness case asserts a liveness property (a catchable rejection one past the implementation’s own depth bound, never a crash) and boundary acceptance at the bound. The adapter generates the input relative to its declared maxCanonicalizationDepth; the harness observes only whether the operation was caught (rejected) or succeeded.",
+  "vectors": [
+    {
+      "name": "content-depth-at-bound-accepted",
+      "description": "Content nested to exactly the implementation’s maximum canonicalization depth still canonicalizes (boundary accept).",
+      "robustness": {
+        "part": "content",
+        "depth": {
+          "boundOffset": 0
+        },
+        "of": 0,
+        "expect": "accept"
+      }
+    },
+    {
+      "name": "content-depth-one-past-bound-rejected",
+      "description": "Content nested one level past the maximum depth is rejected with a catchable, typed error — not a native stack overflow.",
+      "robustness": {
+        "part": "content",
+        "depth": {
+          "boundOffset": 1
+        },
+        "of": 0,
+        "expect": "reject"
+      }
+    },
+    {
+      "name": "metadata-depth-one-past-bound-rejected",
+      "description": "Deeply nested Dublin Core metadata (a term nested past the maximum depth) is rejected with a catchable error, not a crash — for depth or term-validity reasons; the survival, not the reason, is the property under test. The only case that touches the dublinCore path.",
+      "robustness": {
+        "part": "metadata",
+        "depth": {
+          "boundOffset": 1
+        },
+        "of": 0,
+        "expect": "reject"
+      }
+    }
+  ]
+}

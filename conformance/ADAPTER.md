@@ -106,12 +106,14 @@ declared capabilities; a vector left unreported is a failure, not a silent pass.
 
 For each kind: the input fields your adapter reads from the vector, the outcome
 it reports, and the `values` keys the suite compares (against the vector's
-expected field, shown in parentheses). All twelve are pure functions — no clock,
-key, or network is required at Level 0.
+expected field, shown in parentheses). All are pure functions — no clock, key, or
+network is required at Level 0.
 
 | Kind | Reads | Outcome | `values` key → (expected field) |
 |------|-------|---------|--------------------------------|
 | `document-id` | `parts` (`manifest`,`content`,`dublinCore`,`assetIndexes?`), `algorithm?` | value | `canonicalJcs` → (`expectedCanonicalJcs`); `id` → (`expectedId`) |
+| `canonicalize` | `parts`, `algorithm?` | value **or error** | transform: `canonicalJcs` → (`expectedCanonicalJcs`), `id` → (`expectedId`); a reject vector (`expectReject`) expects `outcome: "error"` |
+| `canonicalize-robustness` | `robustness` (generative — see below) | value / error | none — `accept` → `value`, `reject` → `error` |
 | `manifest-projection` | `manifest` (raw JSON text) | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-scope` | `scope` | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-projection-errors` | `manifest` (raw JSON text) | **error** | `error.code` → (`expect.code`) |
@@ -139,6 +141,26 @@ Notes that bite:
   reason still satisfies `problemsEmpty: false`.
 - **`manifest-projection-errors`** is the only kind that expects an error. Report
   `outcome: "error"` with the mapped `code`; reporting a value fails the case.
+- **`canonicalize` reject vectors** (`expectReject: true`) assert only that your
+  implementation *rejects* the input — canonicalization defects carry no portable
+  code, so report `outcome: "error"` (a `code` is optional and ignored). A vector
+  is either a transform (`expectedCanonicalJcs`) or a reject; never both.
+- **`canonicalize-robustness` is generative and parameterised by YOUR bound.**
+  A case carries `robustness: { part, depth: { boundOffset }, of, expect }`. The
+  canonicalization depth limit is implementation-defined (06 §4.3.2), so you
+  expand the case relative to your OWN limit: nest `of` to
+  `(your max depth) + boundOffset` inside the named `part`
+  (`content` = the whole content; `metadata` = a Dublin Core term), then
+  canonicalize. `boundOffset: 0` is the exact bound and MUST **accept** (report
+  `value`); `boundOffset: 1` is one past and MUST **reject** — with a *catchable*
+  error you report as `outcome: "error"`, **never a native stack overflow that
+  crashes your adapter** (a crashed adapter produces no report, so the harness
+  fails every case). Do not ship a literal deep structure in the vector; generate
+  it in memory. Report your limit as `adapter.maxCanonicalizationDepth` so a
+  reviewer can see the depth exercised. Granularity limit: `reject` asserts *that*
+  the input is refused, not the internal reason — a deeply-nested metadata term,
+  for instance, may be refused for depth or for term-validity; both are catchable
+  rejections, and that survival is the property under test.
 
 ## Capabilities and scoping
 

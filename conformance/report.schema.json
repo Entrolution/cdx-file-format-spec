@@ -30,6 +30,11 @@
           "minimum": 0,
           "maximum": 2,
           "description": "The highest adapter level implemented (0 = vectors, 1 = fixtures + clock, 2 = trust + resolver injection)."
+        },
+        "maxCanonicalizationDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The implementation's own canonicalization depth bound (implementation-defined, 06 §4.3.2). Reported so a reviewer can see the depth a canonicalize-robustness case actually exercised; the adapter nests relative to this, not a fixed value."
         }
       }
     },
