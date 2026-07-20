@@ -6,6 +6,9 @@
   "clause": "Provenance and Lineage section 6",
   "description": "Provenance timestamp binding: which member each type keys on, and the untagged section 6.5 aggregated Merkle fold.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "provenance"
+  ],
   "vectors": [
     {
       "name": "rfc3161-bound",

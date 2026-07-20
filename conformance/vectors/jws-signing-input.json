@@ -6,6 +6,9 @@
   "clause": "Security Extension section 3.4",
   "description": "The detached signing input BASE64URL(protected) + \".\" + JCS(scope).",
   "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "requires": [
+    "ext:security"
+  ],
   "vectors": [
     {
       "name": "min-content-only",
@@ -63,6 +66,9 @@
     },
     {
       "name": "eddsa-sha384-content-only",
+      "requires": [
+        "hash:sha-384"
+      ],
       "description": "EdDSA + a sha384 document id, confirming alg-agility and a longer hash flow through the construction unchanged.",
       "header": {
         "alg": "EdDSA",

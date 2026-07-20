@@ -6,6 +6,9 @@
   "clause": "Security Extension section 9.5",
   "description": "JCS(scope) — the detached payload bytes a signature is computed over.",
   "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "requires": [
+    "ext:security"
+  ],
   "vectors": [
     {
       "name": "scope-content-only",

@@ -1,0 +1,182 @@
+{
+  "normative": false,
+  "$comment": "NON-NORMATIVE. Catalog of capability keys a conformance adapter may declare support for. This is a suite artifact, not part of the CDX specification; it names optional features so a case that depends on one can be scoped, never a skip in disguise. The `clause` on each entry cites where the specification defines the feature and whether it is mandatory to implement.",
+  "suite": "cdx-conformance",
+  "version": "0.1.0",
+  "specVersion": "0.1",
+  "model": {
+    "summary": "An adapter declares the capabilities it supports; the suite scopes each case to what the adapter can actually run.",
+    "rules": [
+      "Every adapter MUST declare `core`. The core baseline is mandatory to implement and is never optional; an adapter that cannot run the core vectors is not a CDX implementation.",
+      "`baseline: true` marks a capability the specification makes mandatory to implement for the track it belongs to (SHA-256 for hashing; ES256 for the security-extension signature track). An adapter that claims a track but omits its baseline capability MUST be reported as non-conformant for that track, not scoped out of it.",
+      "A case may carry `requires: [<key>, ...]`. If the adapter declares every required capability, the case runs normally. Otherwise the outcome depends on the case's track:",
+      "  • Vector cases (Level 0) with an unmet requirement are SKIPPED — reported explicitly, never silently, and counted separately from passes and failures.",
+      "  • Document-fixture cases (Level 1+) with an unmet EXTENSION requirement are not skipped: they take the specification's own degradation path as an alternate expectation — an unsupported required extension MUST make the document REJECT and an unsupported optional extension MUST be IGNORED (State Machine section 5.4.2, the unsupported-required-extension and unsupported-optional-extension rows; Extensions README, forward-compatibility). This tests the degradation path instead of leaving a hole. (Fixtures arrive in a later phase; the rule is stated here so the contract is complete.)",
+      "Experimental constructs are a normative exclusion, not a capability: a case MUST NOT depend on one. They are listed with `experimental: true` for documentation only and carry no vectors.",
+      "Any RFC 2119 keyword (MUST / SHOULD) in this file either restates a disposition the specification already assigns or governs suite-claim etiquette; it never imposes a new CDX-format requirement. This artifact is non-normative."
+    ]
+  },
+  "capabilities": {
+    "core": {
+      "group": "core",
+      "baseline": true,
+      "summary": "The mandatory baseline every CDX reader implements: content canonicalization (RFC 8785 JCS), document-ID computation, and SHA-256. Signature, key, and manifest-projection machinery is NOT core — it belongs to the security extension (ext:security); provenance verification is its own capability (provenance).",
+      "clause": "Document Hashing sections 2-4 (canonicalization, hash format, and document ID; SHA-256 is the one mandatory algorithm, section 3.2)"
+    },
+    "hash:sha-384": {
+      "group": "hash",
+      "baseline": false,
+      "summary": "SHA-384 digest algorithm, selected by a `sha384:` value prefix.",
+      "clause": "Document Hashing section 3.2 (SHA-256 mandatory; other algorithms OPTIONAL)"
+    },
+    "hash:sha-512": {
+      "group": "hash",
+      "baseline": false,
+      "summary": "SHA-512 digest algorithm, selected by a `sha512:` value prefix.",
+      "clause": "Document Hashing section 3.2"
+    },
+    "hash:sha3-256": {
+      "group": "hash",
+      "baseline": false,
+      "summary": "SHA3-256 digest algorithm, selected by a `sha3-256:` value prefix.",
+      "clause": "Document Hashing section 3.2"
+    },
+    "hash:sha3-512": {
+      "group": "hash",
+      "baseline": false,
+      "summary": "SHA3-512 digest algorithm, selected by a `sha3-512:` value prefix.",
+      "clause": "Document Hashing section 3.2"
+    },
+    "hash:blake3": {
+      "group": "hash",
+      "baseline": false,
+      "summary": "BLAKE3 digest algorithm, selected by a `blake3:` value prefix.",
+      "clause": "Document Hashing section 3.2"
+    },
+    "sig:es256": {
+      "group": "signature",
+      "baseline": true,
+      "summary": "ECDSA P-256 with SHA-256 (COSE/JOSE ES256). Mandatory to support for any implementation of the security extension.",
+      "clause": "Security Extension README (Implementations MUST support ES256)"
+    },
+    "sig:es384": {
+      "group": "signature",
+      "baseline": false,
+      "summary": "ECDSA P-384 with SHA-384 (ES384).",
+      "clause": "Security Extension README (other algorithms RECOMMENDED)"
+    },
+    "sig:eddsa": {
+      "group": "signature",
+      "baseline": false,
+      "summary": "Edwards-curve signatures (EdDSA / Ed25519).",
+      "clause": "Security Extension README"
+    },
+    "sig:ps256": {
+      "group": "signature",
+      "baseline": false,
+      "summary": "RSASSA-PSS with SHA-256 (PS256).",
+      "clause": "Security Extension README"
+    },
+    "provenance": {
+      "group": "provenance",
+      "baseline": false,
+      "summary": "Provenance and lineage verification constructs: the cdx-bmt-1 block-Merkle tree (leaf/root/inclusion) and the RFC 3161 / aggregated provenance-timestamp binding. An implementation that does not verify these is scoped out of the provenance vectors rather than failed.",
+      "clause": "Provenance and Lineage sections 4-6 (block Merkle, sections 4-5; timestamp binding, section 6)"
+    },
+    "did:key": {
+      "group": "identity",
+      "baseline": false,
+      "summary": "did:key identity resolution (self-certifying, offline).",
+      "clause": "Security Extension section 3.11 (key identity resolution)"
+    },
+    "did:jwk": {
+      "group": "identity",
+      "baseline": false,
+      "summary": "did:jwk identity resolution (self-certifying, offline).",
+      "clause": "Security Extension section 3.11 (key identity resolution)"
+    },
+    "did:web": {
+      "group": "identity",
+      "baseline": false,
+      "summary": "did:web identity resolution. Network resolution and its SSRF surface are out of scope for the suite; only offline/static did:web is exercisable.",
+      "clause": "Security Extension section 3.11 (key identity resolution)"
+    },
+    "webauthn": {
+      "group": "identity",
+      "baseline": false,
+      "summary": "WebAuthn/passkey credential verification.",
+      "clause": "Security Extension section 6 (WebAuthn signatures)"
+    },
+    "timestamp:rfc3161": {
+      "group": "timestamp",
+      "baseline": false,
+      "summary": "RFC 3161 trusted-timestamp-authority verification (validating a TSA token and its chain), as distinct from the structural binding the `provenance` capability covers.",
+      "clause": "Provenance and Lineage section 6.3 (RFC 3161 timestamps)"
+    },
+    "encryption": {
+      "group": "encryption",
+      "baseline": false,
+      "summary": "Encrypted-part handling (security extension encryption.json).",
+      "clause": "Security Extension section 4 (encryption)"
+    },
+    "ext:semantic": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `semantic` extension namespace (bibliography, glossary).",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:academic": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `academic` extension namespace (theorems, equations, numbering).",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:forms": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `forms` extension namespace.",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:collaboration": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `collaboration` extension namespace (comments, changes).",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:security": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `security` extension: manifest projection, JWS protected header and signing input, JWK thumbprint, multibase key decoding, signatures and encryption. A reader without it rejects a required-security document rather than verifying signatures.",
+      "clause": "Security Extension sections 3.3-3.4, 3.11, 9.5, 9.7; Extensions README (namespace registry)"
+    },
+    "ext:phantoms": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `phantoms` extension namespace (clusters).",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:presentation": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `presentation` extension namespace.",
+      "clause": "Extensions README (namespace registry)"
+    },
+    "ext:legal": {
+      "group": "extension",
+      "baseline": false,
+      "summary": "The `legal` extension namespace.",
+      "clause": "Extensions README (namespace registry)"
+    }
+  },
+  "experimental": {
+    "$comment": "Experimental constructs are a NORMATIVE EXCLUSION (Introduction section on experimental status): the suite carries no cases for them and no adapter is asked about them. Listed for documentation only.",
+    "sig:ml-dsa-65": {
+      "summary": "ML-DSA-65 post-quantum signatures.",
+      "clause": "Security Extension (experimental); Introduction (experimental constructs excluded from conformance)"
+    },
+    "anchor:blockchain": {
+      "summary": "Blockchain anchoring of provenance.",
+      "clause": "Provenance and Lineage (experimental)"
+    }
+  }
+}
