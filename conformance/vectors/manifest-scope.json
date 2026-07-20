@@ -1,0 +1,67 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "manifest-scope",
+  "clause": "Security Extension section 9.5",
+  "description": "JCS(scope) — the detached payload bytes a signature is computed over.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "scope-content-only",
+      "description": "A content-only scope binds just the document ID — the legacy/default coverage.",
+      "scope": {
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7"
+      },
+      "expectedJcs": "{\"documentId\":\"sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7\"}",
+      "expectedSha256": "sha256:48d1e013a79eb07faa385ca0802c5d49312e8af038f2d0c3763ec94b3bd94e6b"
+    },
+    {
+      "name": "scope-with-layouts",
+      "description": "A scope binding the document ID plus precise-layout file hashes (visual attestation).",
+      "scope": {
+        "documentId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "layouts": {
+          "presentation/layouts/letter.json": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "expectedJcs": "{\"documentId\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"layouts\":{\"presentation/layouts/letter.json\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}",
+      "expectedSha256": "sha256:e6e0c5b763077a3e8a0eb16688f76e2f9fdea6351095d61b14fa02528ee6d7be"
+    },
+    {
+      "name": "scope-with-manifest",
+      "description": "A manifest-covering scope: documentId + the signed-document projection (including the signaturePolicy required-signer set). These are the bytes a frozen manifest-covering signature signs.",
+      "scope": {
+        "documentId": "sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7",
+        "manifest": {
+          "cdx": "0.1",
+          "state": "frozen",
+          "content": {
+            "path": "content/document.json",
+            "hash": "sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026"
+          },
+          "extensions": [
+            {
+              "id": "cdx.security",
+              "version": "0.1",
+              "required": true
+            }
+          ],
+          "lineage": {
+            "parent": null,
+            "version": 1
+          },
+          "signaturePolicy": {
+            "requiredSigners": [
+              {
+                "did": "did:web:acme.example.com:notary"
+              }
+            ]
+          }
+        }
+      },
+      "expectedJcs": "{\"documentId\":\"sha256:e7ad94ba3634250646b41d62bc40cfc0c6aba0de995c2193fd2ebae77eed35c7\",\"manifest\":{\"cdx\":\"0.1\",\"content\":{\"hash\":\"sha256:f28bbc78915107cc2973f10da7c5c0943414a03b274cdf6193f7b34d433ef026\",\"path\":\"content/document.json\"},\"extensions\":[{\"id\":\"cdx.security\",\"required\":true,\"version\":\"0.1\"}],\"lineage\":{\"parent\":null,\"version\":1},\"signaturePolicy\":{\"requiredSigners\":[{\"did\":\"did:web:acme.example.com:notary\"}]},\"state\":\"frozen\"}}",
+      "expectedSha256": "sha256:562fa75cb7e13fce36ac468a302263c873a629427d7a6a13692c29cd3666c190"
+    }
+  ]
+}

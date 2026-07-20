@@ -1,0 +1,50 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "block-merkle-root",
+  "clause": "Provenance and Lineage section 4.3",
+  "description": "cdx-bmt-1 tagged Merkle roots, including the single-leaf identity and odd-node promotion.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "single-leaf-root-leaf",
+      "description": "A single leaf IS the root: the reduction terminates before any internal node is formed, so no 0x01 tag is applied.",
+      "leaves": [
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "root": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "name": "two-leaf",
+      "description": "The minimal pairing: root = H(0x01 || leaf0 || leaf1) over raw digest bytes.",
+      "leaves": [
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      ],
+      "root": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf"
+    },
+    {
+      "name": "three-leaf-one-promotion",
+      "description": "An odd level promotes its unpaired final node unchanged instead of duplicating it — the CVE-2012-2459 defence. C is promoted once, then pairs at the top.",
+      "leaves": [
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      ],
+      "root": "sha256:adc505e99f1e9887777a6aa5d140106fcc012a2e4430875f3c2e135124145842"
+    },
+    {
+      "name": "five-leaf-double-promotion",
+      "description": "E is promoted through two successive odd levels before pairing, exercising repeated promotion.",
+      "leaves": [
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      ],
+      "root": "sha256:715e85a12f31b7e9488faaeb0e87a1788100f5cc0a39bcad343010685e7abe53"
+    }
+  ]
+}

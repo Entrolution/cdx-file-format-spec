@@ -1,0 +1,106 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "block-merkle-inclusion",
+  "clause": "Provenance and Lineage section 5.2",
+  "description": "cdx-bmt-1 inclusion-proof verification, including must-NOT-verify cases: the legacy duplicate-odd root (CVE-2012-2459 pattern) and an untagged fold value.",
+  "oracle": "Expected values were computed by an INDEPENDENT Python oracle (json + hashlib), not by the library under test, so a serializer or folding bug is caught rather than snapshotted.",
+  "vectors": [
+    {
+      "name": "a-in-two-leaf-tree",
+      "description": "The minimal proof: one right sibling folds the leaf to the root.",
+      "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "position": "right",
+          "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "root": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf",
+      "expected": true
+    },
+    {
+      "name": "c-in-three-leaf-tree-promoted-single-element-path",
+      "description": "A promoted leaf contributes no sibling at the level it was promoted through, so its path is shorter than ceil(log2(n)).",
+      "leaf": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "path": [
+        {
+          "position": "left",
+          "hash": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf"
+        }
+      ],
+      "root": "sha256:adc505e99f1e9887777a6aa5d140106fcc012a2e4430875f3c2e135124145842",
+      "expected": true
+    },
+    {
+      "name": "a-in-three-leaf-tree",
+      "description": "A leaf beneath a promotion still folds through every level at which it was actually paired.",
+      "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "position": "right",
+          "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "position": "right",
+          "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "root": "sha256:adc505e99f1e9887777a6aa5d140106fcc012a2e4430875f3c2e135124145842",
+      "expected": true
+    },
+    {
+      "name": "e-in-five-leaf-tree-double-promotion-single-element-path",
+      "description": "Double promotion: E pairs only at the top level, so its whole path is a single element.",
+      "leaf": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "path": [
+        {
+          "position": "left",
+          "hash": "sha256:891e2a21dcae25f3928073284134da49b89e7b081d640419c403abad9d6c1de4"
+        }
+      ],
+      "root": "sha256:715e85a12f31b7e9488faaeb0e87a1788100f5cc0a39bcad343010685e7abe53",
+      "expected": true
+    },
+    {
+      "name": "position-flip-must-fail",
+      "description": "Sibling position is load-bearing: folding a right sibling on the left yields a different root and MUST NOT verify.",
+      "leaf": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "position": "left",
+          "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "root": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf",
+      "expected": false
+    },
+    {
+      "name": "legacy-duplicate-odd-root-must-not-verify-cve-2012-2459-pattern",
+      "description": "The legacy untagged duplicate-odd root MUST NOT verify under cdx-bmt-1 — the construction change is detectable rather than silently compatible.",
+      "leaf": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "path": [
+        {
+          "position": "left",
+          "hash": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf"
+        }
+      ],
+      "root": "sha256:e046522f24b39f1a9a2cf96bebcd386df477f282d7ac9b61d0ca59d8fe8f81b6",
+      "expected": false
+    },
+    {
+      "name": "untagged-fold-value-must-not-verify-as-a-cdx-bmt-1-root",
+      "description": "An untagged fold value (what the section 6.5 aggregated construction produces from the same inputs) MUST NOT verify as a cdx-bmt-1 root: the two folds are deliberately decoupled.",
+      "leaf": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "path": [
+        {
+          "position": "left",
+          "hash": "sha256:1d8f52d3ec81ac02cd97cb3281523be47af850c0f0295af866f04bc245f46bbf"
+        }
+      ],
+      "root": "sha256:c74cd6c5c9b7163a5ffaa0ac8b8e452878496f1493709ced5d8690e248d316ef",
+      "expected": false
+    }
+  ]
+}

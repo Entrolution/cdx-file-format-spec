@@ -95,6 +95,9 @@ jobs:
       - name: Check provenance timestamp
         run: npm run check:provenance-timestamp
 
+      - name: Check conformance vectors
+        run: npm run check:conformance-vectors
+
       - name: Check block merkle
         run: npm run check:block-merkle
 
