@@ -30,9 +30,14 @@ import * as crypto from 'crypto';
 import { jcsOf } from './canonicalize.js';
 
 export class BlockMerkleError extends Error {
-  constructor(message: string) {
+  /** Stable defect identifier from the conformance vocabulary
+   * (`conformance/errors.json`); diagnostics only, never normativity —
+   * see CanonicalizationError in ./canonicalize.ts. */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'BlockMerkleError';
+    this.code = code;
   }
 }
 

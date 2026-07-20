@@ -1,0 +1,85 @@
+{
+  "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and OUTCOMES (Provenance and Lineage section 3.3) — never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code is therefore a diagnostic that sharpens a failure report, and is never the pass criterion for a MUST.",
+  "version": "0.1",
+  "specVersion": "0.1",
+  "codes": {
+    "CDX-E-ID-PENDING": {
+      "summary": "A manifest projection was requested for a document whose id is still `pending`.",
+      "clause": "Security Extension section 9.7",
+      "note": "The projection is defined only once the document id is fixed."
+    },
+    "CDX-E-HASH-MALFORMED": {
+      "summary": "A declared content hash is not a well-formed `algorithm:hexdigest`.",
+      "clause": "Security Extension section 9.7"
+    },
+    "CDX-E-PATH-TRAVERSAL": {
+      "summary": "A declared path is not a safe archive-relative path (escapes the archive root).",
+      "clause": "Security Extension section 9.7; Container Format section 9.1"
+    },
+    "CDX-E-CDX-VERSION-MALFORMED": {
+      "summary": "`manifest.cdx` is not a \"<major>.<minor>\" version string.",
+      "clause": "Security Extension section 9.7"
+    },
+    "CDX-E-STATE-UNKNOWN": {
+      "summary": "`manifest.state` is outside the lifecycle enum.",
+      "clause": "State Machine section 3.1; Security Extension section 9.7"
+    },
+    "CDX-E-EXTENSION-DUPLICATE": {
+      "summary": "Two `manifest.extensions[]` entries share an id, making the projection ambiguous.",
+      "clause": "Security Extension section 9.7"
+    },
+    "CDX-E-PRESENTATION-TYPE-UNKNOWN": {
+      "summary": "A `manifest.presentation[]` entry declares a type outside the enum.",
+      "clause": "Security Extension section 9.7"
+    },
+    "CDX-E-REFERENCE-HASH-CONFLICT": {
+      "summary": "The same declared path appears twice with conflicting hashes.",
+      "clause": "Security Extension section 9.7",
+      "note": "Applies to both the config-file references and the asset-index references."
+    },
+    "CDX-E-REQUIRED-SIGNER-SET-EMPTY": {
+      "summary": "`signaturePolicy.requiredSigners` is present but empty.",
+      "clause": "Security Extension sections 3.12, 9.7",
+      "note": "Forbidden so an absent policy and an empty policy are not both expressible."
+    },
+    "CDX-E-REQUIRED-SIGNER-DUPLICATE": {
+      "summary": "Two `requiredSigners` entries declare the same identity.",
+      "clause": "Security Extension sections 3.12, 9.7"
+    },
+    "CDX-E-REQUIRED-SIGNER-KIND-AMBIGUOUS": {
+      "summary": "A `requiredSigners` entry carries zero, or more than one, identity kind.",
+      "clause": "Security Extension section 3.12"
+    },
+    "CDX-E-REQUIRED-SIGNER-ID-MALFORMED": {
+      "summary": "A `requiredSigners` identity value is malformed for its declared kind.",
+      "clause": "Security Extension section 3.12"
+    },
+    "CDX-E-LINEAGE-CYCLE": {
+      "summary": "The lineage walk revisited a document already on the current path.",
+      "clause": "Provenance and Lineage section 3.3",
+      "outcome": "REJECTED"
+    },
+    "CDX-E-LINEAGE-ANCESTORS-CONTRADICT": {
+      "summary": "A declared `ancestors` entry contradicts the resolved parent chain (forged tail).",
+      "clause": "Provenance and Lineage section 3.3",
+      "outcome": "REJECTED"
+    },
+    "CDX-E-LINEAGE-ROOT-WITH-ANCESTORS": {
+      "summary": "A document declaring no parent also declares a non-empty ancestors chain.",
+      "clause": "Provenance and Lineage section 3.3",
+      "outcome": "REJECTED"
+    },
+    "CDX-E-LINEAGE-UNRESOLVABLE": {
+      "summary": "A link in the chain could not be resolved, so the chain cannot be fully walked.",
+      "clause": "Provenance and Lineage section 3.3",
+      "outcome": "INCOMPLETE",
+      "note": "Unverified, never endorsed — and never grounds to reject the document."
+    },
+    "CDX-E-LINEAGE-BOUND-REACHED": {
+      "summary": "The traversal depth or breadth bound was reached before the walk completed.",
+      "clause": "Provenance and Lineage section 3.3",
+      "outcome": "INCOMPLETE",
+      "note": "A legitimately deep or wide history is not an inconsistency."
+    }
+  }
+}

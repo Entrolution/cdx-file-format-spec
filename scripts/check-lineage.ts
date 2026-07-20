@@ -26,6 +26,7 @@ import {
   type LineageResolver,
 } from './lib/lineage-chain.js';
 import { lineageVectors } from './kat/lineage-chain-vectors.js';
+import { unregisteredCodes } from './lib/error-codes.js';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -43,6 +44,10 @@ for (const vec of lineageVectors) {
   const problems: string[] = [];
   if (got.outcome !== e.outcome) problems.push(`outcome ${got.outcome} != ${e.outcome}`);
   if (e.resolvedDepth !== undefined && got.resolvedDepth !== e.resolvedDepth) problems.push(`resolvedDepth ${got.resolvedDepth} != ${e.resolvedDepth}`);
+  // reasonCode is the portable assertion; reasonIncludes additionally pins THIS
+  // implementation's wording, so a code that starts being emitted from a
+  // different site than the one it was assigned to is caught, not masked.
+  if (e.reasonCode !== undefined && got.reasonCode !== e.reasonCode) problems.push(`reasonCode ${JSON.stringify(got.reasonCode)} != ${JSON.stringify(e.reasonCode)}`);
   if (e.reasonIncludes !== undefined && !(got.reason ?? '').includes(e.reasonIncludes)) problems.push(`reason ${JSON.stringify(got.reason)} lacks ${JSON.stringify(e.reasonIncludes)}`);
   if (e.warnings !== undefined && got.warnings.length !== e.warnings) problems.push(`warnings ${got.warnings.length} != ${e.warnings}`);
   if (problems.length > 0) {
@@ -200,6 +205,15 @@ const GRID_LEVELS = 15; // ~2^15 resolve-calls under the old walk (the finding's
   } else if (res) {
     console.log(`  ✓ ${fanout}-way mergedFrom fan-out → incomplete in ${count()} resolutions (no crash)`);
   }
+}
+
+// Defence-in-depth: every reasonCode a vector expects must be REGISTERED in the
+// vocabulary shipped to external implementations, so a typo'd code cannot
+// assert against something no implementation could ever emit.
+for (const problem of unregisteredCodes(
+  lineageVectors.map((v) => v.expected.reasonCode).filter((c): c is string => c !== undefined),
+)) {
+  fail(`lineage vectors — ${problem}`);
 }
 
 if (failures > 0) {

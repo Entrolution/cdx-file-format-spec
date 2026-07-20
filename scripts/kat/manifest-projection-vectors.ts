@@ -50,7 +50,11 @@ export interface ErrorVector {
   name: string;
   description: string;
   manifest: string;
-  /** Substring the thrown CanonicalizationError message must contain. */
+  /** Stable defect code the thrown CanonicalizationError must carry — the
+   * portable assertion (`conformance/errors.json`). */
+  expectedCode: string;
+  /** Substring the message must contain. Advisory: pins THIS implementation's
+   * wording so a code stays tied to the site it was assigned at; not portable. */
   expectedError: string;
 }
 
@@ -197,90 +201,105 @@ export const errorVectors: ErrorVector[] = [
     name: 'pending-id-forbidden',
     description: 'A draft manifest (id:"pending") has no fixed identity, so a projection over it is forbidden.',
     manifest: `{"cdx":"0.1","id":"pending","state":"draft","content":{"path":"content/document.json","hash":"${sha('1')}"}}`,
+    expectedCode: 'CDX-E-ID-PENDING',
     expectedError: 'pending',
   },
   {
     name: 'malformed-content-hash',
     description: 'A content hash that is not a well-formed algorithm:hexdigest is rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"sha256:1234"}}`,
+    expectedCode: 'CDX-E-HASH-MALFORMED',
     expectedError: 'malformed',
   },
   {
     name: 'duplicate-extension-id',
     description: 'Two extensions with the same id make the projection ambiguous and are rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"extensions":[{"id":"cdx.security","version":"0.1","required":true},{"id":"cdx.security","version":"0.2","required":false}]}`,
+    expectedCode: 'CDX-E-EXTENSION-DUPLICATE',
     expectedError: 'duplicate extension id',
   },
   {
     name: 'unknown-state-rejected',
     description: 'A state outside the lifecycle enum fails closed rather than binding a bogus state into a signature.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"archived","content":{"path":"content/document.json","hash":"${sha('2')}"}}`,
+    expectedCode: 'CDX-E-STATE-UNKNOWN',
     expectedError: 'manifest.state must be one of',
   },
   {
     name: 'duplicate-required-signer',
     description: 'Two identical required-signer entries make the required set ambiguous and are rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC"},{"did":"did:key:zABC"}]}}`,
+    expectedCode: 'CDX-E-REQUIRED-SIGNER-DUPLICATE',
     expectedError: 'duplicate manifest.signaturePolicy.requiredSigners',
   },
   {
     name: 'empty-required-signers',
     description: 'An empty required-signer set is forbidden so "absent policy" and "empty policy" are not both expressible.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[]}}`,
+    expectedCode: 'CDX-E-REQUIRED-SIGNER-SET-EMPTY',
     expectedError: 'must be a non-empty array',
   },
   {
     name: 'required-signer-two-kinds',
     description: 'A required-signer entry carrying two identity kinds is malformed and fails closed.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"did:key:zABC","jkt":"thumbprint"}]}}`,
+    expectedCode: 'CDX-E-REQUIRED-SIGNER-KIND-AMBIGUOUS',
     expectedError: 'exactly one of',
   },
   {
     name: 'config-file-conflicting-hash',
     description: 'The same config-file path declared with two different hashes (across config slots) makes the binding ambiguous and is rejected.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"academic":{"numbering":{"path":"shared.json","hash":"${sha('a')}"}},"semantic":{"bibliography":{"path":"shared.json","hash":"${sha('b')}"}}}`,
+    expectedCode: 'CDX-E-REFERENCE-HASH-CONFLICT',
     expectedError: 'conflicting hashes',
   },
   {
     name: 'asset-index-missing-hash',
     description: 'An asset category declared without a well-formed index hash would escape the transitive asset binding, so the projection fails closed rather than dropping it.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"assets":{"images":{"count":2,"totalSize":170,"index":"assets/images/index.json"}}}`,
+    expectedCode: 'CDX-E-HASH-MALFORMED',
     expectedError: 'index hash',
   },
   {
     name: 'malformed-cdx-version',
     description: 'A `cdx` that is not a "<major>.<minor>" string fails closed rather than binding a bogus version into the projection.',
     manifest: `{"cdx":"0.1.2","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"}}`,
+    expectedCode: 'CDX-E-CDX-VERSION-MALFORMED',
     expectedError: 'version string',
   },
   {
     name: 'presentation-unknown-type',
     description: 'A presentation entry whose type is outside the enum fails closed.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"pdf","path":"presentation/x.json","hash":"${sha('3')}"}]}`,
+    expectedCode: 'CDX-E-PRESENTATION-TYPE-UNKNOWN',
     expectedError: 'is not one of',
   },
   {
     name: 'presentation-traversal-path',
     description: 'A presentation entry whose path escapes the archive root fails closed.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"presentation":[{"type":"paginated","path":"../evil.json","hash":"${sha('3')}"}]}`,
+    expectedCode: 'CDX-E-PATH-TRAVERSAL',
     expectedError: 'archive-relative path',
   },
   {
     name: 'required-signer-malformed-did',
     description: 'A required-signer `did` that is not a well-formed did:(key|jwk|web) fails closed rather than binding a bogus credential into the required set.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"signaturePolicy":{"requiredSigners":[{"did":"not-a-did"}]}}`,
+    expectedCode: 'CDX-E-REQUIRED-SIGNER-ID-MALFORMED',
     expectedError: 'malformed for its identity kind',
   },
   {
     name: 'access-control-malformed-hash',
     description: 'A security.accessControl reference whose hash is not a valid content hash fails closed rather than binding an unverifiable policy reference.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"security/access-control.json","hash":"notahash"}}}`,
+    expectedCode: 'CDX-E-HASH-MALFORMED',
     expectedError: 'valid content hash',
   },
   {
     name: 'access-control-traversal-path',
     description: 'A security.accessControl reference whose path escapes the archive root fails closed.',
     manifest: `{"cdx":"0.1","id":"${sha('1')}","state":"frozen","content":{"path":"content/document.json","hash":"${sha('2')}"},"security":{"accessControl":{"path":"../evil.json","hash":"${sha('a')}"}}}`,
+    expectedCode: 'CDX-E-PATH-TRAVERSAL',
     expectedError: 'archive-relative path',
   },
 ];
