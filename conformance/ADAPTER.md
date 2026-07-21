@@ -114,6 +114,7 @@ network is required at Level 0.
 | `document-id` | `parts` (`manifest`,`content`,`dublinCore`,`assetIndexes?`), `algorithm?` | value | `canonicalJcs` → (`expectedCanonicalJcs`); `id` → (`expectedId`) |
 | `canonicalize` | `parts`, `algorithm?` | value **or error** | transform: `canonicalJcs` → (`expectedCanonicalJcs`), `id` → (`expectedId`); a reject vector (`expectReject`) expects `outcome: "error"` |
 | `canonicalize-robustness` | `robustness` (generative — see below) | value / error | none — `accept` → `value`, `reject` → `error` |
+| `structural-constraints` | `structural` (`rule`, `instance`, `blockTypes?`, `root?`, `index?`) | value | `flagged` → (the negation of `structural.expect.valid`) |
 | `manifest-projection` | `manifest` (raw JSON text) | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-scope` | `scope` | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-projection-errors` | `manifest` (raw JSON text) | **error** | `error.code` → (`expect.code`) |
@@ -161,6 +162,25 @@ Notes that bite:
   the input is refused, not the internal reason — a deeply-nested metadata term,
   for instance, may be refused for depth or for term-validity; both are catchable
   rejections, and that survival is the property under test.
+- **`structural-constraints` cases are self-describing.** Run the named `rule`'s
+  structural check over `instance` and report `values.flagged` — `true` iff the
+  rule found a violation. The suite compares that to `structural.expect.valid`
+  (a valid instance is one the rule does NOT flag). Inputs vary by rule:
+  containment/cardinality take a block tree (`instance`) plus a `root`
+  (`document` | `excerpt`) and the `blockTypes` set to treat as blocks; anchor and
+  page-number rules take a node; `asset-index-consistency` takes the manifest
+  category as `instance` and the index as `index`; `id-uniqueness` takes an items
+  array. **`blockTypes` is shipped in the case on purpose** — the fire/clean
+  outcome can depend on which nodes count as blocks (a `tableCell` under a
+  `paragraph` violates containment only because `paragraph` is a recognized block,
+  giving it a concrete non-excerpt parent), so the vector pins that recognition
+  rather than leaving it to your schema. Walk semantics: track the *nearest
+  enclosing recognized block* — non-block containers (a `subfigures` array, a
+  `marks` array) are transparent, so a child reached through one is attributed to
+  the block above it. Two of the asset-index cases (`count`/`totalSize`
+  consistency) are `SHOULD` (advisory): those manifest fields are advisory and
+  their exact semantics are not normatively fixed, so a differing-but-reasonable
+  reading is never fatal.
 
 ## Capabilities and scoping
 
@@ -194,8 +214,10 @@ The shipped Level-0 vectors gate on these capabilities: `document-id` is pure
 `core`; the manifest projection/scope/errors, JWS, JWK, and multibase vectors
 require `ext:security`; the block-Merkle and provenance-timestamp vectors require
 `provenance`; and the two SHA-384 vectors additionally require `hash:sha-384`. A
-reader that declares only `core` therefore runs the document-ID vectors and is
-scoped out of the rest — a truthful, narrow conformance statement, not a failure.
+reader that declares only `core` therefore runs the document-ID, canonicalization,
+canonicalize-robustness, and structural-constraints vectors, and is scoped out of
+the security/provenance ones — a truthful, narrow conformance statement, not a
+failure.
 
 ## MUST vs SHOULD
 

@@ -39,7 +39,8 @@
         "block-merkle-leaf",
         "provenance-timestamp",
         "canonicalize",
-        "canonicalize-robustness"
+        "canonicalize-robustness",
+        "structural-constraints"
       ]
     },
     "clause": {
@@ -128,6 +129,96 @@
         "expectReject": {
           "const": true,
           "description": "Marks a vector whose input a conformant implementation MUST reject (the operation errors). Used where no portable defect code exists — the assertion is rejection, not an identifier. Mutually exclusive with expectedCanonicalJcs."
+        },
+        "structural": {
+          "type": "object",
+          "description": "A structural-constraints case: a content-tree / file-level invariant JSON Schema cannot express. The adapter runs the named rule's checker over `instance` and reports whether it FLAGGED; the suite compares that to `expect.valid`. The case is self-describing — it ships the block-type recognition its outcome depends on, so no schema-derived state is needed.",
+          "required": [
+            "rule",
+            "instance",
+            "expect"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "$comment": "Block-tree rules need the root context and the block-type recognition their outcome depends on; omitting either would silently mis-decide the case.",
+              "if": {
+                "properties": {
+                  "rule": {
+                    "enum": [
+                      "upward-containment",
+                      "figure-cardinality",
+                      "definition-item-cardinality"
+                    ]
+                  }
+                },
+                "required": ["rule"]
+              },
+              "then": {
+                "required": ["blockTypes", "root"]
+              }
+            },
+            {
+              "$comment": "asset-index-consistency compares a manifest category (instance) against its index.",
+              "if": {
+                "properties": {
+                  "rule": { "const": "asset-index-consistency" }
+                },
+                "required": ["rule"]
+              },
+              "then": {
+                "required": ["index"]
+              }
+            }
+          ],
+          "properties": {
+            "rule": {
+              "enum": [
+                "upward-containment",
+                "figure-cardinality",
+                "definition-item-cardinality",
+                "anchor-range",
+                "page-number-integrity",
+                "asset-index-consistency",
+                "id-uniqueness"
+              ],
+              "description": "Which structural rule to run — also the portable pass/fail discriminator."
+            },
+            "instance": {
+              "description": "The primary input: a block tree (containment/cardinality), an anchor node/string (anchor-range), a precise-layout node (page-number-integrity), the manifest asset CATEGORY object (asset-index-consistency), or an items array (id-uniqueness)."
+            },
+            "index": {
+              "description": "asset-index-consistency only: the asset INDEX object (its `assets[]`). Ignored by other rules."
+            },
+            "root": {
+              "enum": [
+                "document",
+                "excerpt"
+              ],
+              "description": "Block-tree rules only: the root context. The upward-containment exemption keys off `excerpt`, so the same instance can be valid at excerpt root and invalid at document root — it MUST be explicit."
+            },
+            "blockTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true,
+              "description": "Block-tree rules only: the `type` strings the adapter MUST treat as content blocks when walking `instance`. Shipped in the vector (not derived from a schema) because the fire/clean outcome depends on which nodes count as blocks — e.g. a tableCell under a paragraph fires only because `paragraph` is recognized, giving a concrete non-excerpt parent."
+            },
+            "expect": {
+              "type": "object",
+              "required": [
+                "valid"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "valid": {
+                  "type": "boolean",
+                  "description": "`true`: a conformant reader accepts the instance (the rule does NOT flag it). `false`: the instance violates the rule (it MUST flag)."
+                }
+              }
+            }
+          }
         },
         "robustness": {
           "type": "object",
