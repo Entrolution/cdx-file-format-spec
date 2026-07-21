@@ -116,6 +116,7 @@ network is required at Level 0.
 | `canonicalize-robustness` | `robustness` (generative — see below) | value / error | none — `accept` → `value`, `reject` → `error` |
 | `structural-constraints` | `structural` (`rule`, `instance`, `blockTypes?`, `root?`, `index?`) | value | `flagged` → (the negation of `structural.expect.valid`) |
 | `anchor-offset` | `anchor` (`text`, `start`, `end`) | value | `selection` → (`anchor.expectedSelection`) |
+| `presentation-selection` | `selection` (`rule`, + `breakpoints`/`width` or `candidates`) | value | `breakpoint` → `name` (`selection.expect.name`); `default` → `index` (`selection.expect.index`) |
 | `manifest-projection` | `manifest` (raw JSON text) | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-scope` | `scope` | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-projection-errors` | `manifest` (raw JSON text) | **error** | `error.code` → (`expect.code`) |
@@ -189,6 +190,13 @@ Notes that bite:
   spanning an astral character — the exact defect this kind catches. In
   JavaScript, `Array.from(text).slice(start, end).join('')` is correct; the naive
   `text.slice(start, end)` is not.
+- **`presentation-selection` tests only the deterministic rules.** `breakpoint`
+  (§8.2): among breakpoints matching the width (bounds inclusive; an omitted bound
+  is unbounded), report the `name` of the one with the greatest `minWidth`, and on
+  a `minWidth` tie the one appearing **later** in the array; `null` if none match.
+  `default` (§4.3): report the `index` of the first entry marked `default:true`,
+  else `0`. The §4.3 step-1 target narrowing (screen SHOULD prefer
+  continuous/responsive, print SHOULD prefer precise) is advisory and not tested.
 
 ## Capabilities and scoping
 

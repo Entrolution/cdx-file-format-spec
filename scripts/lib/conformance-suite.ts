@@ -240,6 +240,15 @@ const COMPARATORS: Record<string, Comparator> = {
     return eq(a.v.selection, (v.anchor as { expectedSelection: string }).expectedSelection, 'selection');
   },
 
+  'presentation-selection': (v, r) => {
+    const sel = v.selection as { rule: 'breakpoint' | 'default'; expect: { name?: string | null; index?: number } };
+    const a = values(r);
+    if (!a.ok) return a.comparison;
+    return sel.rule === 'breakpoint'
+      ? eq(a.v.name ?? null, sel.expect.name ?? null, 'active breakpoint')
+      : eq(a.v.index, sel.expect.index, 'selected index');
+  },
+
   'structural-constraints': (v, r) => {
     // The adapter runs the rule's checker and reports whether it FLAGGED the
     // instance. A valid instance is one the rule does NOT flag; an invalid one it

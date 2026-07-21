@@ -1,0 +1,263 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "presentation-selection",
+  "clause": "Presentation Layers section 8.2 (breakpoint precedence) and section 4.3 (default-presentation selection) — the deterministic selection rules",
+  "description": "The DETERMINISTIC parts of presentation selection: §8.2 breakpoint precedence (greatest minWidth wins; a minWidth tie goes to the later array entry; bounds inclusive; an omitted bound is unbounded) and §4.3 default selection (first entry marked default:true, else the first entry). The §4.3 step-1 target narrowing is advisory (SHOULD) and deliberately not modelled.",
+  "oracle": "Expected results are HAND-DETERMINED from the §8.2 precedence rule and the §4.3 default rule; no snapshot. The reference selectors (scripts/lib/presentation-selection.ts) reproduce them.",
+  "vectors": [
+    {
+      "name": "breakpoint-mobile-at-320",
+      "description": "The §8.2 example at a phone width (320) selects \"mobile\".",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "mobile",
+            "maxWidth": "599px"
+          },
+          {
+            "name": "tablet",
+            "minWidth": "600px",
+            "maxWidth": "1023px"
+          },
+          {
+            "name": "desktop",
+            "minWidth": "1024px"
+          }
+        ],
+        "width": 320,
+        "expect": {
+          "name": "mobile"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-tablet-at-800",
+      "description": "A mid width (800) selects \"tablet\".",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "mobile",
+            "maxWidth": "599px"
+          },
+          {
+            "name": "tablet",
+            "minWidth": "600px",
+            "maxWidth": "1023px"
+          },
+          {
+            "name": "desktop",
+            "minWidth": "1024px"
+          }
+        ],
+        "width": 800,
+        "expect": {
+          "name": "tablet"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-desktop-at-1440",
+      "description": "A wide width (1440) selects \"desktop\".",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "mobile",
+            "maxWidth": "599px"
+          },
+          {
+            "name": "tablet",
+            "minWidth": "600px",
+            "maxWidth": "1023px"
+          },
+          {
+            "name": "desktop",
+            "minWidth": "1024px"
+          }
+        ],
+        "width": 1440,
+        "expect": {
+          "name": "desktop"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-boundary-599-mobile",
+      "description": "maxWidth is inclusive: width 599 still selects \"mobile\".",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "mobile",
+            "maxWidth": "599px"
+          },
+          {
+            "name": "tablet",
+            "minWidth": "600px",
+            "maxWidth": "1023px"
+          },
+          {
+            "name": "desktop",
+            "minWidth": "1024px"
+          }
+        ],
+        "width": 599,
+        "expect": {
+          "name": "mobile"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-boundary-600-tablet",
+      "description": "minWidth is inclusive and mobile’s max (599) is exclusive of 600: width 600 selects \"tablet\".",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "mobile",
+            "maxWidth": "599px"
+          },
+          {
+            "name": "tablet",
+            "minWidth": "600px",
+            "maxWidth": "1023px"
+          },
+          {
+            "name": "desktop",
+            "minWidth": "1024px"
+          }
+        ],
+        "width": 600,
+        "expect": {
+          "name": "tablet"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-overlap-greatest-min-wins",
+      "description": "Two overlapping breakpoints both match width 800; the one with the greater minWidth (600) wins.",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "wide-open",
+            "minWidth": "0px",
+            "maxWidth": "2000px"
+          },
+          {
+            "name": "narrower",
+            "minWidth": "600px",
+            "maxWidth": "2000px"
+          }
+        ],
+        "width": 800,
+        "expect": {
+          "name": "narrower"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-tie-later-wins",
+      "description": "Two breakpoints with the SAME minWidth both match; the one appearing later in the array wins.",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "earlier",
+            "minWidth": "600px"
+          },
+          {
+            "name": "later",
+            "minWidth": "600px"
+          }
+        ],
+        "width": 800,
+        "expect": {
+          "name": "later"
+        }
+      }
+    },
+    {
+      "name": "breakpoint-none-match",
+      "description": "No breakpoint matches width 500; the result is null (no active breakpoint).",
+      "selection": {
+        "rule": "breakpoint",
+        "breakpoints": [
+          {
+            "name": "only",
+            "minWidth": "1000px",
+            "maxWidth": "1100px"
+          }
+        ],
+        "width": 500,
+        "expect": {
+          "name": null
+        }
+      }
+    },
+    {
+      "name": "default-single-marked-entry",
+      "description": "One entry marked default:true is selected (index 1).",
+      "selection": {
+        "rule": "default",
+        "candidates": [
+          {
+            "type": "continuous"
+          },
+          {
+            "type": "responsive",
+            "default": true
+          },
+          {
+            "type": "paginated"
+          }
+        ],
+        "expect": {
+          "index": 1
+        }
+      }
+    },
+    {
+      "name": "default-multiple-marked-first-wins",
+      "description": "When more than one entry is marked default:true, the first such entry (index 0) is used.",
+      "selection": {
+        "rule": "default",
+        "candidates": [
+          {
+            "type": "continuous",
+            "default": true
+          },
+          {
+            "type": "responsive",
+            "default": true
+          }
+        ],
+        "expect": {
+          "index": 0
+        }
+      }
+    },
+    {
+      "name": "default-none-marked-uses-first",
+      "description": "Absent any default:true, the first entry (index 0) is used.",
+      "selection": {
+        "rule": "default",
+        "candidates": [
+          {
+            "type": "continuous"
+          },
+          {
+            "type": "responsive"
+          }
+        ],
+        "expect": {
+          "index": 0
+        }
+      }
+    }
+  ]
+}

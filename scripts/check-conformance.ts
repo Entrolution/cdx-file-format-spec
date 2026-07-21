@@ -183,6 +183,8 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['structural valid-but-flagged', 'structural-constraints', { name: 'n', structural: { expect: { valid: true } } } as unknown as SuiteVector, val({ flagged: true })],
     ['structural invalid-but-clean', 'structural-constraints', { name: 'n', structural: { expect: { valid: false } } } as unknown as SuiteVector, val({ flagged: false })],
     ['anchor-offset wrong-selection', 'anchor-offset', { name: 'n', anchor: { text: 'ab', start: 0, end: 1, expectedSelection: 'a' } } as unknown as SuiteVector, val({ selection: 'b' })],
+    ['presentation breakpoint-wrong', 'presentation-selection', { name: 'n', selection: { rule: 'breakpoint', expect: { name: 'a' } } } as unknown as SuiteVector, val({ name: 'b' })],
+    ['presentation default-wrong', 'presentation-selection', { name: 'n', selection: { rule: 'default', expect: { index: 0 } } } as unknown as SuiteVector, val({ index: 1 })],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',
