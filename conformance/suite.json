@@ -24,9 +24,9 @@
     },
     "1": {
       "title": "Fixtures + clock",
-      "summary": "Whole-document archive fixtures verified against a per-case virtual reference clock. Adds an archive reader and an injectable clock.",
+      "summary": "Whole-document archive fixtures verified against a per-case virtual reference clock. Adds an archive reader and an injectable clock. The `archive-reader` hook ships with the container fixtures (B1a); the `virtual-clock` hook, needed only by trust-dependent cases, arrives with the test trust material (B2).",
       "hooks": ["archive-reader", "virtual-clock"],
-      "status": "planned"
+      "status": "partial"
     },
     "2": {
       "title": "Trust + resolver injection",
@@ -45,8 +45,10 @@
     },
     "fixtures": {
       "level": 1,
-      "status": "planned",
-      "summary": "Whole-document archive fixtures with per-finding verdicts. Requires the reference reader and test trust material that later phases add."
+      "status": "partial",
+      "location": "fixtures/",
+      "schema": "fixtures/fixtures.schema.json",
+      "summary": "Whole-document archive fixtures with per-finding verdicts over the disposition lattice (IGNORE < WARNING < INTEGRITY-ERROR < REJECT). The container layer (archive-reader hook) ships in B1a — state-invariant REJECT cases and the draft/review dispositions; the part loader (B1b) and the trust-dependent frozen/published INTEGRITY-ERROR ceilings (B2/B3) follow."
     }
   },
   "artifacts": {

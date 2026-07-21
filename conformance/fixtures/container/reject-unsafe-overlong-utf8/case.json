@@ -1,0 +1,33 @@
+{
+  "description": "An entry name with an overlong UTF-8 encoding (smuggles a byte past a naive comparison).",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 9.1; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\"}"
+      },
+      {
+        "nameBytesBase64": "YcCvYg==",
+        "text": "x"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-UNSAFE-NAME",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

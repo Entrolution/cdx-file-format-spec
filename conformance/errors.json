@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.2",
+  "version": "0.4",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -136,6 +136,82 @@
       "disposition": "WARNING",
       "dispositionClause": "State Machine section 5.4.2 (INCOMPLETE lineage \u2014 WARNING in every state)",
       "note": "A legitimately deep or wide history is not an inconsistency."
+    },
+    "CDX-E-ARCHIVE-UNREADABLE": {
+      "summary": "The archive cannot be parsed as a ZIP: no End Of Central Directory record, or a truncated or malformed central directory.",
+      "clause": "Container Format section 3.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (Archive unreadable ... REJECT in every state)"
+    },
+    "CDX-E-ARCHIVE-DUPLICATE-ENTRY": {
+      "summary": "Two central-directory entries resolve to the same path after the section 3.4 normalization.",
+      "clause": "Container Format section 3.5",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (Duplicate archive entries always REJECT, in every state)",
+      "note": "Closes a split-view substitution: a signer's tooling hashes one entry into the document id while a victim's reader materializes a different entry of the same name under one still-valid signature."
+    },
+    "CDX-E-ARCHIVE-CASE-COLLISION": {
+      "summary": "Two central-directory entries differ only in case, colliding when extracted onto a case-insensitive filesystem.",
+      "clause": "Container Format section 3.5",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (Duplicate archive entries, including a case-only collision, always REJECT, in every state)"
+    },
+    "CDX-E-ARCHIVE-LFH-CD-DISAGREEMENT": {
+      "summary": "The local-file-header view and the central-directory view disagree on the entry set: a central entry with no matching local header, or a local name that differs from its central name.",
+      "clause": "Container Format section 3.5",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (local-file-header/central-directory entry-set disagreement always REJECTs, in every state)"
+    },
+    "CDX-E-ARCHIVE-DATA-OUTSIDE-CD": {
+      "summary": "A local file header exists that the central directory does not enumerate (file data outside the authoritative index).",
+      "clause": "Container Format section 3.5",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (local-file-header/central-directory entry-set disagreement always REJECTs, in every state)",
+      "note": "The central directory is the authoritative index; a stray local entry is a split-view substitution vector."
+    },
+    "CDX-E-ARCHIVE-UNSAFE-NAME": {
+      "summary": "An archive entry name fails the section 9.1 safety checks: a `..` segment, an absolute or drive/UNC/colon-bearing name, a backslash, a reserved Windows device name, a trailing dot/space segment, or an overlong or ill-formed UTF-8 encoding.",
+      "clause": "Container Format section 9.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (an unsafe archive path or symlink always REJECTs, in every state)"
+    },
+    "CDX-E-ARCHIVE-SYMLINK-ENTRY": {
+      "summary": "An archive entry encodes a symbolic link (a Unix mode with the symlink bit set).",
+      "clause": "Container Format section 9.3",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (an unsafe archive path or symlink always REJECTs, in every state)",
+      "note": "CDX defines no legitimate use for a symlink entry; it is a second path-traversal vector."
+    },
+    "CDX-E-ARCHIVE-DECOMPRESSION-BOMB": {
+      "summary": "A declared entry size, decompression ratio, or archive total exceeds the reader's finite bound.",
+      "clause": "Container Format sections 5.3, 9.2",
+      "disposition": "REJECT",
+      "dispositionClause": "Container Format sections 5.3 and 9.2 (a conforming reader MUST enforce a finite bound on every attacker-controlled dimension and MUST fail closed -- reject the archive -- when one is exceeded). Section 5.4.2 does not itself enumerate this class; the disposition is stated in the mechanism sections.",
+      "note": "The specific thresholds are implementation-defined (section 5.1 gives reasonable defaults); the existence and enforcement of a bound is the requirement. A fixture bomb must exceed any plausible conformant bound, not one specific threshold."
+    },
+    "CDX-E-ARCHIVE-CRC-MISMATCH": {
+      "summary": "A stored ZIP CRC-32 does not match the CRC recomputed over the entry's actual bytes (a corrupt entry).",
+      "clause": "Container Format section 6.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (ZIP CRC-32 mismatch for an archive entry). The stored bytes cannot be trusted to decompress to the content they claim, independently of the semantic document hash (section 6.2)."
+    },
+    "CDX-E-ARCHIVE-FIRST-FILE-NOT-MANIFEST": {
+      "summary": "The first archive entry is not `manifest.json`.",
+      "clause": "Container Format section 4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (the first archive entry is not manifest.json). The archive is fully readable and the manifest resolvable by name, so only the streaming/quick-validation optimization is lost."
+    },
+    "CDX-E-ARCHIVE-ENCRYPTION-USED": {
+      "summary": "An entry uses ZIP-level encryption (general-purpose bit 0 set); CDX uses the security extension for encryption, never the container.",
+      "clause": "Container Format section 3.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (ZIP-level encryption present, or a multi-volume archive, both forbidden by Container Format section 3.1 and neither coherently loadable)"
+    },
+    "CDX-E-ARCHIVE-MULTI-VOLUME": {
+      "summary": "The archive is a multi-volume (split) ZIP: an End Of Central Directory disk field is non-zero.",
+      "clause": "Container Format section 3.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (ZIP-level encryption present, or a multi-volume archive, both forbidden by Container Format section 3.1 and neither coherently loadable)"
     }
   }
 }

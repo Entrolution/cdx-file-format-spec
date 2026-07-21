@@ -1,0 +1,36 @@
+{
+  "description": "Nested asset directories and a ZIP comment read cleanly.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format sections 3.3, 4.1",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"images\":[]}"
+      }
+    ],
+    "comment": "CDX v0.1"
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

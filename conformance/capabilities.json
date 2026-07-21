@@ -2,7 +2,7 @@
   "normative": false,
   "$comment": "NON-NORMATIVE. Catalog of capability keys a conformance adapter may declare support for. This is a suite artifact, not part of the CDX specification; it names optional features so a case that depends on one can be scoped, never a skip in disguise. The `clause` on each entry cites where the specification defines the feature and whether it is mandatory to implement.",
   "suite": "cdx-conformance",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "specVersion": "0.1",
   "model": {
     "summary": "An adapter declares the capabilities it supports; the suite scopes each case to what the adapter can actually run.",
@@ -22,6 +22,18 @@
       "baseline": true,
       "summary": "The mandatory baseline every CDX reader implements: content canonicalization (RFC 8785 JCS), document-ID computation, and SHA-256. Signature, key, and manifest-projection machinery is NOT core — it belongs to the security extension (ext:security); provenance verification is its own capability (provenance).",
       "clause": "Document Hashing sections 2-4 (canonicalization, hash format, and document ID; SHA-256 is the one mandatory algorithm, section 3.2)"
+    },
+    "container": {
+      "group": "container",
+      "baseline": true,
+      "summary": "The mandatory ZIP container layer: parse the archive via its central directory, enforce unique entry paths (including case-only collisions), reject local-header/central-directory disagreement, archive-name-safety violations (path traversal, symlinks), ZIP encryption, and multi-volume archives, verify each entry's CRC-32, check the first entry is manifest.json, and bound decompression. Deflate (method 8) is mandatory to support; Store (method 0) is trivial. Required by every Level-1 document fixture.",
+      "clause": "Container Format sections 3, 4.2, 5.3, 6.1, 9 (ZIP structure, first-file requirement, mandatory bounds, CRC integrity, security considerations; Deflate mandatory, section 3.2)"
+    },
+    "compression:zstd": {
+      "group": "container",
+      "baseline": false,
+      "summary": "Zstandard (method 93) decompression for archive entries. RECOMMENDED but optional; Deflate is the mandatory baseline.",
+      "clause": "Container Format section 3.2 (Zstandard support RECOMMENDED)"
     },
     "hash:sha-384": {
       "group": "hash",

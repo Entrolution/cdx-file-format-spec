@@ -1,0 +1,42 @@
+{
+  "description": "A local file header the central directory does not enumerate (stray entry).",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 3.5; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      },
+      {
+        "name": "content/ghost.json",
+        "text": "{\"stray\":true}",
+        "omitFromCentral": true
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-DATA-OUTSIDE-CD",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

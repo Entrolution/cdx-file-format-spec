@@ -268,7 +268,7 @@ When loading a frozen/published document:
 
 ### 5.4 Failure Dispositions
 
-Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.5, 9.1 and 9.3, Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
+Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.1, 3.5, 4.2, 6.1, 9.1 and 9.3, Document Hashing sections 4.3.2 and 6.3, Anchors and References section 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
 
 #### 5.4.1 Disposition Vocabulary
 
@@ -292,6 +292,9 @@ A second axis is **integrity-binding**. A defect in material bound to the docume
 | Archive unreadable, or an unsafe entry name or symlink — see the full rejection set in Container Format sections 9.1 and 9.3 (`..`, an absolute or drive/UNC/colon-bearing name, a backslash, a reserved device name, or a symlink or path component whose resolved target escapes the extraction root) | REJECT | REJECT |
 | Duplicate JSON keys in any part (Document Hashing section 4.3.2) | REJECT | REJECT |
 | Duplicate archive entry path (including a case-only collision), or local-header/central-directory entry-set disagreement (Container Format section 3.5) | REJECT | REJECT |
+| ZIP CRC-32 mismatch for an archive entry — the stored checksum does not match the entry's actual bytes (Container Format section 6.1). A container-layer physical-corruption check that applies regardless of the entry's logical layer, unlike a semantic out-of-hash defect (below) | REJECT | REJECT |
+| ZIP-level encryption present, or a multi-volume archive — both forbidden by Container Format section 3.1, and neither can be coherently loaded | REJECT | REJECT |
+| The first archive entry is not `manifest.json` (Container Format section 4.2) — the archive is fully readable and the manifest resolvable by name, so only the streaming/quick-validation optimization is lost | WARNING | WARNING |
 | A hashed number that is non-finite, or an integer of magnitude > 2^53 - 1 (Document Hashing section 4.3.2) | REJECT | REJECT |
 | Manifest absent, unparseable, or missing or mistyping a required field | REJECT | REJECT |
 | A `state` value outside the defined lifecycle enum — `draft`/`review`/`frozen`/`published` (section 3.1; Manifest section 4.3) — so the mutability-and-signature contract cannot be established | REJECT | REJECT |
