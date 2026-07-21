@@ -234,6 +234,16 @@ const COMPARATORS: Record<string, Comparator> = {
     return v.expectedId !== undefined ? eq(a.v.id, v.expectedId, 'id') : { pass: true };
   },
 
+  'structural-constraints': (v, r) => {
+    // The adapter runs the rule's checker and reports whether it FLAGGED the
+    // instance. A valid instance is one the rule does NOT flag; an invalid one it
+    // MUST flag. So expected `flagged` is the negation of `expect.valid`.
+    const st = v.structural as { expect: { valid: boolean } };
+    const a = values(r);
+    if (!a.ok) return a.comparison;
+    return eq(a.v.flagged, !st.expect.valid, 'flagged');
+  },
+
   'canonicalize-robustness': (v, r) => {
     const rob = v.robustness as { expect: 'accept' | 'reject' };
     // reject: a CATCHABLE rejection (outcome 'error'), never a native stack

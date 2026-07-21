@@ -180,6 +180,8 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['canonicalize reject-not-rejected', 'canonicalize', { name: 'n', expectReject: true } as unknown as SuiteVector, val({ canonicalJcs: '{}', id: 'sha256:aa' })],
     ['robustness reject-but-value', 'canonicalize-robustness', { name: 'n', robustness: { expect: 'reject' } } as unknown as SuiteVector, val({})],
     ['robustness accept-but-error', 'canonicalize-robustness', { name: 'n', robustness: { expect: 'accept' } } as unknown as SuiteVector, err('CDX-E-X')],
+    ['structural valid-but-flagged', 'structural-constraints', { name: 'n', structural: { expect: { valid: true } } } as unknown as SuiteVector, val({ flagged: true })],
+    ['structural invalid-but-clean', 'structural-constraints', { name: 'n', structural: { expect: { valid: false } } } as unknown as SuiteVector, val({ flagged: false })],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',

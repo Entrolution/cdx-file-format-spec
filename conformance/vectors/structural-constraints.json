@@ -1,0 +1,643 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "structural-constraints",
+  "clause": "Content Blocks section 3; Anchors and References section 4 (range semantics); Presentation Layers; Asset Embedding section 8 — structural invariants JSON Schema cannot express",
+  "description": "Content-tree and file-level invariants JSON Schema cannot express: upward containment, figure/definitionItem cardinality, half-open anchor ranges, precise-layout page-number uniqueness, asset-index count/totalSize consistency, and id uniqueness. Each case is self-describing — block-tree cases ship the block-type set their fire/clean outcome depends on, so no schema-derived state is required.",
+  "oracle": "Expected valid/invalid outcomes are HAND-DETERMINED from the specification’s structural rules (a human reasoning about upward containment, cardinality, half-open ranges, and uniqueness), never snapshotted. The reference checkers (scripts/lib/structural-constraints.ts) reproduce every outcome and also back the check:structural gate.",
+  "vectors": [
+    {
+      "name": "upward-figcaption-at-document-root",
+      "description": "A figcaption at the document root violates upward containment (its parent must be a figure).",
+      "structural": {
+        "rule": "upward-containment",
+        "instance": {
+          "version": "0.1",
+          "blocks": [
+            {
+              "type": "figcaption",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "document",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "upward-tablecell-under-paragraph",
+      "description": "A tableCell whose nearest block parent is a paragraph (not a tableRow) violates containment; it fires only because paragraph is recognized as a block, giving a concrete non-excerpt parent.",
+      "structural": {
+        "rule": "upward-containment",
+        "instance": {
+          "type": "paragraph",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "upward-tablerow-at-document-root",
+      "description": "A tableRow at the document root violates containment (its parent must be a table).",
+      "structural": {
+        "rule": "upward-containment",
+        "instance": {
+          "version": "0.1",
+          "blocks": [
+            {
+              "type": "tableRow",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "document",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "upward-figcaption-under-figure",
+      "description": "A figcaption directly under a figure is correctly contained.",
+      "structural": {
+        "rule": "upward-containment",
+        "instance": {
+          "type": "figure",
+          "children": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "figcaption",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "upward-standalone-figcaption-excerpt",
+      "description": "A figcaption at an EXCERPT root is exempt (its real parent is unknown), so containment does not fire.",
+      "structural": {
+        "rule": "upward-containment",
+        "instance": {
+          "type": "figcaption",
+          "children": []
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "figure-two-content-blocks",
+      "description": "A figure (children form) with two content blocks violates the exactly-one-content rule.",
+      "structural": {
+        "rule": "figure-cardinality",
+        "instance": {
+          "type": "figure",
+          "children": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "svg"
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "figure-no-content-block",
+      "description": "A figure whose only child is a figcaption has zero content blocks — invalid.",
+      "structural": {
+        "rule": "figure-cardinality",
+        "instance": {
+          "type": "figure",
+          "children": [
+            {
+              "type": "figcaption",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "figure-two-figcaptions",
+      "description": "A figure with two figcaptions exceeds the at-most-one-caption rule.",
+      "structural": {
+        "rule": "figure-cardinality",
+        "instance": {
+          "type": "figure",
+          "children": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "figcaption"
+            },
+            {
+              "type": "figcaption"
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "figure-one-content-one-caption",
+      "description": "A figure with one content block and one figcaption satisfies the cardinality rule.",
+      "structural": {
+        "rule": "figure-cardinality",
+        "instance": {
+          "type": "figure",
+          "children": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "figcaption",
+              "children": []
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "figure-using-subfigures",
+      "description": "A figure using the subfigures multi-panel form is a distinct construct with its own arity — the children-form cardinality does not apply.",
+      "structural": {
+        "rule": "figure-cardinality",
+        "instance": {
+          "type": "figure",
+          "subfigures": [
+            {
+              "children": [
+                {
+                  "type": "image"
+                }
+              ]
+            },
+            {
+              "children": [
+                {
+                  "type": "image"
+                }
+              ]
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "definitionitem-two-terms-no-description",
+      "description": "A definitionItem with two terms and no description lacks the required description.",
+      "structural": {
+        "rule": "definition-item-cardinality",
+        "instance": {
+          "type": "definitionItem",
+          "children": [
+            {
+              "type": "definitionTerm"
+            },
+            {
+              "type": "definitionTerm"
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "definitionitem-term-and-description",
+      "description": "A definitionItem with one term and one description satisfies the cardinality rule.",
+      "structural": {
+        "rule": "definition-item-cardinality",
+        "instance": {
+          "type": "definitionItem",
+          "children": [
+            {
+              "type": "definitionTerm"
+            },
+            {
+              "type": "definitionDescription"
+            }
+          ]
+        },
+        "blockTypes": [
+          "figure",
+          "figcaption",
+          "table",
+          "tableRow",
+          "tableCell",
+          "definitionItem",
+          "paragraph"
+        ],
+        "root": "excerpt",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "anchor-object-inverted-range",
+      "description": "A range anchor object with start > end (10 > 5) violates the half-open interval rule.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": {
+          "blockId": "x",
+          "start": 10,
+          "end": 5
+        },
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "anchor-object-empty-range",
+      "description": "A range anchor with start == end (7,7) is empty; a half-open interval requires start < end.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": {
+          "blockId": "x",
+          "start": 7,
+          "end": 7
+        },
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "anchor-uri-inverted-range",
+      "description": "A content-anchor URI #intro/10-5 has start not less than end.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": "#intro/10-5",
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "anchor-object-valid-range",
+      "description": "A range anchor object with start < end (1,2) is valid.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": {
+          "blockId": "x",
+          "start": 1,
+          "end": 2
+        },
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "anchor-uri-valid-range",
+      "description": "A content-anchor URI #intro/10-25 with start < end is valid.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": "#intro/10-25",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "anchor-block-level-no-range",
+      "description": "A block-level anchor carrying no start/end is not a range anchor and is not subject to the rule.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": {
+          "blockId": "x"
+        },
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "pages-duplicate-numbers",
+      "description": "A precise layout with two pages numbered 1 violates page-number uniqueness.",
+      "structural": {
+        "rule": "page-number-integrity",
+        "instance": {
+          "pages": [
+            {
+              "number": 1,
+              "elements": []
+            },
+            {
+              "number": 1,
+              "elements": []
+            }
+          ]
+        },
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "pages-unique-numbers",
+      "description": "A precise layout with distinct page numbers (1,2) is valid.",
+      "structural": {
+        "rule": "page-number-integrity",
+        "instance": {
+          "pages": [
+            {
+              "number": 1,
+              "elements": []
+            },
+            {
+              "number": 2,
+              "elements": []
+            }
+          ]
+        },
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "asset-duplicate-ids",
+      "description": "Two assets sharing an id in one index violate asset-id uniqueness.",
+      "structural": {
+        "rule": "asset-index-consistency",
+        "instance": {},
+        "index": {
+          "assets": [
+            {
+              "id": "a",
+              "size": 1
+            },
+            {
+              "id": "a",
+              "size": 1
+            }
+          ]
+        },
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "asset-count-mismatch",
+      "description": "A category count of 2 with a single asset in the index is inconsistent. SHOULD-level: the manifest count/totalSize fields are advisory and their exact semantics are not normatively defined, so a mismatch is reported, never fatal.",
+      "structural": {
+        "rule": "asset-index-consistency",
+        "instance": {
+          "count": 2,
+          "totalSize": 1
+        },
+        "index": {
+          "assets": [
+            {
+              "id": "a",
+              "size": 1
+            }
+          ]
+        },
+        "expect": {
+          "valid": false
+        }
+      },
+      "severity": "SHOULD"
+    },
+    {
+      "name": "asset-totalsize-ignores-variant",
+      "description": "A category totalSize of 10 that omits a variant’s size (asset 10 + variant 5 = 15) is inconsistent under the assets+variants reading. SHOULD-level: totalSize is advisory and its summation rule is not normatively defined.",
+      "structural": {
+        "rule": "asset-index-consistency",
+        "instance": {
+          "count": 1,
+          "totalSize": 10
+        },
+        "index": {
+          "assets": [
+            {
+              "id": "a",
+              "size": 10,
+              "variants": [
+                {
+                  "size": 5
+                }
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "valid": false
+        }
+      },
+      "severity": "SHOULD"
+    },
+    {
+      "name": "asset-consistent-with-variant",
+      "description": "A category totalSize of 15 summing the asset (10) and its variant (5) is consistent under the assets+variants reading. SHOULD-level: an implementation using a different (also-permitted) totalSize reading is not failed.",
+      "structural": {
+        "rule": "asset-index-consistency",
+        "instance": {
+          "count": 1,
+          "totalSize": 15
+        },
+        "index": {
+          "assets": [
+            {
+              "id": "a",
+              "size": 10,
+              "variants": [
+                {
+                  "size": 5
+                }
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "valid": true
+        }
+      },
+      "severity": "SHOULD"
+    },
+    {
+      "name": "ids-duplicate",
+      "description": "Two entries sharing an id in one list violate id uniqueness. Generic structural invariant over any id-bearing items array (the case ships no extension-specific structure), so it is core.",
+      "structural": {
+        "rule": "id-uniqueness",
+        "instance": [
+          {
+            "id": "a"
+          },
+          {
+            "id": "a"
+          }
+        ],
+        "expect": {
+          "valid": false
+        }
+      }
+    },
+    {
+      "name": "ids-unique",
+      "description": "Entries with distinct ids in a list satisfy id uniqueness (generic structural invariant over id-bearing items).",
+      "structural": {
+        "rule": "id-uniqueness",
+        "instance": [
+          {
+            "id": "a"
+          },
+          {
+            "id": "b"
+          }
+        ],
+        "expect": {
+          "valid": true
+        }
+      }
+    }
+  ]
+}

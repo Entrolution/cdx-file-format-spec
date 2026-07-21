@@ -29,6 +29,17 @@ import { encodeProtectedHeader, jwsSigningInput } from './lib/jws-envelope.js';
 import { jwkThumbprint, multibaseKeyToJwk } from './lib/keyid-resolution.js';
 import { blockLeafHash, blockMerkleRoot, verifyBlockInclusion } from './lib/block-merkle.js';
 import { checkTimestampBinding } from './lib/provenance-timestamp.js';
+import {
+  type Finding,
+  ROOT_DOCUMENT,
+  ROOT_EXCERPT,
+  walkBlocks,
+  checkBlock,
+  checkAnchors,
+  checkPreciseLayout,
+  checkAssetCategory,
+  checkUniqueIds,
+} from './lib/structural-constraints.js';
 import type { AdapterReport, AdapterResult } from './lib/conformance-suite.js';
 
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
@@ -121,6 +132,38 @@ const RUNNERS: Record<string, (v: Record<string, any>) => RunOutcome> = {
         id: computeDocumentId(v.parts, v.algorithm ?? 'sha256'),
       },
     };
+  },
+
+  'structural-constraints': (v) => {
+    // Run the named rule's checker over the instance and report whether it
+    // FLAGGED — the suite compares that to expect.valid. Block-tree rules use the
+    // vector's own `blockTypes` (shipped in the case), so the outcome depends on
+    // the vector, not on any schema-derived state.
+    const st = v.structural as { rule: string; instance: unknown; index?: unknown; root?: 'document' | 'excerpt'; blockTypes?: string[] };
+    const findings: Finding[] = [];
+    const where = 'vector';
+    switch (st.rule) {
+      case 'upward-containment':
+      case 'figure-cardinality':
+      case 'definition-item-cardinality': {
+        const root = st.root === 'document' ? ROOT_DOCUMENT : ROOT_EXCERPT;
+        walkBlocks(st.instance, root, where, (b, p, w) => checkBlock(b, p, w, findings), new Set(st.blockTypes ?? []));
+        break;
+      }
+      case 'anchor-range':
+        checkAnchors(st.instance, where, findings);
+        break;
+      case 'page-number-integrity':
+        checkPreciseLayout(st.instance, where, findings);
+        break;
+      case 'asset-index-consistency':
+        checkAssetCategory('images', st.instance as Record<string, unknown>, st.index, where, findings);
+        break;
+      case 'id-uniqueness':
+        checkUniqueIds(st.instance, 'id', 'bibliographyEntry', where, findings);
+        break;
+    }
+    return { outcome: 'value', values: { flagged: findings.some((f) => f.rule === st.rule) } };
   },
 
   'canonicalize-robustness': (v) => {
