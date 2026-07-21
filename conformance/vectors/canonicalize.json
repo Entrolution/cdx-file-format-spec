@@ -190,6 +190,181 @@
       },
       "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"sha3-512\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
       "expectedId": "sha3-512:4a140d65d86b85d4084e20ae85162f4ac3a7dec97e680ea6b9cc9aa1fa8dd028470ea26bd6f144cff98758b55c948347b8fecc97184ce48ac98e5924043bbe11"
+    },
+    {
+      "name": "reject-duplicate-key-nested-object",
+      "description": "A duplicate key in a NESTED object (not just top-level) is rejected by strict parsing (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[],\"x\":{\"a\":1,\"a\":2}}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-duplicate-key-in-array-element",
+      "description": "A duplicate key inside an array element is rejected (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"a\":1,\"a\":2}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-escape-equivalent-duplicate-key",
+      "description": "Escape-equivalent keys collide: \"a\" and \"\\u0061\" are the same key, so this is a duplicate (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[],\"k\":{\"a\":1,\"\\u0061\":2}}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unknown-hash-algorithm",
+      "description": "An unknown / non-registered hash algorithm (md5) is rejected; a verifier follows the value prefix and never a hardcoded default, but an unsupported algorithm is refused (§3.3).",
+      "algorithm": "md5",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unregistered-asset-reference",
+      "description": "An assets/ reference that matches no registered asset is a canonicalization error (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig\",\"path\":\"figure1.avif\",\"type\":\"image/avif\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        },
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/missing.png\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-asset-category-without-index",
+      "description": "A manifest.assets category with no supplied index cannot resolve its references (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-malformed-registered-hash",
+      "description": "A registered asset hash that is not a well-formed algorithm:hexdigest (\"sha256:XYZ\") is rejected (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"f\",\"path\":\"f.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha256:XYZ\"}]}"
+        },
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/f.png\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unpaired-surrogate",
+      "description": "A stored string containing an unpaired surrogate (lone high surrogate U+D83D) is not well-formed Unicode and is rejected (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"text\",\"value\":\"\\ud83d\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-conflicting-hashes-for-one-path",
+      "description": "Two assets resolving to one archive path with conflicting hashes make resolution order-dependent and are rejected (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"a\",\"path\":\"dup.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"id\":\"b\",\"path\":\"dup.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}"
+        },
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-duplicate-key-dublin-core",
+      "description": "A duplicate key in the Dublin Core part is rejected end-to-end (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"A\",\"title\":\"B\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-duplicate-key-asset-index",
+      "description": "A duplicate key in an asset index is rejected end-to-end (§4.3.2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[],\"assets\":[]}"
+        },
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-sub-block-id-collides-with-block-id",
+      "description": "A sub-block id (equation line) colliding with a block id in the shared namespace is a duplicate-id error (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"eq-x\",\"children\":[]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a=b\",\"id\":\"eq-x\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unresolved-generated-name-reference",
+      "description": "A #ref that spells a generated canonical name (#b0) but resolves to no such block is rejected — left verbatim it would be indistinguishable from a real reference, collapsing two documents (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"real\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#b0\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-block-level-nfc-split-across-nodes",
+      "description": "Text nodes each individually NFC but whose concatenated run is NFD (a combining mark split from its base across an unmergeable boundary) is rejected at the block level (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"\\u0301\",\"marks\":[\"italic\"]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-malformed-dublin-core-term",
+      "description": "A projected Dublin Core term with a malformed value (title as a number) — SHOULD-level: §4.3 does not explicitly mandate rejecting it (the type is defined by Metadata §7.2, not the §4.3 projection), so an implementation that passes it through is not failed.",
+      "severity": "SHOULD",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":123,\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-non-string-array-element-in-term",
+      "description": "A non-string element in a projected Dublin Core array term (creator [\"A\",42]) — SHOULD-level for the same reason (Metadata §7.2, not §4.3).",
+      "severity": "SHOULD",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":[\"A\",42]}}"
+      },
+      "expectReject": true
     }
   ]
 }
