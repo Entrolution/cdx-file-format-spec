@@ -1,0 +1,33 @@
+{
+  "description": "An entry name containing a colon (Windows drive letter / NTFS alternate data stream).",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 9.1; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "C:evil.json",
+        "text": "x"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-UNSAFE-NAME",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

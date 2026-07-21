@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdx.dev/conformance/fixtures/fixtures.schema.json",
+  "title": "CDX Conformance Fixture Case (Level 1)",
+  "description": "NON-NORMATIVE. A Level-1 document fixture is a directory under conformance/fixtures/<kind>/<case>/ containing case.json (this schema) and case.cdx (the committed byte-stable archive, which MUST equal buildZip(case.json.recipe) — enforced by check:fixtures). case.json carries the deterministic archive build spec (`recipe`, interpreted by scripts/lib/zip-writer.ts) and the expected verdict (`expect`). The verdict is an interval over the disposition lattice (State Machine 07 section 5.4.1): IGNORE < WARNING < INTEGRITY-ERROR < REJECT. The fixture corpus is generated from scripts/lib/fixture-corpus.ts (the reviewed source of truth) and re-verified against it by the gate, mirroring the kat -> vectors pattern.",
+  "$ref": "#/$defs/case",
+  "$defs": {
+    "disposition": {
+      "enum": ["IGNORE", "WARNING", "INTEGRITY-ERROR", "REJECT"]
+    },
+    "interval": {
+      "type": "object",
+      "required": ["atLeast", "atMost"],
+      "additionalProperties": false,
+      "properties": {
+        "atLeast": { "$ref": "#/$defs/disposition" },
+        "atMost": { "$ref": "#/$defs/disposition" }
+      },
+      "description": "An inclusive [atLeast, atMost] band over the lattice. INTEGRITY-ERROR is a floor with MAY-escalation (section 5.4.1), so a defect whose spec disposition is INTEGRITY-ERROR is authored [INTEGRITY-ERROR, REJECT]; an exact REJECT is [REJECT, REJECT]; a flat IGNORE is [IGNORE, IGNORE]. The atMost ceiling is where the suite's teeth are."
+    },
+    "finding": {
+      "type": "object",
+      "required": ["code", "atLeast", "atMost"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^CDX-E-[A-Z0-9]+(-[A-Z0-9]+)*$",
+          "description": "A conformance/errors.json defect code. Its disposition is authoritative in errors.json; the interval here is the per-finding expectation."
+        },
+        "atLeast": { "$ref": "#/$defs/disposition" },
+        "atMost": { "$ref": "#/$defs/disposition" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "required": ["documentDisposition", "findings"],
+      "additionalProperties": false,
+      "properties": {
+        "documentDisposition": { "$ref": "#/$defs/interval" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" },
+          "description": "The intended findings, checked as a SUBSET of what the adapter reports: a correct implementation MAY report additional findings, but MUST report at least these, each within its interval."
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "required": ["description", "layer", "recipe", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "minLength": 1 },
+        "layer": {
+          "enum": ["container", "document"],
+          "description": "The reader layer this case exercises. B1a asserts only `container`; `document` (part loader) arrives in B1b."
+        },
+        "requires": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(:[a-z0-9-]+)?$" },
+          "uniqueItems": true,
+          "description": "Capability keys (conformance/capabilities.json) this case needs; a case is scoped out of an adapter that lacks one."
+        },
+        "clause": { "type": "string" },
+        "recipe": { "$ref": "#/$defs/recipe" },
+        "expect": { "$ref": "#/$defs/expect" }
+      }
+    },
+    "recipeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One archive entry (see scripts/lib/zip-writer.ts ZipEntryRecipe).",
+      "properties": {
+        "name": { "type": "string" },
+        "nameBytesBase64": { "type": "string" },
+        "text": { "type": "string" },
+        "method": { "enum": ["store", "deflate"] },
+        "symlink": { "type": "boolean" },
+        "declaredUncompressedSize": { "type": "integer", "minimum": 0 },
+        "wrongCrc": { "type": "boolean" },
+        "encrypted": { "type": "boolean" },
+        "omitFromCentral": { "type": "boolean" },
+        "omitFromLocal": { "type": "boolean" },
+        "centralName": { "type": "string" }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "required": ["entries"],
+      "additionalProperties": false,
+      "properties": {
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/recipeEntry" } },
+        "comment": { "type": "string" },
+        "truncate": {
+          "oneOf": [{ "const": "eocd" }, { "type": "integer", "minimum": 0 }]
+        },
+        "prependBytes": { "type": "integer", "minimum": 0 },
+        "multiVolume": { "type": "boolean" },
+        "zip64": { "type": "boolean" }
+      }
+    }
+  }
+}

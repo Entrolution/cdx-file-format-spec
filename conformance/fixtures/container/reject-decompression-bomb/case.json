@@ -1,0 +1,34 @@
+{
+  "description": "An entry declaring a ~4 GB uncompressed size for a handful of stored bytes (declared-ratio bomb), exceeding any plausible conformant bound.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format sections 5.3, 9.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "bomb.bin",
+        "text": "tiny",
+        "declaredUncompressedSize": 4294967280
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-DECOMPRESSION-BOMB",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

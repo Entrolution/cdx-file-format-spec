@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Enforcing gate for the conformance suite skeleton (Level 0).
+ * Enforcing gate for the conformance suite (Level 0 vectors + Level-1 container fixtures).
  *
  * Part 1 — Engine self-test: drives the comparison engine
  *   (scripts/lib/conformance-suite.ts) through EVERY verdict branch on synthetic
@@ -31,6 +31,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { createAjv } from './lib/ajv-utils.js';
 import { allVectorKinds, loadVectorFile } from './lib/conformance-vectors.js';
+import { loadFixtures, fixtureGroups } from './lib/fixtures.js';
 import {
   comparableKinds,
   evaluate,
@@ -185,6 +186,10 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['anchor-offset wrong-selection', 'anchor-offset', { name: 'n', anchor: { text: 'ab', start: 0, end: 1, expectedSelection: 'a' } } as unknown as SuiteVector, val({ selection: 'b' })],
     ['presentation breakpoint-wrong', 'presentation-selection', { name: 'n', selection: { rule: 'breakpoint', expect: { name: 'a' } } } as unknown as SuiteVector, val({ name: 'b' })],
     ['presentation default-wrong', 'presentation-selection', { name: 'n', selection: { rule: 'default', expect: { index: 0 } } } as unknown as SuiteVector, val({ index: 1 })],
+    // container (Level-1 fixture) — one row per fail branch of the comparator:
+    ['container doc-disposition-out-of-interval', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [] } } as unknown as SuiteVector, val({ documentDisposition: 'WARNING', findings: [] })],
+    ['container missing-finding', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-ARCHIVE-DUPLICATE-ENTRY', atLeast: 'REJECT', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [] })],
+    ['container finding-out-of-interval', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-ARCHIVE-CASE-COLLISION', atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [{ code: 'CDX-E-ARCHIVE-CASE-COLLISION', disposition: 'WARNING' }] })],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',
@@ -269,11 +274,17 @@ else ok('capabilities.json defines `core`');
 // Every published vector kind has a comparator, and every comparator kind is published.
 const publishedKinds = allVectorKinds();
 const engineKinds = comparableKinds();
+// Level-1 fixture groups (the document track). A fixtures kind (e.g. `container`)
+// is "published" via the fixtures corpus, not a vectors/*.json file.
+const fixtureCases = loadFixtures(CONFORMANCE_DIR);
+const fGroups = fixtureGroups(fixtureCases);
+const fixtureKinds = new Set(fGroups.map((g) => g.kind));
 const missingComparator = publishedKinds.filter((k) => !engineKinds.includes(k));
-const orphanComparator = engineKinds.filter((k) => !publishedKinds.includes(k));
+// A comparator must map to a published vector kind OR a fixture kind.
+const orphanComparator = engineKinds.filter((k) => !publishedKinds.includes(k) && !fixtureKinds.has(k));
 if (missingComparator.length > 0) fail(`vector kinds with no comparator: ${missingComparator.join(', ')}`);
-if (orphanComparator.length > 0) fail(`comparators with no published vectors: ${orphanComparator.join(', ')}`);
-if (missingComparator.length === 0 && orphanComparator.length === 0) ok(`${publishedKinds.length} kinds each have a comparator`);
+if (orphanComparator.length > 0) fail(`comparators with no published vectors or fixtures: ${orphanComparator.join(', ')}`);
+if (missingComparator.length === 0 && orphanComparator.length === 0) ok(`${publishedKinds.length} vector + ${fixtureKinds.size} fixture kind(s) each have a comparator`);
 
 // Load every vector file (schema-validated) and lint its requires[] and severities.
 const groups: SuiteCaseGroup[] = [];
@@ -288,9 +299,13 @@ for (const kind of publishedKinds) {
     }
   }
 }
+// Level-1 fixture groups join the evaluation set; their requires[] are linted too.
+for (const g of fGroups) groups.push(g);
+const totalFixtures = fixtureCases.length;
+const totalCases = totalVectors + totalFixtures;
 const requiresProblems = validateRequiresKeys(groups, catalog);
 for (const p of requiresProblems) fail(`requires lint — ${p}`);
-if (requiresProblems.length === 0) ok(`${totalVectors} vectors; every requires[] names a real capability`);
+if (requiresProblems.length === 0) ok(`${totalVectors} vectors + ${totalFixtures} fixtures; every requires[] names a real capability`);
 
 // report.schema.json compiles.
 let validateReport: ((r: unknown) => boolean) & { errors?: unknown };
@@ -327,18 +342,18 @@ if (report.specVersion !== suite.specVersion) fail(`report specVersion ${JSON.st
 if (report.suiteVersion === suite.suiteVersion && report.specVersion === suite.specVersion) ok(`report binds to suite ${suite.suiteVersion} / spec ${suite.specVersion}`);
 
 const verdict = evaluate(groups, report);
-console.log(`  reference verdict: ${verdict.passed}/${totalVectors} passed, ${verdict.failed} failed, ${verdict.advisory} advisory, ${verdict.skipped} skipped`);
+console.log(`  reference verdict: ${verdict.passed}/${totalCases} passed (${totalVectors} vectors + ${totalFixtures} fixtures), ${verdict.failed} failed, ${verdict.advisory} advisory, ${verdict.skipped} skipped`);
 for (const c of verdict.cases.filter((c) => c.status === 'fail' || c.status === 'missing')) {
   fail(`${c.kind}/${c.name} — ${c.status}${c.detail ? `: ${c.detail}` : ''}`);
 }
-// The reference implementation must reproduce EVERY published vector: no skips,
-// no advisories, no extras, full pass count.
-if (verdict.skipped > 0) fail(`reference adapter skipped ${verdict.skipped} vector(s); it must run them all`);
+// The reference implementation must reproduce EVERY published vector and fixture:
+// no skips, no advisories, no extras, full pass count.
+if (verdict.skipped > 0) fail(`reference adapter skipped ${verdict.skipped} case(s); it must run them all`);
 if (verdict.advisory > 0) fail(`reference adapter has ${verdict.advisory} advisory failure(s); it must pass them all`);
-if (verdict.extraResults.length > 0) fail(`reference adapter reported ${verdict.extraResults.length} result(s) with no matching vector: ${verdict.extraResults.join(', ')}`);
-if (verdict.passed !== totalVectors) fail(`reference adapter passed ${verdict.passed} of ${totalVectors} vectors`);
-if (verdict.ok && verdict.passed === totalVectors && verdict.skipped === 0 && verdict.advisory === 0 && verdict.extraResults.length === 0) {
-  ok(`reference implementation conforms to all ${totalVectors} published vectors via the adapter protocol`);
+if (verdict.extraResults.length > 0) fail(`reference adapter reported ${verdict.extraResults.length} result(s) with no matching case: ${verdict.extraResults.join(', ')}`);
+if (verdict.passed !== totalCases) fail(`reference adapter passed ${verdict.passed} of ${totalCases} cases`);
+if (verdict.ok && verdict.passed === totalCases && verdict.skipped === 0 && verdict.advisory === 0 && verdict.extraResults.length === 0) {
+  ok(`reference implementation conforms to all ${totalVectors} vectors + ${totalFixtures} fixtures via the adapter protocol`);
 }
 
 if (failures > 0) {

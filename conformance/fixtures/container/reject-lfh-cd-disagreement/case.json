@@ -1,0 +1,34 @@
+{
+  "description": "An entry whose local-header name differs from its central-directory name.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 3.5; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\"}"
+      },
+      {
+        "name": "content/document.json",
+        "centralName": "content/other.json",
+        "text": "{}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-LFH-CD-DISAGREEMENT",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

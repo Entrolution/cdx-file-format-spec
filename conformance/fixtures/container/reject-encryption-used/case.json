@@ -1,0 +1,34 @@
+{
+  "description": "An entry marked ZIP-encrypted (general-purpose bit 0); CDX uses the security extension, never container encryption.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 3.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\"}",
+        "encrypted": true
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-ENCRYPTION-USED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

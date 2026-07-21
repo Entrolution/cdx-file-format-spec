@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Reference conformance adapter (Level 0) for the CDX conformance suite.
+ * Reference conformance adapter (Level 0 vectors + Level-1 container fixtures) for the CDX conformance suite.
  *
  * This is a worked example of the file-based adapter protocol AND the subject of
  * the `check:conformance` gate. It wraps THIS repository's reference libraries;
@@ -41,6 +41,9 @@ import {
   checkAssetCategory,
   checkUniqueIds,
 } from './lib/structural-constraints.js';
+import { readArchive } from './lib/zip-reader.js';
+import { archiveVerdict } from './lib/archive-verdict.js';
+import { loadFixtures } from './lib/fixtures.js';
 import type { AdapterReport, AdapterResult } from './lib/conformance-suite.js';
 
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
@@ -53,9 +56,13 @@ function nestDeep(depth: number, leaf: unknown): unknown {
 }
 
 /**
- * Capabilities this implementation genuinely supports at Level 0. Only what the
- * reference libraries can actually compute or implement is declared:
+ * Capabilities this implementation genuinely supports across Level 0 and the
+ * Level-1 container layer. Only what the reference libraries can actually compute
+ * or implement is declared:
  *   - `core` — content canonicalization, document ID, SHA-256 (mandatory).
+ *   - `container` — the archive reader (zip-reader.ts): ZIP central-directory
+ *     parsing, entry-path uniqueness and name safety, local-header/central
+ *     disagreement, and decompression bounds (backs the Level-1 fixtures).
  *   - `ext:security` — the security-extension functions (manifest projection,
  *     JWS protected header / signing input, JWK thumbprint, multibase key).
  *   - `provenance` — cdx-bmt-1 block-Merkle and RFC 3161 timestamp binding.
@@ -64,7 +71,7 @@ function nestDeep(depth: number, leaf: unknown): unknown {
  * not available here (canonicalize.ts throws "not available"), so declaring it
  * would be a false claim.
  */
-const CAPABILITIES = ['core', 'ext:security', 'provenance', 'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512'];
+const CAPABILITIES = ['core', 'container', 'ext:security', 'provenance', 'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512'];
 const CAP_SET = new Set(CAPABILITIES);
 
 /** Outcome of running one vector, minus the kind/name the driver fills in. */
@@ -254,11 +261,30 @@ function main(): void {
     }
   }
 
+  // Level 1: document fixtures (container layer). Read each committed case.cdx in
+  // memory — NEVER extracted to disk (the corpus carries zip-slip/symlink/case
+  // collisions by design) — run the reference reader + disposition mapper, and
+  // report the verdict the suite compares against the case's expected interval.
+  for (const c of loadFixtures(suiteRoot)) {
+    const missing = c.requires.filter((k) => !CAP_SET.has(k));
+    if (missing.length > 0) {
+      results.push({ kind: c.kind, name: c.name, outcome: 'skip', skip: { reason: `missing capability: ${missing.join(', ')}` } });
+      continue;
+    }
+    try {
+      const bytes = fs.readFileSync(path.join(c.dir, 'case.cdx'));
+      const verdict = archiveVerdict(readArchive(bytes).findings);
+      results.push({ kind: c.kind, name: c.name, outcome: 'value', values: verdict as unknown as Record<string, unknown> });
+    } catch (err) {
+      results.push({ kind: c.kind, name: c.name, outcome: 'error', error: { code: (err as { code?: string }).code ?? null } });
+    }
+  }
+
   const report: AdapterReport = {
     suite: 'cdx-conformance',
     suiteVersion: suite.suiteVersion,
     specVersion: suite.specVersion,
-    adapter: { name: 'cdx-reference', version: '0.1.0', level: 0, maxCanonicalizationDepth: MAX_CANONICALIZATION_DEPTH },
+    adapter: { name: 'cdx-reference', version: '0.1.0', level: 1, maxCanonicalizationDepth: MAX_CANONICALIZATION_DEPTH },
     capabilities: CAPABILITIES,
     results,
   };

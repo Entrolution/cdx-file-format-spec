@@ -29,11 +29,13 @@ level it needs; an **adapter** declares the highest level it implements
 | Level | Adds | Status |
 |-------|------|--------|
 | **0 — Vectors** | Pure known-answer vectors: deterministic input → deterministic output. No archive, no clock, no trust store, no network. | **shipped** |
-| 1 — Fixtures + clock | Whole-document archive fixtures verified against a per-case virtual clock. | planned |
+| 1 — Fixtures + clock | Whole-document archive fixtures verified against a per-case virtual clock. | partial (container layer) |
 | 2 — Trust + resolver injection | Fixtures whose verdict depends on an injected trust store and identity resolver. | planned |
 
-Everything below is Level 0. Levels 1 and 2 arrive in later phases; their hooks
-are described here only far enough to show why the tiering exists.
+Level 0 (vectors) and the container layer of Level 1 (document fixtures) ship
+now; see [Level 1 — Document fixtures](#level-1--document-fixtures-container-layer).
+The `virtual-clock` hook of Level 1 and all of Level 2 arrive in later phases;
+their hooks are described here only far enough to show why the tiering exists.
 
 ## The minimal Level-0 adapter
 
@@ -197,6 +199,49 @@ Notes that bite:
   `default` (§4.3): report the `index` of the first entry marked `default:true`,
   else `0`. The §4.3 step-1 target narrowing (screen SHOULD prefer
   continuous/responsive, print SHOULD prefer precise) is advisory and not tested.
+
+## Level 1 — Document fixtures (container layer)
+
+Beyond the Level-0 vectors, the suite ships **whole-document archive fixtures**
+under [`fixtures/`](fixtures/). A Level-1 adapter additionally:
+
+1. Enumerates each case directory `fixtures/<kind>/<case>/`; reads its committed
+   `case.cdx` (a real `.cdx`/ZIP archive) **in memory**, and its `case.json`
+   descriptor for the case's `requires[]`.
+2. Runs its container reader over the bytes and reports a **verdict** — what its
+   implementation *decided to do* with the document — under `outcome: "value"`:
+
+   ```jsonc
+   { "kind": "container", "name": "reject-duplicate-entry",
+     "outcome": "value",
+     "values": {
+       "documentDisposition": "REJECT",              // the reader's decision
+       "findings": [ { "code": "CDX-E-ARCHIVE-DUPLICATE-ENTRY",
+                       "disposition": "REJECT" } ]    // diagnostic corroboration
+     } }
+   ```
+
+The suite asserts `documentDisposition` lies within the case's expected
+`[atLeast, atMost]` interval over the lattice `IGNORE < WARNING < INTEGRITY-ERROR
+< REJECT` (State Machine §5.4.1 — INTEGRITY-ERROR is a floor with MAY-escalation,
+so an equality assertion would be toothless), and that each intended finding is
+reported — a **subset** check, so reporting additional findings is fine. The
+disposition values are diagnostics your adapter maps its native reader's decision
+to; the normative assertion is the interval. Codes come from
+[`errors.json`](errors.json).
+
+**Read fixtures in memory only.** The corpus deliberately carries zip-slip names,
+case-only collisions, and symlink entries. An adapter — or test harness — that
+extracts a fixture to disk attacks its own checkout; never materialize one.
+
+**Level reporting.** Report `adapter.level: 1` once you read fixtures. The
+`archive-reader` hook is exercised by the container fixtures shipped now; the
+`virtual-clock` hook — needed only by the trust-dependent cases a later phase
+adds — is not yet required by any case.
+
+| Fixture kind | Reads | Outcome | `values` |
+|--------------|-------|---------|----------|
+| `container` | `case.cdx` (archive bytes), `case.json` (`requires?`) | value | `documentDisposition` (a disposition); `findings[]` (`{code, disposition}`) |
 
 ## Capabilities and scoping
 

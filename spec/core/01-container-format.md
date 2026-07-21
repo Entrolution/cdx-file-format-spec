@@ -37,12 +37,16 @@ CDX documents MUST be valid ZIP archives conforming to [APPNOTE.TXT](https://pkw
 The following ZIP features are REQUIRED:
 
 - ZIP64 extensions for documents larger than 4GB
-- UTF-8 encoding for file names (Language Encoding Flag set)
+- UTF-8 encoding for all file names (section 3.4)
+
+Entry names MUST be encoded as UTF-8. The general-purpose **Language Encoding Flag** (bit 11) SHOULD be set on every entry to advertise this, but a reader MUST interpret entry names as UTF-8 whether or not the flag is set — common archivers omit it for names within the ASCII subset, so relying on the flag would reject otherwise-conformant archives. A reader MUST NOT treat an unset flag as licence to decode names in any other character set.
 
 The following ZIP features MUST NOT be used:
 
 - ZIP encryption (use CDX security extension instead)
 - Multi-volume archives
+
+A reader MUST reject an archive that uses either (State Machine section 5.4.2): a ZIP-encrypted entry cannot be read without a key CDX does not carry (encryption is the security extension's concern, not the container's), and a multi-volume archive is incomplete on its own.
 
 ### 3.2 Compression Methods
 
@@ -134,6 +138,8 @@ The first file in the archive MUST be `manifest.json`. This enables:
 - Streaming access to document metadata
 - Efficient partial loading
 
+A reader MUST verify that the first entry is `manifest.json`. The archive is fully readable and the manifest resolvable by name even when this ordering is violated, so a reader still loads the document, surfacing the violation as a warning rather than refusing it (State Machine section 5.4.2).
+
 ## 5. Size Limits
 
 ### 5.1 Recommended Limits
@@ -171,7 +177,7 @@ A conforming implementation MUST therefore enforce a finite upper bound on every
 
 ### 6.1 ZIP CRC-32
 
-Standard ZIP CRC-32 checksums MUST be present for all files in the archive.
+Standard ZIP CRC-32 checksums MUST be present for all files in the archive, and MUST match each entry's actual bytes. A reader MUST verify each entry's CRC-32 and MUST reject the archive as corrupt on a mismatch (State Machine section 5.4.2). This is a **container-layer** integrity check, evaluated below the semantic document hash and below the hash/out-of-hash distinction: a physically corrupt entry is rejected regardless of which logical layer it belongs to, because its bytes cannot be trusted to decompress to the content they claim — in contrast to a *semantic* defect in an out-of-hash part, which is a warning (State Machine sections 5.4.2, 5.4.3). Container CRC integrity is independent of the semantic-level document hash (section 6.2), which verifies content addressing rather than byte-level storage.
 
 ### 6.2 Document Hash
 

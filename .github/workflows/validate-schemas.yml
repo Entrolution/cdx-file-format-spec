@@ -104,6 +104,12 @@ jobs:
       - name: Check canonicalize oracle (independent, non-Node)
         run: npm run check:canonicalize-oracle
 
+      - name: Check container fixtures
+        run: npm run check:fixtures
+
+      - name: Check archive oracle (independent, non-Node)
+        run: npm run check:archive-oracle
+
       - name: Check block merkle
         run: npm run check:block-merkle
 

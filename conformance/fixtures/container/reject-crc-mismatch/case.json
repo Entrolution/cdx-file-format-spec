@@ -1,0 +1,34 @@
+{
+  "description": "An entry whose stored ZIP CRC-32 does not match its actual bytes (corrupt container).",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format section 6.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "wrongCrc": true
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-CRC-MISMATCH",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}
