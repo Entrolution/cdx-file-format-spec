@@ -234,6 +234,12 @@ const COMPARATORS: Record<string, Comparator> = {
     return v.expectedId !== undefined ? eq(a.v.id, v.expectedId, 'id') : { pass: true };
   },
 
+  'anchor-offset': (v, r) => {
+    const a = values(r);
+    if (!a.ok) return a.comparison;
+    return eq(a.v.selection, (v.anchor as { expectedSelection: string }).expectedSelection, 'selection');
+  },
+
   'structural-constraints': (v, r) => {
     // The adapter runs the rule's checker and reports whether it FLAGGED the
     // instance. A valid instance is one the rule does NOT flag; an invalid one it

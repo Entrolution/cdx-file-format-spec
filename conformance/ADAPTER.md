@@ -115,6 +115,7 @@ network is required at Level 0.
 | `canonicalize` | `parts`, `algorithm?` | value **or error** | transform: `canonicalJcs` → (`expectedCanonicalJcs`), `id` → (`expectedId`); a reject vector (`expectReject`) expects `outcome: "error"` |
 | `canonicalize-robustness` | `robustness` (generative — see below) | value / error | none — `accept` → `value`, `reject` → `error` |
 | `structural-constraints` | `structural` (`rule`, `instance`, `blockTypes?`, `root?`, `index?`) | value | `flagged` → (the negation of `structural.expect.valid`) |
+| `anchor-offset` | `anchor` (`text`, `start`, `end`) | value | `selection` → (`anchor.expectedSelection`) |
 | `manifest-projection` | `manifest` (raw JSON text) | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-scope` | `scope` | value | `jcs` → (`expectedJcs`); `sha256` → (`expectedSha256`) |
 | `manifest-projection-errors` | `manifest` (raw JSON text) | **error** | `error.code` → (`expect.code`) |
@@ -181,6 +182,13 @@ Notes that bite:
   consistency) are `SHOULD` (advisory): those manifest fields are advisory and
   their exact semantics are not normatively fixed, so a differing-but-reasonable
   reading is never fatal.
+- **`anchor-offset` is code-point, not UTF-16.** Compute `values.selection` as the
+  `[start, end)` slice of `text` **by Unicode scalar value** (code point), not by
+  UTF-16 code unit. In most languages the native string index is UTF-16
+  (`String.slice`/`charAt`/`substring`, `.length`), which mis-targets any range
+  spanning an astral character — the exact defect this kind catches. In
+  JavaScript, `Array.from(text).slice(start, end).join('')` is correct; the naive
+  `text.slice(start, end)` is not.
 
 ## Capabilities and scoping
 

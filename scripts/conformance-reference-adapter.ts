@@ -134,6 +134,16 @@ const RUNNERS: Record<string, (v: Record<string, any>) => RunOutcome> = {
     };
   },
 
+  'anchor-offset': (v) => {
+    const an = v.anchor as { text: string; start: number; end: number };
+    // Anchor offsets are CODE POINTS (Unicode scalar values), not UTF-16 code
+    // units (Anchors and References §3). `Array.from` splits by code point, so an
+    // astral character counts as one; `text.slice(start,end)` (UTF-16) would
+    // mis-target — the exact defect this kind catches.
+    const selection = Array.from(an.text).slice(an.start, an.end).join('');
+    return { outcome: 'value', values: { selection } };
+  },
+
   'structural-constraints': (v) => {
     // Run the named rule's checker over the instance and report whether it
     // FLAGGED — the suite compares that to expect.valid. Block-tree rules use the

@@ -1,0 +1,71 @@
+{
+  "$schema": "./vectors.schema.json",
+  "suite": "cdx-conformance",
+  "specVersion": "0.1",
+  "kind": "anchor-offset",
+  "clause": "Anchors and References section 3 (anchor offsets are code points / Unicode scalar values, not UTF-16 code units)",
+  "description": "Anchor {start,end} ranges index a block’s text content by CODE POINT (Unicode scalar value), not UTF-16 code unit. A reader that uses native string indexing (JS/Java/C#/Swift .length/.charAt are UTF-16) mis-targets any range spanning an astral character. Pure JSON, highest value-per-byte in the spec.",
+  "oracle": "Selections are HAND-DETERMINED by code-point slicing (Array.from(text).slice(start,end)), the offset unit §3 fixes. A UTF-16 implementation counts the emoji as two units and selects a broken surrogate instead of the scalar.",
+  "vectors": [
+    {
+      "name": "bmp-hello-world-selects-world",
+      "description": "The §3 worked example: text content \"Hello, world!\" (13 code points), {7,12} selects \"world\".",
+      "anchor": {
+        "text": "Hello, world!",
+        "start": 7,
+        "end": 12,
+        "expectedSelection": "world"
+      }
+    },
+    {
+      "name": "astral-emoji-selected",
+      "description": "THE code-point-vs-UTF-16 anchor: \"a😀b\" is 3 code points (😀 = U+1F600, one scalar), so {1,2} selects \"😀\". A UTF-16 reader counts 😀 as two units and mis-targets.",
+      "anchor": {
+        "text": "a😀b",
+        "start": 1,
+        "end": 2,
+        "expectedSelection": "😀"
+      }
+    },
+    {
+      "name": "astral-char-before-emoji",
+      "description": "\"a😀b\" {0,1} selects \"a\" — the character before the astral scalar.",
+      "anchor": {
+        "text": "a😀b",
+        "start": 0,
+        "end": 1,
+        "expectedSelection": "a"
+      }
+    },
+    {
+      "name": "astral-char-after-emoji",
+      "description": "\"a😀b\" {2,3} selects \"b\" — proving the astral scalar occupies exactly one offset (a UTF-16 reader would place \"b\" at offset 3).",
+      "anchor": {
+        "text": "a😀b",
+        "start": 2,
+        "end": 3,
+        "expectedSelection": "b"
+      }
+    },
+    {
+      "name": "astral-whole-string",
+      "description": "\"a😀b\" {0,3} selects the whole string \"a😀b\".",
+      "anchor": {
+        "text": "a😀b",
+        "start": 0,
+        "end": 3,
+        "expectedSelection": "a😀b"
+      }
+    },
+    {
+      "name": "combining-mark-is-separate-code-point",
+      "description": "A combining mark is its own code point: \"éb\" is 3 code points (e, U+0301, b), so {2,3} selects \"b\".",
+      "anchor": {
+        "text": "éb",
+        "start": 2,
+        "end": 3,
+        "expectedSelection": "b"
+      }
+    }
+  ]
+}

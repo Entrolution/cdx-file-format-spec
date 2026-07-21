@@ -40,7 +40,8 @@
         "provenance-timestamp",
         "canonicalize",
         "canonicalize-robustness",
-        "structural-constraints"
+        "structural-constraints",
+        "anchor-offset"
       ]
     },
     "clause": {
@@ -129,6 +130,35 @@
         "expectReject": {
           "const": true,
           "description": "Marks a vector whose input a conformant implementation MUST reject (the operation errors). Used where no portable defect code exists — the assertion is rejection, not an identifier. Mutually exclusive with expectedCanonicalJcs."
+        },
+        "anchor": {
+          "type": "object",
+          "description": "An anchor-offset case: a block's text content and a {start,end} range. Anchor offsets are CODE POINTS (Unicode scalar values), not UTF-16 code units (Anchors and References §3), so an astral character counts as one — a UTF-16 implementation using string indexing mis-targets the selection.",
+          "required": [
+            "text",
+            "start",
+            "end",
+            "expectedSelection"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The block's text content (the concatenation of its text-node values)."
+            },
+            "start": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expectedSelection": {
+              "type": "string",
+              "description": "The substring the [start,end) code-point range selects."
+            }
+          }
         },
         "structural": {
           "type": "object",
