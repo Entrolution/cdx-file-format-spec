@@ -145,6 +145,51 @@
       },
       "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"id\":\"anchor1\",\"type\":\"text\",\"value\":\"a\"},{\"type\":\"text\",\"value\":\"b\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
       "expectedId": "sha256:73f87fe20f1159fc10b0574219c2ddef32d8ac8d37dbd7d2551023124c67bac7"
+    },
+    {
+      "name": "sha512-document-algorithm-agility",
+      "description": "The document-ID algorithm follows the id prefix (sha512), never a hardcoded default (§3.3) — the same content under a different algorithm yields a different, correctly-prefixed id.",
+      "requires": [
+        "hash:sha-512"
+      ],
+      "algorithm": "sha512",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"sha512\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"sha512\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha512:fc794985621d8773b9265ed1a18de99ce1fa19953e14b5b6a3c73ed421515a8793b9ed20224e32d25539971a3fe76f5e670fc9555b6f3f2fa889f58d6b6fe2fb"
+    },
+    {
+      "name": "sha3-256-document-algorithm-agility",
+      "description": "The document-ID algorithm follows the id prefix (sha3-256), never a hardcoded default (§3.3) — the same content under a different algorithm yields a different, correctly-prefixed id.",
+      "requires": [
+        "hash:sha3-256"
+      ],
+      "algorithm": "sha3-256",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"sha3-256\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"sha3-256\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha3-256:ea905bf7709b24df5e7c6c1bfe109a6eec653ec8bb92ee6e0e10be87f8714eb2"
+    },
+    {
+      "name": "sha3-512-document-algorithm-agility",
+      "description": "The document-ID algorithm follows the id prefix (sha3-512), never a hardcoded default (§3.3) — the same content under a different algorithm yields a different, correctly-prefixed id.",
+      "requires": [
+        "hash:sha3-512"
+      ],
+      "algorithm": "sha3-512",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"sha3-512\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"sha3-512\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha3-512:4a140d65d86b85d4084e20ae85162f4ac3a7dec97e680ea6b9cc9aa1fa8dd028470ea26bd6f144cff98758b55c948347b8fecc97184ce48ac98e5924043bbe11"
     }
   ]
 }
