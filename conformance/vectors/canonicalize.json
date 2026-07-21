@@ -365,6 +365,404 @@
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":[\"A\",42]}}"
       },
       "expectReject": true
+    },
+    {
+      "name": "metadata-five-terms-with-description",
+      "description": "All five projected terms kept incl. a non-empty description; title and description stay scalar, creator/subject/language become arrays (§4.3.1).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"Jane\",\"subject\":[\"x\",\"y\"],\"description\":\"D\",\"language\":\"en\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"Jane\"],\"description\":\"D\",\"language\":[\"en\"],\"subject\":[\"x\",\"y\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:11555318489f71224ac4ba66b7930b16528d12011830b89e021c5341b878179b"
+    },
+    {
+      "name": "metadata-array-element-order-preserved",
+      "description": "A projected array term keeps its authored element order verbatim (§4.3.1).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":[\"Z\",\"A\",\"M\"]}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"Z\",\"A\",\"M\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:940ad0c23dc094735563bea5842a154073d374f32262d49272561e5ef571b5e4"
+    },
+    {
+      "name": "metadata-projects-to-empty",
+      "description": "When no projected term survives, metadata is an empty object (§4.3.1).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"date\":\"2025\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[],\"version\":\"0.1\"},\"metadata\":{}}",
+      "expectedId": "sha256:59a746f5594d6393e8491880f97017915ead64503123cc2c19c14f700e66f32d"
+    },
+    {
+      "name": "asset-svg-src-resolves",
+      "description": "An svg src that is an archive-relative asset path resolves to the asset content hash (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"svg\",\"src\":\"assets/images/figure1.avif\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig\",\"path\":\"figure1.avif\",\"type\":\"image/avif\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"src\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"svg\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:0361ac8936f0315c6bf954d116352f452869fa84ede34f1d46b50b3a2c9b9cf3"
+    },
+    {
+      "name": "asset-svg-inline-content-untouched",
+      "description": "An svg with inline content and no src has nothing to resolve and is left verbatim (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"svg\",\"content\":\"<svg/>\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"content\":\"<svg/>\",\"type\":\"svg\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:17750a14478067f6c891baf74bd1ef26d9545c53ebf6a4629bc410d4bba525b2"
+    },
+    {
+      "name": "asset-signature-image-resolves-ref-verbatim",
+      "description": "A signature block’s image resolves to a content hash; its digitalSignatureRef (not an asset path) is left verbatim (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"signature\",\"signatureType\":\"digital\",\"image\":\"assets/images/figure1.avif\",\"digitalSignatureRef\":\"security/signatures.json#sig-1\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig\",\"path\":\"figure1.avif\",\"type\":\"image/avif\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"digitalSignatureRef\":\"security/signatures.json#sig-1\",\"image\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"signatureType\":\"digital\",\"type\":\"signature\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:872839a674b7746a7ba4b597c4adb6d9238ce59c401c6b466ae06072a64c9795"
+    },
+    {
+      "name": "asset-link-href-resolves",
+      "description": "A link mark href that is an archive-relative asset path resolves to the asset content hash (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"embeds\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/embeds/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"dl\",\"marks\":[{\"type\":\"link\",\"href\":\"assets/embeds/data.xlsx\",\"title\":\"d\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "embeds": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"d\",\"path\":\"data.xlsx\",\"type\":\"application/octet-stream\",\"size\":1,\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"title\":\"d\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"dl\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:37b3c5f9984966fc66471e7a389cd3f10f233a53d8a160a1d493897fdc7a06e8"
+    },
+    {
+      "name": "asset-carveout-url-scheme-verbatim",
+      "description": "An image src carrying a URL scheme (https://) is not an asset path and is left verbatim (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"https://example.com/a.png\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"src\":\"https://example.com/a.png\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:a86b4b95f36966ed0918d008317dbdc9a7872b00805d22c039d1789ac3a580e8"
+    },
+    {
+      "name": "asset-carveout-external-verbatim",
+      "description": "An image src marked external:true is left verbatim even though it looks like an assets/ path (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/missing.png\",\"external\":true,\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"external\":true,\"src\":\"assets/images/missing.png\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:c8e51f6c5a0bf521e8d92a8afa525528ee1fdaa5cad06a170c72f58568a64cba"
+    },
+    {
+      "name": "asset-non-assets-relative-href-verbatim",
+      "description": "A relative href that is not under assets/ (chapter2.html) is left verbatim (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"chapter2.html\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"chapter2.html\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:937bb08159879fb3a3a0d6d1eb5b2e7919112b403f4d103882d47b2e341ad072"
+    },
+    {
+      "name": "asset-link-hrefs-resolve-before-dedup",
+      "description": "Two links to different paths that share one content hash collapse to a single mark: resolution happens before mark dedup (§4.3.1 items 2-3).",
+      "parts": {
+        "manifest": "{\"assets\":{\"embeds\":{\"count\":2,\"totalSize\":2,\"index\":\"assets/embeds/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"assets/embeds/a.bin\"},{\"type\":\"link\",\"href\":\"assets/embeds/b.bin\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "embeds": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"a\",\"path\":\"a.bin\",\"type\":\"application/octet-stream\",\"size\":1,\"hash\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"},{\"id\":\"b\",\"path\":\"b.bin\",\"type\":\"application/octet-stream\",\"size\":1,\"hash\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:f41b124be663661eb894cd042186b3b4efb35a6af5ef4fef5580a6fe90898229"
+    },
+    {
+      "name": "asset-sha512-hash-spliced-into-sha256-document",
+      "description": "A sha512 asset hash is spliced verbatim into a document whose own id is sha256 — the asset hash is opaque data, not the document algorithm (§4.3.1 item 2; §3.3).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/f.png\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"f\",\"path\":\"f.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha512:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"src\":\"sha512:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:3eea494b93478c626828a26e152ceb6549bc117353008550bb38e4d3e7bbaef3"
+    },
+    {
+      "name": "asset-src-dot-segments-normalized",
+      "description": "An asset src with ./ or ../ segments is path-normalized before resolving (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/sub/../figure1.avif\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig\",\"path\":\"figure1.avif\",\"type\":\"image/avif\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"src\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:4b010de38220bab2ce3032e7809772e71876d70af70714c24338b882e02f3f6e"
+    },
+    {
+      "name": "asset-resolution-recurses-into-extension-block",
+      "description": "Asset resolution is namespace-agnostic: a link inside an unknown namespace:type extension block resolves like any other (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"embeds\":{\"count\":1,\"totalSize\":1,\"index\":\"assets/embeds/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"forms:field\",\"label\":\"see\",\"children\":[{\"type\":\"text\",\"value\":\"link\",\"marks\":[{\"type\":\"link\",\"href\":\"assets/embeds/data.bin\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "embeds": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"e\",\"path\":\"data.bin\",\"type\":\"application/octet-stream\",\"size\":1,\"hash\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"link\"}],\"label\":\"see\",\"type\":\"forms:field\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1ae162e36a77d13b698544399fbd3e89e6c0ff1424f134d7cd8d6a02e374ef0c"
+    },
+    {
+      "name": "asset-aliasof-entry-with-own-path-resolves",
+      "description": "An aliasOf entry that carries its own path and hash still resolves by its path (§4.3.1 item 2).",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":2,\"totalSize\":2,\"index\":\"assets/images/index.json\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"src\":\"assets/images/logo-copy.png\",\"alt\":\"x\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}",
+        "assetIndexes": {
+          "images": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"logo\",\"path\":\"logo.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"id\":\"logo-copy\",\"aliasOf\":\"logo\",\"path\":\"logo-copy.png\",\"type\":\"image/png\",\"size\":1,\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"x\",\"src\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:4b010de38220bab2ce3032e7809772e71876d70af70714c24338b882e02f3f6e"
+    },
+    {
+      "name": "numbers-safe-integer-and-float-pass",
+      "description": "A safe integer (2^53-1) and an ordinary float pass through unchanged; only the derived display is stripped (§4.3.1-2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"measurement\",\"value\":9007199254740991,\"display\":\"x\"},{\"type\":\"measurement\",\"value\":1.5,\"display\":\"y\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"type\":\"measurement\",\"value\":9007199254740991},{\"type\":\"measurement\",\"value\":1.5}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:e07de70ed54c77658053f77474189400f2a1759c8aacf38e36f44391b2796bdb"
+    },
+    {
+      "name": "relabel-anchor-mark-id-and-ref",
+      "description": "An anchor mark id joins the relabeled namespace and a #ref to it is rewritten consistently (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"point\",\"marks\":[{\"type\":\"anchor\",\"id\":\"pt\"}]}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"ref\",\"marks\":[{\"type\":\"link\",\"href\":\"#pt\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"id\":\"b0\",\"type\":\"anchor\"}],\"type\":\"text\",\"value\":\"point\"}],\"type\":\"paragraph\"},{\"children\":[{\"marks\":[{\"href\":\"#b0\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"ref\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:e91e3f0d9b8d596e26dadd927cadbc299db1b54408271180af81589bcfe9904d"
+    },
+    {
+      "name": "relabel-marks-resort-after-rewrite",
+      "description": "Rewriting hrefs can change mark sort order, so marks are re-sorted after rewriting: input [#k,#m] rewrites to [#b1,#b0] then re-sorts to [#b0,#b1] (§4.3.1 items 3, 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"level\":1,\"id\":\"m\",\"children\":[{\"type\":\"text\",\"value\":\"M\"}]},{\"type\":\"heading\",\"level\":1,\"id\":\"k\",\"children\":[{\"type\":\"text\",\"value\":\"K\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#k\"},{\"type\":\"link\",\"href\":\"#m\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"M\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"type\":\"text\",\"value\":\"K\"}],\"id\":\"b1\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"marks\":[{\"href\":\"#b0\",\"type\":\"link\"},{\"href\":\"#b1\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:19f93f04a4ec53c391fe66bd68421c6352b4417b0ef0a7f415ddcfa79d277631"
+    },
+    {
+      "name": "relabel-dangling-hash-b-no-digits-verbatim",
+      "description": "A #ref of \"#b\" (b with NO digits) does not spell a generated canonical name, so it is left verbatim (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#b\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"#b\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"id\":\"b0\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:0f4b43bf6501f6bd68f00723eae187c1725ff21a301860103150bd2ccf8bb985"
+    },
+    {
+      "name": "relabel-academic-mark-refs",
+      "description": "Academic theorem-ref/equation-ref/algorithm-ref mark targets are rewritten to canonical names; the algorithm-ref line label is a separate namespace, left verbatim (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:theorem\",\"id\":\"def1\",\"variant\":\"definition\",\"children\":[]},{\"type\":\"academic:theorem\",\"id\":\"thm1\",\"variant\":\"theorem\",\"uses\":[\"#def1\"],\"children\":[]},{\"type\":\"academic:proof\",\"of\":\"#thm1\",\"children\":[]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a=b\",\"id\":\"eq-1\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"academic:theorem-ref\",\"target\":\"#thm1\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#eq-1\"}]},{\"type\":\"text\",\"value\":\"cc\",\"marks\":[{\"type\":\"academic:algorithm-ref\",\"target\":\"#def1\",\"line\":\"loop\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[],\"id\":\"b0\",\"type\":\"academic:theorem\",\"variant\":\"definition\"},{\"children\":[],\"id\":\"b1\",\"type\":\"academic:theorem\",\"uses\":[\"#b0\"],\"variant\":\"theorem\"},{\"children\":[],\"of\":\"#b1\",\"type\":\"academic:proof\"},{\"id\":\"b2\",\"lines\":[{\"id\":\"b3\",\"value\":\"a=b\"}],\"type\":\"academic:equation-group\"},{\"children\":[{\"marks\":[{\"target\":\"#b1\",\"type\":\"academic:theorem-ref\"}],\"type\":\"text\",\"value\":\"a\"},{\"marks\":[{\"target\":\"#b3\",\"type\":\"academic:equation-ref\"}],\"type\":\"text\",\"value\":\"b\"},{\"marks\":[{\"line\":\"loop\",\"target\":\"#b0\",\"type\":\"academic:algorithm-ref\"}],\"type\":\"text\",\"value\":\"cc\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1c87052553a87df356992704346c4af40b930c40674a527f07be0c546ca795d0"
+    },
+    {
+      "name": "relabel-semantic-ref-and-presentation-reference",
+      "description": "semantic:ref and presentation:reference block targets are rewritten to canonical names (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"level\":1,\"id\":\"h\",\"children\":[{\"type\":\"text\",\"value\":\"H\"}]},{\"type\":\"semantic:ref\",\"target\":\"#h\",\"children\":[]},{\"type\":\"presentation:reference\",\"target\":\"#h\",\"format\":\"Fig #\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"H\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[],\"target\":\"#b0\",\"type\":\"semantic:ref\"},{\"format\":\"Fig #\",\"target\":\"#b0\",\"type\":\"presentation:reference\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:277ab31f84b3287bcf15d3367fe015d6a198baedbe3bc92c1a1e0bb236c55c60"
+    },
+    {
+      "name": "relabel-footnote-block-id-not-mark-id",
+      "description": "A footnote BLOCK id is relabeled, but the footnote MARK id (a separate namespace) is left verbatim, so no false duplicate arises (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"footnote\",\"number\":1,\"id\":\"fn1\"}]}]},{\"type\":\"semantic:footnote\",\"number\":1,\"id\":\"fn1\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"note\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"id\":\"fn1\",\"number\":1,\"type\":\"footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"},{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"note\"}],\"type\":\"paragraph\"}],\"id\":\"b0\",\"number\":1,\"type\":\"semantic:footnote\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:3ec2578f77a8ff90ab6afbf4b7b8111d683d65e5778f2ecbe50c8f96eccd466f"
+    },
+    {
+      "name": "relabel-separate-namespace-mark-fields-verbatim",
+      "description": "glossary.ref and citation.refs address separate namespaces and are left verbatim even when equal to a block id (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"glossary\",\"ref\":\"p\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"p\"]}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"ref\":\"p\",\"type\":\"glossary\"}],\"type\":\"text\",\"value\":\"a\"},{\"marks\":[{\"refs\":[\"p\"],\"type\":\"citation\"}],\"type\":\"text\",\"value\":\"b\"}],\"id\":\"b0\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:8b0f6b4c77ef9e63f49c341a98755bef0a313162447d08fdbf2509bd6ef2733b"
+    },
+    {
+      "name": "relabel-subfigure-and-equation-line-ids",
+      "description": "Subfigure ids and equation-line ids join the relabeled namespace (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"id\":\"fig\",\"subfigures\":[{\"id\":\"sub-a\",\"label\":\"a\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a\",\"id\":\"line-1\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"id\":\"b0\",\"subfigures\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"id\":\"b1\",\"label\":\"a\"}],\"type\":\"figure\"},{\"id\":\"b2\",\"lines\":[{\"id\":\"b3\",\"value\":\"a\"}],\"type\":\"academic:equation-group\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:5045cdea24b82cc02b8ebe87cef320900622c6370132b7cb8380442dc8dc902d"
+    },
+    {
+      "name": "relabel-signature-signer-id-verbatim",
+      "description": "A signature signer.id is a Person identifier (a named sub-object), not a content anchor, so it is left verbatim and does not collide with a block id (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"intro\",\"children\":[]},{\"type\":\"signature\",\"signatureType\":\"handwritten\",\"signer\":{\"name\":\"A\",\"id\":\"intro\"}}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[],\"id\":\"b0\",\"type\":\"paragraph\"},{\"signatureType\":\"handwritten\",\"signer\":{\"id\":\"intro\",\"name\":\"A\"},\"type\":\"signature\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:79b4291648f28dca5f5cbc6bbc49e9806fb1a837803382224e66890a5c80b5b1"
+    },
+    {
+      "name": "relabel-bibliography-entry-key-collides-with-block-id",
+      "description": "A bibliography entry key is left verbatim even when it equals a block id being relabeled — they are separate namespaces (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"level\":1,\"id\":\"smith2024\",\"children\":[{\"type\":\"text\",\"value\":\"H\"}]},{\"type\":\"semantic:bibliography\",\"id\":\"bib\",\"entries\":[{\"id\":\"smith2024\",\"type\":\"article-journal\",\"title\":\"A\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"H\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"entries\":[{\"id\":\"smith2024\",\"title\":\"A\",\"type\":\"article-journal\"}],\"id\":\"b1\",\"type\":\"semantic:bibliography\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1dd8d72d9d7300087f2b901ec33929315568003f84cee56e88c74a04ad3a0d95"
+    },
+    {
+      "name": "nfc-preserving-split-across-nodes",
+      "description": "Text nodes each individually NFC, whose concatenation is also NFC (“caf” + precomposed é), still canonicalize; differing marks prevent merge (§4.3.2).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"caf\",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"é\",\"marks\":[\"italic\"]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[\"bold\"],\"type\":\"text\",\"value\":\"caf\"},{\"marks\":[\"italic\"],\"type\":\"text\",\"value\":\"é\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:9684375d6beb6c5ef2cece2a69059a8c48cb67a19fad15ff428792065c26c3d0"
+    },
+    {
+      "name": "marks-sort-utf16-astral-before-ffff",
+      "description": "Marks sort by UTF-16 code-unit order: an astral href (U+10000, high surrogate 0xD800) sorts BEFORE U+FFFF (§4.3.1 item 3). Both hrefs are non-asset relative refs, left verbatim.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"￿\"},{\"type\":\"link\",\"href\":\"𐀀\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"𐀀\",\"type\":\"link\"},{\"href\":\"￿\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1d4c19c649f8ed2fa236c8cc8d6bcd249f17f7ab105f7ebea1dbcc7b9a75cf35"
+    },
+    {
+      "name": "purity-subblock-label-eq-exp",
+      "description": "Sub-block label purity: differing subfigure/equation-line labels (sub-a/eq-exp) canonicalize to the same document id (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"id\":\"fig\",\"subfigures\":[{\"id\":\"sub-a\",\"label\":\"a\",\"children\":[]}]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a=b\",\"id\":\"eq-exp\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"s\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#eq-exp\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"id\":\"b0\",\"subfigures\":[{\"children\":[],\"id\":\"b1\",\"label\":\"a\"}],\"type\":\"figure\"},{\"id\":\"b2\",\"lines\":[{\"id\":\"b3\",\"value\":\"a=b\"}],\"type\":\"academic:equation-group\"},{\"children\":[{\"marks\":[{\"target\":\"#b3\",\"type\":\"academic:equation-ref\"}],\"type\":\"text\",\"value\":\"s\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:8542f5191d92f57e7a4dafd13345752d030d802d713b994085348d30c01e8748"
+    },
+    {
+      "name": "purity-subblock-label-eq-99",
+      "description": "Sub-block label purity: differing subfigure/equation-line labels (sub-z/eq-99) canonicalize to the same document id (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"id\":\"fig\",\"subfigures\":[{\"id\":\"sub-z\",\"label\":\"a\",\"children\":[]}]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a=b\",\"id\":\"eq-99\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"s\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#eq-99\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"id\":\"b0\",\"subfigures\":[{\"children\":[],\"id\":\"b1\",\"label\":\"a\"}],\"type\":\"figure\"},{\"id\":\"b2\",\"lines\":[{\"id\":\"b3\",\"value\":\"a=b\"}],\"type\":\"academic:equation-group\"},{\"children\":[{\"marks\":[{\"target\":\"#b3\",\"type\":\"academic:equation-ref\"}],\"type\":\"text\",\"value\":\"s\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:8542f5191d92f57e7a4dafd13345752d030d802d713b994085348d30c01e8748"
+    },
+    {
+      "name": "bibliography-entry-key-significant-a",
+      "description": "A bibliography entry key is content-significant: changing it (smith2024) while a citation ref stays fixed changes the document id, closing a collision (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"smith2024\"]}]}]},{\"type\":\"semantic:bibliography\",\"id\":\"bib\",\"entries\":[{\"id\":\"smith2024\",\"type\":\"article-journal\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"refs\":[\"smith2024\"],\"type\":\"citation\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"},{\"entries\":[{\"id\":\"smith2024\",\"type\":\"article-journal\"}],\"id\":\"b0\",\"type\":\"semantic:bibliography\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:210610193b24894782d4f54f96cd01a233374ca6f0f85896864f6062afcddcd4"
+    },
+    {
+      "name": "bibliography-entry-key-significant-b",
+      "description": "A bibliography entry key is content-significant: changing it (smith2099) while a citation ref stays fixed changes the document id, closing a collision (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"smith2024\"]}]}]},{\"type\":\"semantic:bibliography\",\"id\":\"bib\",\"entries\":[{\"id\":\"smith2099\",\"type\":\"article-journal\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"refs\":[\"smith2024\"],\"type\":\"citation\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"},{\"entries\":[{\"id\":\"smith2099\",\"type\":\"article-journal\"}],\"id\":\"b0\",\"type\":\"semantic:bibliography\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:e0bcfe6273a6a7715e1699467130be62804228f58a4f8418adb5daf248d13dbd"
+    },
+    {
+      "name": "reference-structure-significant-a",
+      "description": "Relabeling must not over-collapse: two documents whose only difference is which block a link targets (#h1) get different ids (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"id\":\"h1\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"A\"}]},{\"type\":\"heading\",\"id\":\"h2\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"B\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#h1\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"A\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"type\":\"text\",\"value\":\"B\"}],\"id\":\"b1\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"marks\":[{\"href\":\"#b0\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:501a1cbf2e6f4a306aa597ec40f61b0bb562c4a9474bc53b5129c988bac213a0"
+    },
+    {
+      "name": "reference-structure-significant-b",
+      "description": "Relabeling must not over-collapse: two documents whose only difference is which block a link targets (#h2) get different ids (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"id\":\"h1\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"A\"}]},{\"type\":\"heading\",\"id\":\"h2\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"B\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#h2\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"A\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"type\":\"text\",\"value\":\"B\"}],\"id\":\"b1\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"marks\":[{\"href\":\"#b1\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:cb3afa4e2689810fade6bdaecc65f87f93a068e06820b1d3e69a966efc99a135"
     }
   ]
 }
