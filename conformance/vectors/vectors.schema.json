@@ -41,7 +41,8 @@
         "canonicalize",
         "canonicalize-robustness",
         "structural-constraints",
-        "anchor-offset"
+        "anchor-offset",
+        "presentation-selection"
       ]
     },
     "clause": {
@@ -130,6 +131,58 @@
         "expectReject": {
           "const": true,
           "description": "Marks a vector whose input a conformant implementation MUST reject (the operation errors). Used where no portable defect code exists — the assertion is rejection, not an identifier. Mutually exclusive with expectedCanonicalJcs."
+        },
+        "selection": {
+          "type": "object",
+          "description": "A presentation-selection case: a DETERMINISTIC selection rule (Presentation Layers §4.3, §8.2). `breakpoint`: given breakpoints + a viewport width, the active breakpoint name (greatest minWidth wins; a minWidth tie goes to the later array entry; bounds inclusive; omitted bound unbounded). `default`: given a candidate presentation list, the index of the default (first `default:true`, else the first entry). The §4.3 target-narrowing is advisory and not modelled.",
+          "required": [
+            "rule",
+            "expect"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": { "properties": { "rule": { "const": "breakpoint" } }, "required": ["rule"] },
+              "then": { "required": ["breakpoints", "width"] }
+            },
+            {
+              "if": { "properties": { "rule": { "const": "default" } }, "required": ["rule"] },
+              "then": { "required": ["candidates"] }
+            }
+          ],
+          "properties": {
+            "rule": {
+              "enum": ["breakpoint", "default"]
+            },
+            "breakpoints": {
+              "type": "array",
+              "items": { "type": "object" },
+              "description": "breakpoint rule: the responsive breakpoints in declared order."
+            },
+            "width": {
+              "type": "number",
+              "description": "breakpoint rule: the viewport width to resolve."
+            },
+            "candidates": {
+              "type": "array",
+              "items": { "type": "object" },
+              "description": "default rule: the candidate presentation entries in `manifest.presentation[]` order."
+            },
+            "expect": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": ["string", "null"],
+                  "description": "breakpoint rule: the winning breakpoint name, or null if none match."
+                },
+                "index": {
+                  "type": "integer",
+                  "description": "default rule: the index of the selected candidate."
+                }
+              }
+            }
+          }
         },
         "anchor": {
           "type": "object",

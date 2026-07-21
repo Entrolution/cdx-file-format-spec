@@ -29,6 +29,7 @@ import { encodeProtectedHeader, jwsSigningInput } from './lib/jws-envelope.js';
 import { jwkThumbprint, multibaseKeyToJwk } from './lib/keyid-resolution.js';
 import { blockLeafHash, blockMerkleRoot, verifyBlockInclusion } from './lib/block-merkle.js';
 import { checkTimestampBinding } from './lib/provenance-timestamp.js';
+import { selectBreakpoint, selectDefaultPresentation, type Breakpoint } from './lib/presentation-selection.js';
 import {
   type Finding,
   ROOT_DOCUMENT,
@@ -132,6 +133,13 @@ const RUNNERS: Record<string, (v: Record<string, any>) => RunOutcome> = {
         id: computeDocumentId(v.parts, v.algorithm ?? 'sha256'),
       },
     };
+  },
+
+  'presentation-selection': (v) => {
+    const sel = v.selection as { rule: 'breakpoint' | 'default'; breakpoints?: Breakpoint[]; width?: number; candidates?: Array<Record<string, unknown>> };
+    return sel.rule === 'breakpoint'
+      ? { outcome: 'value', values: { name: selectBreakpoint(sel.breakpoints ?? [], sel.width ?? 0) } }
+      : { outcome: 'value', values: { index: selectDefaultPresentation(sel.candidates ?? []) } };
   },
 
   'anchor-offset': (v) => {
