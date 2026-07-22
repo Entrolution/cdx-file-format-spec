@@ -43,10 +43,27 @@ import {
 } from './lib/structural-constraints.js';
 import { readArchive } from './lib/zip-reader.js';
 import { archiveVerdict } from './lib/archive-verdict.js';
+import { documentVerdict } from './lib/document-verdict.js';
+import { maxDisposition } from './lib/disposition.js';
+import type { LayerVerdict } from './lib/verdict.js';
 import { loadFixtures } from './lib/fixtures.js';
 import type { AdapterReport, AdapterResult } from './lib/conformance-suite.js';
 
 const sha256Of = (s: string): string => 'sha256:' + crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+
+/**
+ * Compose the container-layer and document-layer verdicts for a `document`
+ * fixture: the union of findings, and the most-severe disposition over both. A
+ * container REJECT (a malformed archive) already blocks the document, so a cleaner
+ * part-layer read can never mask it; conversely a clean container passes through
+ * to the part loader's verdict unchanged.
+ */
+function composeLevel1Verdict(container: LayerVerdict, document: LayerVerdict): LayerVerdict {
+  return {
+    documentDisposition: maxDisposition([container.documentDisposition, document.documentDisposition]),
+    findings: [...container.findings, ...document.findings],
+  };
+}
 
 /** Wrap `leaf` in `depth` nested arrays — the generative expansion of a robustness case. */
 function nestDeep(depth: number, leaf: unknown): unknown {
@@ -63,6 +80,9 @@ function nestDeep(depth: number, leaf: unknown): unknown {
  *   - `container` — the archive reader (zip-reader.ts): ZIP central-directory
  *     parsing, entry-path uniqueness and name safety, local-header/central
  *     disagreement, and decompression bounds (backs the Level-1 fixtures).
+ *   - `document` — the part loader + document mapper (part-loader.ts,
+ *     document-verdict.ts): strict-JSON part loading and the §5.4.2/§5.4.3
+ *     manifest/part-layer dispositions (backs the Level-1 document fixtures).
  *   - `ext:security` — the security-extension functions (manifest projection,
  *     JWS protected header / signing input, JWK thumbprint, multibase key).
  *   - `provenance` — cdx-bmt-1 block-Merkle and RFC 3161 timestamp binding.
@@ -71,8 +91,21 @@ function nestDeep(depth: number, leaf: unknown): unknown {
  * not available here (canonicalize.ts throws "not available"), so declaring it
  * would be a false claim.
  */
-const CAPABILITIES = ['core', 'container', 'ext:security', 'provenance', 'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512'];
+const CAPABILITIES = ['core', 'container', 'document', 'ext:security', 'provenance', 'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512'];
 const CAP_SET = new Set(CAPABILITIES);
+
+/**
+ * The document mapper's support envelope, derived from this adapter's declared
+ * capabilities. The reference targets spec 0.1 (major 0, minor 1), and supports an
+ * extension namespace exactly when it declares the matching `ext:<ns>` capability
+ * (so `ext:security` => the `cdx.security` extension id). A required extension
+ * outside this set REJECTs; an optional one is IGNOREd (State Machine §5.4.2).
+ */
+const READER_SUPPORT = {
+  major: 0,
+  minor: 1,
+  extensions: new Set(CAPABILITIES.filter((c) => c.startsWith('ext:')).map((c) => 'cdx.' + c.slice(4))),
+};
 
 /** Outcome of running one vector, minus the kind/name the driver fills in. */
 type RunOutcome = Pick<AdapterResult, 'outcome' | 'values' | 'error'>;
@@ -273,7 +306,14 @@ function main(): void {
     }
     try {
       const bytes = fs.readFileSync(path.join(c.dir, 'case.cdx'));
-      const verdict = archiveVerdict(readArchive(bytes).findings);
+      const archive = readArchive(bytes);
+      // Container layer (B1a): the archive reader's findings ARE the verdict.
+      // Document layer (B1b): the part loader + document mapper produce the
+      // part-layer verdict, composed with the container verdict so a container
+      // REJECT still blocks a document fixture.
+      const verdict: LayerVerdict = c.layer === 'document'
+        ? composeLevel1Verdict(archiveVerdict(archive.findings), documentVerdict(bytes, archive, READER_SUPPORT))
+        : archiveVerdict(archive.findings);
       results.push({ kind: c.kind, name: c.name, outcome: 'value', values: verdict as unknown as Record<string, unknown> });
     } catch (err) {
       results.push({ kind: c.kind, name: c.name, outcome: 'error', error: { code: (err as { code?: string }).code ?? null } });

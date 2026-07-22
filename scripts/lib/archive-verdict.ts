@@ -3,9 +3,10 @@
  *
  * The reference reader (zip-reader.ts) reports the DEFECTS it detected as stable
  * codes; this module resolves each code to the §5.4 disposition the specification
- * assigns (via conformance/errors.json) and takes the document-level verdict as
- * the most severe (MAX) over per-finding dispositions — a suite convention, since
- * §5.4 assigns a disposition per failure class but does not define composition.
+ * assigns (via the shared resolver, verdict.ts, over conformance/errors.json) and
+ * takes the document-level verdict as the most severe (MAX) over per-finding
+ * dispositions — a suite convention, since §5.4 assigns a disposition per failure
+ * class but does not define composition.
  *
  * This is the REFERENCE implementation's mapping of its own reader output to a
  * disposition — the analogue of what a third-party adapter does when it maps its
@@ -15,20 +16,11 @@
  * verdict, but is still surfaced as a finding.
  */
 
-import { errorVocabulary } from './error-codes.js';
-import { type Disposition, isDisposition, maxDisposition } from './disposition.js';
+import { resolveVerdict, type LayerVerdict, type VerdictFinding } from './verdict.js';
 import type { ArchiveFinding } from './zip-reader.js';
 
-export interface VerdictFinding {
-  code: string;
-  /** The §5.4 disposition from errors.json, or null where the spec assigns none. */
-  disposition: Disposition | null;
-}
-
-export interface ArchiveVerdict {
-  documentDisposition: Disposition;
-  findings: VerdictFinding[];
-}
+export type { VerdictFinding };
+export type ArchiveVerdict = LayerVerdict;
 
 /**
  * Map a reader's findings to a document verdict. Findings are de-duplicated by
@@ -38,16 +30,5 @@ export interface ArchiveVerdict {
  * finding is `IGNORE` (nothing blocks it).
  */
 export function archiveVerdict(findings: readonly ArchiveFinding[]): ArchiveVerdict {
-  const codes = errorVocabulary().codes;
-  const seen = new Set<string>();
-  const verdictFindings: VerdictFinding[] = [];
-  for (const f of findings) {
-    if (seen.has(f.code)) continue;
-    seen.add(f.code);
-    const entry = codes[f.code];
-    const disp = entry && isDisposition(entry.disposition) ? entry.disposition : null;
-    verdictFindings.push({ code: f.code, disposition: disp });
-  }
-  const dispositions = verdictFindings.map((f) => f.disposition).filter(isDisposition);
-  return { documentDisposition: maxDisposition(dispositions), findings: verdictFindings };
+  return resolveVerdict(findings.map((f) => f.code));
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Enforcing gate for the conformance suite (Level 0 vectors + Level-1 container fixtures).
+ * Enforcing gate for the conformance suite (Level 0 vectors + Level-1 container and document fixtures).
  *
  * Part 1 — Engine self-test: drives the comparison engine
  *   (scripts/lib/conformance-suite.ts) through EVERY verdict branch on synthetic
@@ -190,6 +190,11 @@ const err = (code: string): Pick<AdapterResult, 'outcome' | 'error'> => ({ outco
     ['container doc-disposition-out-of-interval', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [] } } as unknown as SuiteVector, val({ documentDisposition: 'WARNING', findings: [] })],
     ['container missing-finding', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-ARCHIVE-DUPLICATE-ENTRY', atLeast: 'REJECT', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [] })],
     ['container finding-out-of-interval', 'container', { name: 'n', expect: { documentDisposition: { atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-ARCHIVE-CASE-COLLISION', atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [{ code: 'CDX-E-ARCHIVE-CASE-COLLISION', disposition: 'WARNING' }] })],
+    // document (Level-1 fixture) — the part-layer kind shares the fixture-verdict
+    // comparator with `container`, so its fail branches must be independently proven:
+    ['document doc-disposition-out-of-interval', 'document', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [] } } as unknown as SuiteVector, val({ documentDisposition: 'WARNING', findings: [] })],
+    ['document missing-finding', 'document', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-PART-DUPLICATE-KEYS', atLeast: 'REJECT', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [] })],
+    ['document finding-out-of-interval', 'document', { name: 'n', expect: { documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' }, findings: [{ code: 'CDX-E-CONTENT-PART-MISSING', atLeast: 'REJECT', atMost: 'REJECT' }] } } as unknown as SuiteVector, val({ documentDisposition: 'REJECT', findings: [{ code: 'CDX-E-CONTENT-PART-MISSING', disposition: 'WARNING' }] })],
   ];
   const report = (kind: string, result: Pick<AdapterResult, 'outcome' | 'values' | 'error'>): AdapterReport => ({
     suite: 'cdx-conformance', suiteVersion: '0.1.0', specVersion: '0.1',

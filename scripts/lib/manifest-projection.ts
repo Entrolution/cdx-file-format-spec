@@ -236,6 +236,45 @@ function collectAssetIndexReferences(manifest: Record<string, unknown>): Array<{
   return items;
 }
 
+/** The always-present manifest fields, validated and extracted. */
+export interface ManifestCore {
+  cdx: string;
+  state: string;
+  content: { path: string; hash: string };
+}
+
+/**
+ * Validate and extract the manifest fields that are required in EVERY state — the
+ * `cdx` version string, the lifecycle `state`, and the `content` reference — each
+ * pattern-checked (not merely typed) and throwing the typed §5.4.2 defect code its
+ * violation maps to. Shared by projectManifest (which calls it after its pending-id
+ * gate, since a projection is only defined once the id is fixed) and the document
+ * mapper (document-verdict.ts), which validates these on every document, INCLUDING
+ * a pending-id draft — the draft/review REJECTs for a malformed required field or
+ * an off-enum state apply before and independently of any projection.
+ */
+export function validateManifestCore(manifest: Record<string, unknown>): ManifestCore {
+  // A signer skipping manifest-schema validation must not bind a malformed version
+  // into the signed projection, so this is a pattern check, not merely a type check.
+  if (typeof manifest.cdx !== 'string' || !VERSION_PATTERN.test(manifest.cdx)) {
+    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string', 'CDX-E-MANIFEST-VERSION-MALFORMED');
+  }
+  if (typeof manifest.state !== 'string' || !MANIFEST_STATES.has(manifest.state)) {
+    throw new CanonicalizationError(`manifest.state must be one of: ${[...MANIFEST_STATES].join(', ')}`, 'CDX-E-MANIFEST-STATE-UNKNOWN');
+  }
+  const content = manifest.content;
+  if (!isPlainObject(content) || typeof content.path !== 'string' || typeof content.hash !== 'string') {
+    throw new CanonicalizationError('manifest.content must be an object with string path and hash', 'CDX-E-MANIFEST-REFERENCE-MALFORMED');
+  }
+  if (!RELATIVE_PATH.test(content.path)) {
+    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
+  }
+  if (!isValidContentHash(content.hash)) {
+    throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`, 'CDX-E-MANIFEST-HASH-MALFORMED');
+  }
+  return { cdx: manifest.cdx, state: manifest.state, content: { path: content.path, hash: content.hash } };
+}
+
 /**
  * Build the canonical manifest projection from the raw text of `manifest.json`.
  * Returns a plain object; serialize it with `serializeProjection` to obtain the
@@ -265,32 +304,13 @@ export function projectManifest(manifestText: string): Record<string, unknown> {
 
   const projection: Record<string, unknown> = {};
 
-  // --- cdx (spec version) — always present (manifest required field) ---------
-  // Pattern-checked, not merely typed: a signer skipping manifest-schema validation
-  // must not bind a malformed version into the signed projection (fail closed).
-  if (typeof manifest.cdx !== 'string' || !VERSION_PATTERN.test(manifest.cdx)) {
-    throw new CanonicalizationError('manifest.cdx must be a "<major>.<minor>" version string', 'CDX-E-MANIFEST-VERSION-MALFORMED');
-  }
-  projection.cdx = manifest.cdx;
-
-  // --- state (lifecycle) — always present ------------------------------------
-  if (typeof manifest.state !== 'string' || !MANIFEST_STATES.has(manifest.state)) {
-    throw new CanonicalizationError(`manifest.state must be one of: ${[...MANIFEST_STATES].join(', ')}`, 'CDX-E-MANIFEST-STATE-UNKNOWN');
-  }
-  projection.state = manifest.state;
-
-  // --- content {path, hash} — always present; the content file's integrity ----
-  const content = manifest.content;
-  if (!isPlainObject(content) || typeof content.path !== 'string' || typeof content.hash !== 'string') {
-    throw new CanonicalizationError('manifest.content must be an object with string path and hash', 'CDX-E-MANIFEST-REFERENCE-MALFORMED');
-  }
-  if (!RELATIVE_PATH.test(content.path)) {
-    throw new CanonicalizationError(`manifest.content path "${content.path}" is not a valid archive-relative path`, 'CDX-E-MANIFEST-PATH-TRAVERSAL');
-  }
-  if (!isValidContentHash(content.hash)) {
-    throw new CanonicalizationError(`manifest.content.hash "${content.hash}" is malformed`, 'CDX-E-MANIFEST-HASH-MALFORMED');
-  }
-  projection.content = { path: content.path, hash: content.hash };
+  // --- cdx, state, content — the always-present required fields ---------------
+  // Validated + extracted by the shared core validator (also used by the document
+  // mapper, which applies these same REJECTs to a pending-id draft).
+  const core = validateManifestCore(manifest);
+  projection.cdx = core.cdx;
+  projection.state = core.state;
+  projection.content = core.content;
 
   // --- presentation[] (optional) — the presentation *declaration* -------------
   // Binds each presentation part's {type, path, hash} plus which one is the

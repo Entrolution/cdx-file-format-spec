@@ -33,6 +33,10 @@ coverage/
 *.log
 npm-debug.log*
 
+# Python bytecode cache (from the conformance oracles)
+__pycache__/
+*.pyc
+
 # Temporary files
 tmp/
 temp/

@@ -1,0 +1,34 @@
+{
+  "description": "The archive contains no manifest.json (only content and Dublin Core). The container additionally reports first-entry-not-manifest, but the blocking defect is the absent manifest — REJECT.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Container Format section 4.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Draft\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-MANIFEST-ABSENT",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

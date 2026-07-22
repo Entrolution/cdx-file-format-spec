@@ -48,7 +48,7 @@
       "status": "partial",
       "location": "fixtures/",
       "schema": "fixtures/fixtures.schema.json",
-      "summary": "Whole-document archive fixtures with per-finding verdicts over the disposition lattice (IGNORE < WARNING < INTEGRITY-ERROR < REJECT). The container layer (archive-reader hook) ships in B1a — state-invariant REJECT cases and the draft/review dispositions; the part loader (B1b) and the trust-dependent frozen/published INTEGRITY-ERROR ceilings (B2/B3) follow."
+      "summary": "Whole-document archive fixtures with per-finding verdicts over the disposition lattice (IGNORE < WARNING < INTEGRITY-ERROR < REJECT). The container layer (archive-reader hook) ships in B1a; the document/part layer — strict-JSON part loading, the manifest/version/extension REJECTs, and the draft/review dispositions — ships in B1b. The trust-dependent frozen/published INTEGRITY-ERROR ceilings (B2/B3) follow."
     }
   },
   "artifacts": {

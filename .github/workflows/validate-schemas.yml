@@ -110,6 +110,9 @@ jobs:
       - name: Check archive oracle (independent, non-Node)
         run: npm run check:archive-oracle
 
+      - name: Check document oracle (independent, non-Node)
+        run: npm run check:document-oracle
+
       - name: Check block merkle
         run: npm run check:block-merkle
 

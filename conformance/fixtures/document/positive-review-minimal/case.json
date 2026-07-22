@@ -1,0 +1,32 @@
+{
+  "description": "A well-formed review document with a computed document id. Accepted; the review state is valid and every part loads. (The id/hash recompute lands in a later slice; this fixture already carries the correct id so it stays clean then.)",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "State Machine section 3.3; Manifest section 4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Review\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

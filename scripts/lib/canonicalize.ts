@@ -227,7 +227,7 @@ function detectDuplicateKeys(text: string): void {
       if (t && t.kind === 'object' && t.expectingKey) {
         const key = JSON.parse(raw) as string; // decode escapes so "a" === "a"
         if (t.keys!.has(key)) {
-          throw new CanonicalizationError(`duplicate object key ${JSON.stringify(key)}`);
+          throw new CanonicalizationError(`duplicate object key ${JSON.stringify(key)}`, 'CDX-E-PART-DUPLICATE-KEYS');
         }
         t.keys!.add(key);
       }
@@ -816,16 +816,51 @@ function rewriteContentAnchor(value: string, map: Map<string, string>): string {
 // Stored-byte invariant validation (§4.3.2) — validate, never normalize
 // ---------------------------------------------------------------------------
 
+/**
+ * The reason a single number is non-representable per §4.3.2 — non-finite, or an
+ * integer whose magnitude exceeds 2^53 - 1 (so the IEEE-754 double the canonicalizer
+ * hashes differs from the value the author wrote) — or null if it is representable.
+ * The single definition of the number rule, shared by validateStoredByteInvariants
+ * (which throws on it during canonicalization) and firstNonRepresentableNumber (the
+ * part loader's pre-canonicalization scan), so the boundary and messages cannot drift.
+ */
+export function nonRepresentableNumberReason(value: number): string | null {
+  if (!Number.isFinite(value)) return `non-finite number ${value} cannot be canonicalized`;
+  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+    return `integer ${value} exceeds the safe-integer range (magnitude > 2^53-1)`;
+  }
+  return null;
+}
+
+/**
+ * The detail of the first non-representable number anywhere in `value`, or null.
+ * An ITERATIVE walk (explicit stack) so a deeply nested part cannot overflow the
+ * native stack. Used to enforce the state-invariant non-representable-number rule
+ * (§5.4.3) on a HASHED part at load time, independent of document-ID computation —
+ * a pending-id draft is never canonicalized, but the rule still applies in every state.
+ */
+export function firstNonRepresentableNumber(value: unknown): string | null {
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const v = stack.pop();
+    if (typeof v === 'number') {
+      const reason = nonRepresentableNumberReason(v);
+      if (reason) return reason;
+    } else if (Array.isArray(v)) {
+      for (const item of v) stack.push(item);
+    } else if (isPlainObject(v)) {
+      for (const key of Object.keys(v)) stack.push(v[key]);
+    }
+  }
+  return null;
+}
+
 export function validateStoredByteInvariants(value: unknown): void {
   if (typeof value === 'string') {
     checkString(value);
   } else if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new CanonicalizationError(`non-finite number ${value} cannot be canonicalized`);
-    }
-    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-      throw new CanonicalizationError(`integer ${value} exceeds the safe-integer range (magnitude > 2^53-1)`);
-    }
+    const reason = nonRepresentableNumberReason(value);
+    if (reason) throw new CanonicalizationError(reason, 'CDX-E-PART-NUMBER-NON-REPRESENTABLE');
   } else if (Array.isArray(value)) {
     // Block-level NFC (§4.3.2 item 2): NFC applies to the *concatenated* text
     // content of a block, not merely to each text-node value — an NFC-combining
