@@ -42,6 +42,7 @@ export interface FixtureCase {
   kind: string; // the <kind> directory (e.g. "container")
   name: string; // the <case> directory name; the engine keys results as "<kind>/<name>"
   dir: string; // absolute path to the case directory
+  layer: 'container' | 'document'; // which reader layer evaluates this case
   requires: string[];
   expect: FixtureVerdict;
 }
@@ -60,7 +61,7 @@ export function loadFixtures(suiteRoot: string): FixtureCase[] {
       const casePath = path.join(dir, 'case.json');
       if (!fs.existsSync(casePath)) continue;
       const doc = JSON.parse(fs.readFileSync(casePath, 'utf8')) as FixtureCaseFile;
-      cases.push({ kind, name: caseName, dir, requires: doc.requires ?? [], expect: doc.expect });
+      cases.push({ kind, name: caseName, dir, layer: doc.layer, requires: doc.requires ?? [], expect: doc.expect });
     }
   }
   return cases;

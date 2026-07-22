@@ -29,6 +29,12 @@
       "summary": "The mandatory ZIP container layer: parse the archive via its central directory, enforce unique entry paths (including case-only collisions), reject local-header/central-directory disagreement, archive-name-safety violations (path traversal, symlinks), ZIP encryption, and multi-volume archives, verify each entry's CRC-32, check the first entry is manifest.json, and bound decompression. Deflate (method 8) is mandatory to support; Store (method 0) is trivial. Required by every Level-1 document fixture.",
       "clause": "Container Format sections 3, 4.2, 5.3, 6.1, 9 (ZIP structure, first-file requirement, mandatory bounds, CRC integrity, security considerations; Deflate mandatory, section 3.2)"
     },
+    "document": {
+      "group": "document",
+      "baseline": true,
+      "summary": "The mandatory document/part layer: load the manifest and content parts out of the archive entry set and apply the manifest/part-load dispositions. It enforces the state-invariant strict-JSON rejects (a duplicate object key in any part; a non-representable hashed number in the content part), requires the manifest to be present and parseable as an object with valid required fields, resolves version and required/optional extension support, and requires the referenced content part to be present and parseable as JSON. The container capability reads the archive; this one assembles the document from it. Full content canonical-validity beyond parseability (block/mark structure, NFC) and the file-hash/document-id recompute ride with a later phase. Required by every Level-1 document fixture.",
+      "clause": "Manifest sections 2, 4.6; Document Hashing section 4.3.2; State Machine sections 5.4.1, 5.4.2, 5.4.3"
+    },
     "compression:zstd": {
       "group": "container",
       "baseline": false,

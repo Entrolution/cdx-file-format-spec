@@ -136,41 +136,46 @@ function values(r: AdapterResult): Values {
   return { ok: true, v: r.values ?? {} };
 }
 
+// Level-1 fixture verdict comparator, shared by the `container` (B1a) and
+// `document` (B1b) fixture kinds — they report the SAME verdict shape, and the
+// only difference is which reader layer produced it (archive vs part loader). The
+// adapter reports what its reader DECIDED: a documentDisposition (the max over
+// detected findings) and the diagnostic findings. The suite asserts the
+// disposition lies within the case's expected interval — INTEGRITY-ERROR is a
+// floor with MAY-escalation (07 §5.4.1), so equality would be toothless — and that
+// each intended finding is reported, a SUBSET check: a correct reader MAY report more.
+const compareFixtureVerdict: Comparator = (v, r) => {
+  const a = values(r);
+  if (!a.ok) return a.comparison;
+  const expect = v.expect as {
+    documentDisposition: DispositionInterval;
+    findings: Array<{ code: string; atLeast: Disposition; atMost: Disposition }>;
+  };
+  const actualDoc = a.v.documentDisposition;
+  if (!isDisposition(actualDoc)) {
+    return { pass: false, detail: `documentDisposition is not a disposition: ${JSON.stringify(actualDoc)}` };
+  }
+  if (!inInterval(actualDoc, expect.documentDisposition)) {
+    return { pass: false, detail: `documentDisposition ${actualDoc} outside [${expect.documentDisposition.atLeast}, ${expect.documentDisposition.atMost}]` };
+  }
+  const reported = Array.isArray(a.v.findings) ? (a.v.findings as Array<{ code?: unknown; disposition?: unknown }>) : [];
+  const byCode = new Map<string, unknown>();
+  for (const f of reported) if (typeof f.code === 'string') byCode.set(f.code, f.disposition);
+  for (const ef of expect.findings) {
+    if (!byCode.has(ef.code)) {
+      return { pass: false, detail: `expected finding ${ef.code} not reported (got ${[...byCode.keys()].join(', ') || 'none'})` };
+    }
+    const d = byCode.get(ef.code);
+    if (!isDisposition(d) || !inInterval(d, { atLeast: ef.atLeast, atMost: ef.atMost })) {
+      return { pass: false, detail: `finding ${ef.code} disposition ${JSON.stringify(d)} outside [${ef.atLeast}, ${ef.atMost}]` };
+    }
+  }
+  return { pass: true };
+};
+
 const COMPARATORS: Record<string, Comparator> = {
-  container: (v, r) => {
-    // Level-1 document fixture (container layer). The adapter reports what its
-    // reader DECIDED: a documentDisposition (the max over detected findings) and
-    // the diagnostic findings. The suite asserts the disposition lies within the
-    // case's expected interval — INTEGRITY-ERROR is a floor with MAY-escalation
-    // (07 §5.4.1), so equality would be toothless — and that each intended
-    // finding is reported, a SUBSET check: a correct reader MAY report more.
-    const a = values(r);
-    if (!a.ok) return a.comparison;
-    const expect = v.expect as {
-      documentDisposition: DispositionInterval;
-      findings: Array<{ code: string; atLeast: Disposition; atMost: Disposition }>;
-    };
-    const actualDoc = a.v.documentDisposition;
-    if (!isDisposition(actualDoc)) {
-      return { pass: false, detail: `documentDisposition is not a disposition: ${JSON.stringify(actualDoc)}` };
-    }
-    if (!inInterval(actualDoc, expect.documentDisposition)) {
-      return { pass: false, detail: `documentDisposition ${actualDoc} outside [${expect.documentDisposition.atLeast}, ${expect.documentDisposition.atMost}]` };
-    }
-    const reported = Array.isArray(a.v.findings) ? (a.v.findings as Array<{ code?: unknown; disposition?: unknown }>) : [];
-    const byCode = new Map<string, unknown>();
-    for (const f of reported) if (typeof f.code === 'string') byCode.set(f.code, f.disposition);
-    for (const ef of expect.findings) {
-      if (!byCode.has(ef.code)) {
-        return { pass: false, detail: `expected finding ${ef.code} not reported (got ${[...byCode.keys()].join(', ') || 'none'})` };
-      }
-      const d = byCode.get(ef.code);
-      if (!isDisposition(d) || !inInterval(d, { atLeast: ef.atLeast, atMost: ef.atMost })) {
-        return { pass: false, detail: `finding ${ef.code} disposition ${JSON.stringify(d)} outside [${ef.atLeast}, ${ef.atMost}]` };
-      }
-    }
-    return { pass: true };
-  },
+  container: compareFixtureVerdict,
+  document: compareFixtureVerdict,
 
   'document-id': (v, r) => {
     const a = values(r);

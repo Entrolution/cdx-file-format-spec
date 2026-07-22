@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.4",
+  "version": "0.5",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -96,6 +96,71 @@
       "clause": "Security Extension section 3.12",
       "disposition": null,
       "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. The projection fails closed on it (the projected bytes would otherwise be ambiguous), but the specification does not state a load-time disposition and none is inferred here \u2014 notably the generic \"missing or mistyping a required field\" row does not reach it, since section 5.4.2 gives the `state` enum its own dedicated row rather than relying on that one. Tracked as a specification gap."
+    },
+    "CDX-E-MANIFEST-ABSENT": {
+      "summary": "The archive contains no `manifest.json` entry, so the document has no manifest to load.",
+      "clause": "Manifest section 2; Container Format section 3.3.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)"
+    },
+    "CDX-E-MANIFEST-UNPARSEABLE": {
+      "summary": "`manifest.json` is present but is not well-formed JSON (a bare syntax error), or is valid JSON that is not an object, so it cannot be parsed as a manifest.",
+      "clause": "Manifest section 2; Document Hashing section 4.3.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)",
+      "note": "Distinct from CDX-E-PART-DUPLICATE-KEYS, which is a canonical-JSON violation detected structurally rather than a JSON syntax error, and from CDX-E-MANIFEST-*-MALFORMED, which fire on a parseable manifest OBJECT with a bad field."
+    },
+    "CDX-E-PART-DUPLICATE-KEYS": {
+      "summary": "A JSON part contains an object with duplicate keys, which the canonical-JSON rules forbid before any hashing or verification.",
+      "clause": "Document Hashing section 4.3.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (duplicate JSON keys in any part always REJECT, in every state)",
+      "note": "An unrejected duplicate key permits a split-view substitution — one key-value pair is hashed while a colliding one is materialized — so the rejection is state-invariant, exactly like a duplicate archive entry."
+    },
+    "CDX-E-PART-NUMBER-NON-REPRESENTABLE": {
+      "summary": "A hashed JSON number is non-finite, or an integer whose magnitude exceeds 2^53 - 1, so the IEEE-754 double the canonicalizer hashes would differ from the value the author wrote.",
+      "clause": "Document Hashing section 4.3.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.3 (a non-representable hashed number always REJECTs, in every state)"
+    },
+    "CDX-E-CONTENT-PART-MISSING": {
+      "summary": "The required content part is absent: `manifest.content.path` is a valid archive-relative path but names no existing archive entry.",
+      "clause": "Manifest section 4.6; State Machine section 5.4.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (missing the required content part)",
+      "note": "A missing or non-string content reference is caught earlier as CDX-E-MANIFEST-REFERENCE-MALFORMED; this code fires only when the reference is well-formed but no entry backs the path. An encrypted content part mapped to a stored `.enc` entry by the security extension satisfies the presence requirement (State Machine section 5.4.2 note 5)."
+    },
+    "CDX-E-CONTENT-PART-UNPARSEABLE": {
+      "summary": "The content part is present but cannot be parsed as JSON — a bare syntax error, or a decompression / parser-resource-limit failure — so the content and the document's identity cannot be established.",
+      "clause": "Document Hashing section 4.3.2; State Machine section 5.4.1",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.1 (a document that cannot be parsed, or whose identity cannot be established, is a REJECT): the content part is required canonical JSON (Document Hashing section 4.3.2), so a content part that cannot be parsed yields no canonical content in any state — and, once an id is assigned, makes its recomputation impossible.",
+      "note": "Distinct from CDX-E-CONTENT-PART-MISSING (no entry backs the path) and CDX-E-PART-DUPLICATE-KEYS (a canonical-JSON structural violation with its own code). Scoped to the required content part; a missing or unparseable NON-content part (Dublin Core, presentation) is a separate later-phase disposition."
+    },
+    "CDX-E-VERSION-MAJOR-UNSUPPORTED": {
+      "summary": "The manifest `cdx` field declares a major format version this reader does not implement, so the document cannot be safely interpreted.",
+      "clause": "Manifest section 4.1; State Machine section 5.4.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (unsupported major version)"
+    },
+    "CDX-E-VERSION-MINOR-UNSUPPORTED": {
+      "summary": "The manifest `cdx` field declares a minor format version newer than this reader implements; known fields are processed and unknown additions ignored.",
+      "clause": "Manifest section 4.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (unsupported minor version — process known fields, IGNORE unknown additions)"
+    },
+    "CDX-E-EXTENSION-REQUIRED-UNSUPPORTED": {
+      "summary": "A manifest extension marked `required: true` names a namespace this reader does not support, so the document cannot be fully interpreted.",
+      "clause": "Manifest section 4.10; State Machine section 5.4.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (unsupported required extension)",
+      "note": "An encrypted document declares cdx.security as required:true, so a reader without security-extension support rejects it through this row rather than misreading the archive (State Machine section 5.4.2 note 5)."
+    },
+    "CDX-E-EXTENSION-OPTIONAL-UNSUPPORTED": {
+      "summary": "A manifest extension marked `required: false` names a namespace this reader does not support; its data is skipped and the document degrades gracefully.",
+      "clause": "Manifest section 4.10; State Machine section 5.4.2",
+      "disposition": "IGNORE",
+      "dispositionClause": "State Machine section 5.4.2 (unsupported optional extension — degrade; SHOULD surface)"
     },
     "CDX-E-LINEAGE-CYCLE": {
       "summary": "The lineage walk revisited a document already on the current path.",

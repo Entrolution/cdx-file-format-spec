@@ -29,11 +29,11 @@ level it needs; an **adapter** declares the highest level it implements
 | Level | Adds | Status |
 |-------|------|--------|
 | **0 — Vectors** | Pure known-answer vectors: deterministic input → deterministic output. No archive, no clock, no trust store, no network. | **shipped** |
-| 1 — Fixtures + clock | Whole-document archive fixtures verified against a per-case virtual clock. | partial (container layer) |
+| 1 — Fixtures + clock | Whole-document archive fixtures verified against a per-case virtual clock. | partial (container + document layers) |
 | 2 — Trust + resolver injection | Fixtures whose verdict depends on an injected trust store and identity resolver. | planned |
 
-Level 0 (vectors) and the container layer of Level 1 (document fixtures) ship
-now; see [Level 1 — Document fixtures](#level-1--document-fixtures-container-layer).
+Level 0 (vectors) and the container + document layers of Level 1 (document
+fixtures) ship now; see [Level 1 — Document fixtures](#level-1--document-fixtures-container--document-layers).
 The `virtual-clock` hook of Level 1 and all of Level 2 arrive in later phases;
 their hooks are described here only far enough to show why the tiering exists.
 
@@ -200,16 +200,21 @@ Notes that bite:
   else `0`. The §4.3 step-1 target narrowing (screen SHOULD prefer
   continuous/responsive, print SHOULD prefer precise) is advisory and not tested.
 
-## Level 1 — Document fixtures (container layer)
+## Level 1 — Document fixtures (container + document layers)
 
 Beyond the Level-0 vectors, the suite ships **whole-document archive fixtures**
-under [`fixtures/`](fixtures/). A Level-1 adapter additionally:
+under [`fixtures/`](fixtures/). Each case's `<kind>` directory names the reader
+**layer** it exercises: `container` (the ZIP archive layer — B1a) or `document`
+(the part layer that loads the manifest and content parts out of the archive and
+applies the §5.4.2/§5.4.3 manifest, version, extension, and part-load
+dispositions — B1b). A Level-1 adapter additionally:
 
 1. Enumerates each case directory `fixtures/<kind>/<case>/`; reads its committed
    `case.cdx` (a real `.cdx`/ZIP archive) **in memory**, and its `case.json`
    descriptor for the case's `requires[]`.
-2. Runs its container reader over the bytes and reports a **verdict** — what its
-   implementation *decided to do* with the document — under `outcome: "value"`:
+2. Runs its container reader — and, for a `document` case, its part loader — over
+   the bytes and reports a **verdict** — what its implementation *decided to do*
+   with the document — under `outcome: "value"`:
 
    ```jsonc
    { "kind": "container", "name": "reject-duplicate-entry",
@@ -235,13 +240,14 @@ case-only collisions, and symlink entries. An adapter — or test harness — th
 extracts a fixture to disk attacks its own checkout; never materialize one.
 
 **Level reporting.** Report `adapter.level: 1` once you read fixtures. The
-`archive-reader` hook is exercised by the container fixtures shipped now; the
-`virtual-clock` hook — needed only by the trust-dependent cases a later phase
-adds — is not yet required by any case.
+`archive-reader` hook is exercised by both the container and document fixtures
+shipped now; the `virtual-clock` hook — needed only by the trust-dependent cases a
+later phase adds — is not yet required by any case.
 
 | Fixture kind | Reads | Outcome | `values` |
 |--------------|-------|---------|----------|
 | `container` | `case.cdx` (archive bytes), `case.json` (`requires?`) | value | `documentDisposition` (a disposition); `findings[]` (`{code, disposition}`) |
+| `document` | `case.cdx` (archive bytes), `case.json` (`requires?`) | value | `documentDisposition` (a disposition); `findings[]` (`{code, disposition}`) — same shape; the container verdict is composed with the part-loader verdict |
 
 ## Capabilities and scoping
 
