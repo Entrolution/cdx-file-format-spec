@@ -54,6 +54,51 @@ SUPPORTED_EXTENSIONS = {"cdx.security"}
 # Digest lengths mirror canonicalize.ts KNOWN_ALGORITHMS, re-encoded here.
 HEX_LEN = {"sha256": 64, "sha384": 96, "sha512": 128, "sha3-256": 64, "sha3-512": 128, "blake3": 64}
 
+# --- B1b-2 content block/mark classifier: independently RE-ENCODED vocabulary ---
+# The recognized sets are transcribed from content.schema.json (the $defs/block open
+# escape, $defs/knownMarkTypes, and the core string-mark enum), NOT imported from the
+# TypeScript classifier under test (content-classifier.ts) — the same shared-nothing
+# re-encoding used for the version/extension support envelope above. A registered
+# namespaced identifier (academic:theorem, legal:cite, …) is in the known set, so it
+# is neither an unknown-namespaced nor an unknown-bare defect.
+# SYNC: the deliberate cost of the shared-nothing design — a change to the block/mark
+# enums in schemas/content.schema.json requires a manual update of the three sets
+# below. A stale set diverges from the TS on any fixture exercising the changed type,
+# so the adapter/oracle fixture agreement catches it.
+BLOCK_TYPES = {
+    "text", "paragraph", "heading", "list", "listItem", "blockquote",
+    "codeBlock", "image", "table", "tableRow", "tableCell", "math",
+    "definitionList", "definitionItem", "definitionTerm", "definitionDescription",
+    "measurement", "signature", "svg", "barcode", "figure", "figcaption",
+    "horizontalRule", "break", "admonition",
+    "academic:abstract", "academic:theorem", "academic:proof", "academic:algorithm",
+    "academic:equation-group", "academic:exercise-set", "academic:exercise",
+    "semantic:footnote", "semantic:bibliography", "semantic:term", "semantic:ref",
+    "semantic:glossary", "semantic:measurement",
+    "legal:caption", "legal:signatureBlock", "legal:tableOfAuthorities",
+    "forms:form", "forms:textInput", "forms:textArea", "forms:checkbox",
+    "forms:radioGroup", "forms:dropdown", "forms:datePicker", "forms:signature",
+    "forms:submit", "presentation:reference",
+}
+# Every recognized mark identifier (7 core string marks + 13 structured marks).
+KNOWN_MARKS = {
+    "bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript",
+    "link", "anchor", "math", "citation", "footnote", "entity", "glossary",
+    "academic:theorem-ref", "academic:equation-ref", "academic:algorithm-ref",
+    "presentation:index", "presentation:footnote", "legal:cite",
+}
+# The core marks valid as a bare string.
+STRING_MARKS = {"bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript"}
+# Blocks whose parent is structurally constrained (structural-constraints.ts REQUIRED_PARENT).
+REQUIRED_PARENT = {"figcaption": "figure", "tableCell": "tableRow", "tableRow": "table"}
+# The schema's extension-type form: a non-empty prefix, a colon, a non-empty suffix.
+NS_RE = re.compile(r"[A-Za-z0-9_-]+:[A-Za-z0-9._:-]+")
+ROOT_DOCUMENT = " root-document"
+ROOT_EXCERPT = " root-excerpt"
+# Recursion bound (canonicalize.ts MAX_CANONICALIZATION_DEPTH, re-encoded); the walk
+# stops descending past it, symmetric with the TS classifier.
+MAX_CONTENT_DEPTH = 256
+
 
 def find_eocd(data):
     lo = max(0, len(data) - (0xFFFF + 22))
@@ -347,8 +392,167 @@ def optional_extension_unsupported(data, cd):
     return m is not None and _unsupported_extension(m, required=False)
 
 
+# --- B1b-2 content block/mark classifier: independent re-derivation ----------
+# A from-scratch reimplementation of content-classifier.ts, sharing no code with it.
+# It walks the parsed content value and records which classifier defect classes are
+# present; each confirmer below reports one class. Positive cases must record none.
+
+def _content_value(data, cd):
+    """The parsed content value referenced by the manifest, or None."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return None
+    c = m.get("content")
+    path = c.get("path") if isinstance(c, dict) else None
+    if not isinstance(path, str):
+        return None
+    text = part_text(data, cd_map(cd), path)
+    if text is None:
+        return None
+    try:
+        return json.loads(text)  # duplicate keys / big numbers are other codes' concern
+    except json.JSONDecodeError:
+        return None
+
+
+def _block_malformed(block, parent_type):
+    """checkBlock re-derived: upward containment + figure/definitionItem cardinality."""
+    t = block.get("type")
+    if t in REQUIRED_PARENT and parent_type != ROOT_EXCERPT and parent_type != REQUIRED_PARENT[t]:
+        return True
+    if t == "figure" and isinstance(block.get("children"), list):
+        content = caption = 0
+        for c in block["children"]:
+            if isinstance(c, dict) and c.get("type") == "figcaption":
+                caption += 1
+            else:
+                content += 1
+        if content != 1 or caption > 1:
+            return True
+    if t == "definitionItem" and isinstance(block.get("children"), list):
+        terms = descs = 0
+        for c in block["children"]:
+            if not isinstance(c, dict):
+                continue
+            if c.get("type") == "definitionTerm":
+                terms += 1
+            elif c.get("type") == "definitionDescription":
+                descs += 1
+        if terms < 1 or descs < 1:
+            return True
+    return False
+
+
+def _mark_malformed(t, mark):
+    if t == "link":
+        return not isinstance(mark.get("href"), str)
+    if t == "anchor":
+        return not isinstance(mark.get("id"), str)
+    if t == "math":
+        return not (isinstance(mark.get("format"), str) and isinstance(mark.get("source"), str))
+    return t in STRING_MARKS  # a core string mark carried as an object is malformed
+
+
+def _classify_mark(m, out):
+    if isinstance(m, str):
+        if m in STRING_MARKS:
+            return
+        if m in KNOWN_MARKS:
+            out.add("mark_malformed")
+        elif NS_RE.fullmatch(m):
+            out.add("mark_ns")
+        else:
+            out.add("mark_bare")
+        return
+    if isinstance(m, dict):
+        t = m.get("type")
+        if not isinstance(t, str):
+            out.add("mark_bare")
+        elif t in KNOWN_MARKS:
+            if _mark_malformed(t, m):
+                out.add("mark_malformed")
+        elif NS_RE.fullmatch(t):
+            out.add("mark_ns")
+        else:
+            out.add("mark_bare")
+        return
+    out.add("mark_bare")  # neither string nor object
+
+
+def _bad_container(node):
+    # Mirror of content-classifier.ts hasMalformedContainer: a node-bearing field of
+    # the wrong shape (children/subfigures/marks not a list; caption neither list nor
+    # str). Applied to a block and to each subfigure object.
+    return (
+        ("children" in node and not isinstance(node["children"], list))
+        or ("subfigures" in node and not isinstance(node["subfigures"], list))
+        or ("marks" in node and not isinstance(node["marks"], list))
+        or ("caption" in node and not isinstance(node["caption"], list) and not isinstance(node["caption"], str))
+    )
+
+
+def _walk(elements, parent_type, out, depth):
+    # Mirror of content-classifier.ts `walk`: descend ONLY into CORE blocks. Unknown
+    # blocks are opaque (namespaced=IGNORE render-a-fallback, bare=REJECT) and a
+    # REGISTERED extension block (namespaced type in the known set) is recognized but
+    # its interior is extension-defined, so it is not descended either. Classify marks
+    # on the blocks that carry them, and bound the recursion depth.
+    if depth > MAX_CONTENT_DEPTH:
+        return
+    for el in elements:
+        if not isinstance(el, dict):
+            out.add("block_bare")  # non-object in a block position: fail closed
+            continue
+        t = el.get("type")
+        if isinstance(t, str) and t in BLOCK_TYPES:
+            if NS_RE.fullmatch(t):
+                continue  # registered extension block: recognized, opaque interior (deferred)
+            bad_container = _bad_container(el) or (
+                isinstance(el.get("subfigures"), list)
+                and any((not isinstance(sf, dict)) or _bad_container(sf) for sf in el["subfigures"])
+            )
+            if _block_malformed(el, parent_type) or bad_container:
+                out.add("block_malformed")
+            if isinstance(el.get("marks"), list):
+                for m in el["marks"]:
+                    _classify_mark(m, out)
+            if isinstance(el.get("children"), list):
+                _walk(el["children"], t, out, depth + 1)
+            if isinstance(el.get("caption"), list):
+                _walk(el["caption"], t, out, depth + 1)
+            subs = el.get("subfigures")
+            if isinstance(subs, list):
+                for sf in subs:
+                    if not isinstance(sf, dict):
+                        continue
+                    if isinstance(sf.get("children"), list):
+                        _walk(sf["children"], t, out, depth + 1)
+                    if isinstance(sf.get("caption"), list):
+                        _walk(sf["caption"], t, out, depth + 1)
+            continue
+        if isinstance(t, str) and NS_RE.fullmatch(t):
+            out.add("block_ns")  # opaque: not descended
+            continue
+        out.add("block_bare")  # opaque: document is refused
+
+
+def classify_content(data, cd):
+    """The set of classifier defect classes present in the content tree."""
+    out = set()
+    val = _content_value(data, cd)
+    if isinstance(val, dict) and isinstance(val.get("blocks"), list):
+        _walk(val["blocks"], ROOT_DOCUMENT, out, 1)
+    return out
+
+
 CONFIRMERS = {
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
+    "CDX-E-BLOCK-TYPE-UNKNOWN-BARE": lambda data, cd: "block_bare" in classify_content(data, cd),
+    "CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED": lambda data, cd: "block_ns" in classify_content(data, cd),
+    "CDX-E-BLOCK-MALFORMED": lambda data, cd: "block_malformed" in classify_content(data, cd),
+    "CDX-E-MARK-TYPE-UNKNOWN-BARE": lambda data, cd: "mark_bare" in classify_content(data, cd),
+    "CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED": lambda data, cd: "mark_ns" in classify_content(data, cd),
+    "CDX-E-MARK-MALFORMED": lambda data, cd: "mark_malformed" in classify_content(data, cd),
     "CDX-E-PART-NUMBER-NON-REPRESENTABLE": content_has_non_representable_number,
     "CDX-E-CONTENT-PART-MISSING": content_part_missing,
     "CDX-E-CONTENT-PART-UNPARSEABLE": content_unparseable,
@@ -401,6 +605,11 @@ def confirm_clean(name, data):
             text = part_text(data, {e["name"]: e}, e["name"])
             if text is not None and has_duplicate_key(text):
                 return f"clean case part {e['name']} has a duplicate key"
+    # B1b-2: a genuinely clean fixture's content tree must carry no unknown/malformed
+    # block or mark — otherwise it would not be CLEAN. Independently re-derive.
+    findings = classify_content(data, cd)
+    if findings:
+        return f"clean case content has block/mark classifier finding(s): {sorted(findings)}"
     return None
 
 

@@ -1,0 +1,32 @@
+{
+  "description": "A well-formed content tree: a heading and a paragraph with a bold text run and a valid link mark. Every block and mark type is recognized and well-formed — nothing blocks it.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks sections 4, 5; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:42a7ff9a41b25577d46396abe648029a1e6e1b5f57290c28cba01e583e7e03ef\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"Title\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Hello \",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"world\",\"marks\":[{\"type\":\"link\",\"href\":\"https://example.com\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Rich Content\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

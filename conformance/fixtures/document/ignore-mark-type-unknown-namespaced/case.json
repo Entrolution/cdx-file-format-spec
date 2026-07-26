@@ -1,0 +1,38 @@
+{
+  "description": "An unrecognized but well-formed namespaced mark `myorg:flag` (bare-string form) is an extension mark the reader does not implement: it degrades to the unmarked text — IGNORE.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2121c8cb7b2a1f917a8c3004310ac45ff9d604230d6c7ddf5d2e53822fd42a9c\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"flag\",\"marks\":[\"myorg:flag\"]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Namespaced Mark\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED",
+        "atLeast": "IGNORE",
+        "atMost": "IGNORE"
+      }
+    ]
+  }
+}

@@ -44,6 +44,7 @@ import {
 import { readArchive } from './lib/zip-reader.js';
 import { archiveVerdict } from './lib/archive-verdict.js';
 import { documentVerdict } from './lib/document-verdict.js';
+import { deriveContentVocabulary } from './lib/content-classifier.js';
 import { maxDisposition } from './lib/disposition.js';
 import type { LayerVerdict } from './lib/verdict.js';
 import { loadFixtures } from './lib/fixtures.js';
@@ -106,6 +107,13 @@ const READER_SUPPORT = {
   minor: 1,
   extensions: new Set(CAPABILITIES.filter((c) => c.startsWith('ext:')).map((c) => 'cdx.' + c.slice(4))),
 };
+
+/**
+ * The recognized block/mark vocabulary the content classifier compares against,
+ * derived once from content.schema.json (the single source of the recognized sets).
+ * A real reader parameterizes its type recognition off exactly this.
+ */
+const CONTENT_VOCAB = deriveContentVocabulary();
 
 /** Outcome of running one vector, minus the kind/name the driver fills in. */
 type RunOutcome = Pick<AdapterResult, 'outcome' | 'values' | 'error'>;
@@ -312,7 +320,7 @@ function main(): void {
       // part-layer verdict, composed with the container verdict so a container
       // REJECT still blocks a document fixture.
       const verdict: LayerVerdict = c.layer === 'document'
-        ? composeLevel1Verdict(archiveVerdict(archive.findings), documentVerdict(bytes, archive, READER_SUPPORT))
+        ? composeLevel1Verdict(archiveVerdict(archive.findings), documentVerdict(bytes, archive, READER_SUPPORT, CONTENT_VOCAB))
         : archiveVerdict(archive.findings);
       results.push({ kind: c.kind, name: c.name, outcome: 'value', values: verdict as unknown as Record<string, unknown> });
     } catch (err) {

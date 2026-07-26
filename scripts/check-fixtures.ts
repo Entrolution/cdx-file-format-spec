@@ -28,6 +28,7 @@ import { FIXTURE_CORPUS, caseJson } from './lib/fixture-corpus.js';
 import { buildZip } from './lib/zip-writer.js';
 import { readArchive, crcMatches, CODE } from './lib/zip-reader.js';
 import { CODE as DOC_CODE } from './lib/document-verdict.js';
+import { CLASSIFIER_CODE } from './lib/content-classifier.js';
 import { isRegisteredCode } from './lib/error-codes.js';
 import { isWellFormedInterval } from './lib/disposition.js';
 
@@ -108,12 +109,12 @@ for (const c of FIXTURE_CORPUS) {
 }
 if (intervalOk) ok(`all ${FIXTURE_CORPUS.length} fixtures have well-formed disposition intervals`);
 
-// 4. Reader + document-mapper codes registered.
+// 4. Reader + document-mapper + content-classifier codes registered.
 console.log('\nReader defect codes:');
-const codes = [...Object.values(CODE), ...Object.values(DOC_CODE)];
+const codes = [...Object.values(CODE), ...Object.values(DOC_CODE), ...Object.values(CLASSIFIER_CODE)];
 const unreg = codes.filter((c) => !isRegisteredCode(c));
-if (unreg.length === 0) ok(`all ${codes.length} reader/document codes registered in errors.json`);
-else fail(`reader/document codes not registered in errors.json: ${unreg.join(', ')}`);
+if (unreg.length === 0) ok(`all ${codes.length} reader/document/classifier codes registered in errors.json`);
+else fail(`reader/document/classifier codes not registered in errors.json: ${unreg.join(', ')}`);
 
 // 5. Deflate support (in-memory; never committed, since deflate bytes are not
 //    guaranteed stable across zlib builds).

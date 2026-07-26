@@ -1,0 +1,38 @@
+{
+  "description": "A bare (unknown, non-namespaced) block type placed in a figure `caption` array — a rich-text (textNode) position the walk must also classify. The misspelled type REJECTs, exactly as it does under `children`.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:b74d7560c2fb7592727791964d219e51f004ecc0a8a5ba5be8f6acd2abe50fd0\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"children\":[{\"type\":\"image\",\"src\":\"a.png\",\"alt\":\"x\"}],\"caption\":[{\"type\":\"evilcaption\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Bare Type In Caption\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-BLOCK-TYPE-UNKNOWN-BARE",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "description": "A known `figure` whose `caption` is an object, not the schema-permitted string or textNode array — a malformed container that would also hide its contents from the walk (the `caption` counterpart of `warn-block-nonarray-children`). WARNING in draft/review.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 7.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2d0378ac8c4530e4ef91c228452fdc79d77d5be37f5f09f01857f6053013e96f\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"children\":[{\"type\":\"image\",\"src\":\"a.png\",\"alt\":\"x\"}],\"caption\":{\"0\":{\"type\":\"text\",\"value\":\"cap\"}}}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-array Caption\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-BLOCK-MALFORMED",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}
