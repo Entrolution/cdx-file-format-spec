@@ -1,0 +1,38 @@
+{
+  "description": "An unrecognized but well-formed namespaced block type `myorg:widget` is an extension the reader does not implement: it degrades to a fallback — IGNORE.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:3baaf1797b9cbf93115c2d39c9405f1776e697ae4e05d18cd34036da06281451\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"myorg:widget\",\"config\":{\"x\":1},\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"fallback\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Namespaced Block\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED",
+        "atLeast": "IGNORE",
+        "atMost": "IGNORE"
+      }
+    ]
+  }
+}

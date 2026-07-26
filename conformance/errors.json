@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.5",
+  "version": "0.6",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -12,7 +12,7 @@
       "`specVersion` is the CDX specification version the `clause` citations resolve against."
     ]
   },
-  "dispositionNote": "`disposition` records the load-time disposition the SPECIFICATION assigns to this defect class (State Machine section 5.4), with `dispositionClause` naming the row relied on. It is the normative half of an entry. A null disposition means the specification assigns no document-level disposition to this defect \u2014 not that a consumer may ignore it. NOTE for lineage entries: the lineage OUTCOME vocabulary (VERIFIED/INCOMPLETE/REJECTED, Provenance and Lineage section 3.3) is a different axis from the DISPOSITION vocabulary (IGNORE/WARNING/INTEGRITY-ERROR/REJECT). A lineage outcome of REJECTED does NOT mean the disposition REJECT: a proven-forged lineage is a WARNING, because the document's content identity is unaffected and it is not blocked on lineage grounds.",
+  "dispositionNote": "`disposition` records the load-time disposition the SPECIFICATION assigns to this defect class (State Machine section 5.4), with `dispositionClause` naming the row relied on. It is the normative half of an entry. A null disposition means the specification assigns no document-level disposition to this defect \u2014 not that a consumer may ignore it. NOTE for STATE-VARYING rows: a few section 5.4.2 rows assign different dispositions by document state (e.g. a structurally malformed block/mark of a known type is WARNING in draft/review but INTEGRITY-ERROR in frozen/published). The scalar `disposition` records the state-invariant or draft/review disposition; any frozen/published escalation is described in `note` pending a state-aware model. This is a widening of an entry's stated disposition for higher-integrity states, not a re-pointing of the code to a different defect, so it is compatible with the append-only policy. NOTE for lineage entries: the lineage OUTCOME vocabulary (VERIFIED/INCOMPLETE/REJECTED, Provenance and Lineage section 3.3) is a different axis from the DISPOSITION vocabulary (IGNORE/WARNING/INTEGRITY-ERROR/REJECT). A lineage outcome of REJECTED does NOT mean the disposition REJECT: a proven-forged lineage is a WARNING, because the document's content identity is unaffected and it is not blocked on lineage grounds.",
   "codes": {
     "CDX-E-MANIFEST-ID-PENDING": {
       "summary": "A manifest projection was requested for a document whose id is still `pending`.",
@@ -277,6 +277,48 @@
       "clause": "Container Format section 3.1",
       "disposition": "REJECT",
       "dispositionClause": "State Machine section 5.4.2 (ZIP-level encryption present, or a multi-volume archive, both forbidden by Container Format section 3.1 and neither coherently loadable)"
+    },
+    "CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED": {
+      "summary": "A content block has an unrecognized but well-formed namespaced type (`ns:name`, e.g. `myorg:widget`) — an extension block type this reader does not implement.",
+      "clause": "Content Blocks section 5; State Machine section 5.4.2",
+      "disposition": "IGNORE",
+      "dispositionClause": "State Machine section 5.4.2 (unknown namespaced block or mark type — IGNORE, render a fallback). State-invariant.",
+      "note": "\"Namespaced\" is the schema's extension-type form (a non-empty prefix, a colon, a non-empty suffix); a registered namespaced type such as academic:theorem is in the known set and is NOT reported here (Content Blocks section 5.1 line 1019)."
+    },
+    "CDX-E-BLOCK-TYPE-UNKNOWN-BARE": {
+      "summary": "A content block has an unrecognized type that is not a well-formed namespaced identifier: a bare or misspelled type (e.g. `paragrph`), a colon-malformed type (`:x`, `x:`), a missing or non-string `type`, or a non-object in a block position — none of which can be deferred to an extension fallback.",
+      "clause": "Content Blocks section 5; State Machine section 5.4.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (unknown bare, non-namespaced block or mark type — REJECT). State-invariant; Content Blocks section 5.1 line 1017 frames the bare-vs-namespaced split so a misspelled core type is caught rather than silently accepted.",
+      "note": "Fail-closed: only a well-formed namespaced identifier earns the lenient IGNORE of CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED; every other unrecognized block type is bare and REJECTs."
+    },
+    "CDX-E-BLOCK-MALFORMED": {
+      "summary": "A block of a KNOWN CORE type violates a structural constraint JSON Schema cannot express: upward containment (e.g. a `tableCell`, `tableRow`, or `figcaption` outside its required parent), figure / definitionItem cardinality, or a node-bearing field of the wrong shape — on the block or on one of its subfigures — (`children`/`subfigures`/`marks` present but not an array, `caption` present but neither array nor string, or a `subfigures` element that is not an object).",
+      "clause": "Content Blocks section 7.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (structurally malformed block or mark of a known type — WARNING in draft/review).",
+      "note": "This code carries the DRAFT/REVIEW disposition only. The FROZEN/PUBLISHED escalation to INTEGRITY-ERROR is gated on a valid signature (State Machine section 5.3) and is deferred to B3; every B1b-2 fixture is a draft."
+    },
+    "CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED": {
+      "summary": "A text-node mark has an unrecognized but well-formed namespaced type (`ns:name`, e.g. `myorg:flag`), in either bare-string or typed-object form — an extension mark this reader does not implement.",
+      "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+      "disposition": "IGNORE",
+      "dispositionClause": "State Machine section 5.4.2 (unknown namespaced block or mark type — IGNORE, render the unmarked text). State-invariant.",
+      "note": "A registered namespaced mark such as legal:cite is in the known set and is NOT reported here (Content Blocks section 5.1 line 1019)."
+    },
+    "CDX-E-MARK-TYPE-UNKNOWN-BARE": {
+      "summary": "A text-node mark has an unrecognized type that is not a well-formed namespaced identifier: a bare or misspelled mark string (e.g. `itlaic`), a colon-malformed mark, a mark object with a missing or non-string `type`, or a mark that is neither a string nor an object.",
+      "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+      "disposition": "REJECT",
+      "dispositionClause": "State Machine section 5.4.2 (unknown bare, non-namespaced block or mark type — REJECT). State-invariant; Content Blocks section 5.1 line 1017: an unrecognized bare mark is rejected as malformed, so a misspelled core mark is not silently accepted as an unknown mark.",
+      "note": "Fail-closed: only a well-formed namespaced identifier earns the lenient IGNORE of CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED; every other unrecognized mark type is bare and REJECTs."
+    },
+    "CDX-E-MARK-MALFORMED": {
+      "summary": "A mark of a KNOWN type is structurally malformed for that type: a core structured mark missing a required field (`link` without `href`, `anchor` without `id`, `math` without `format`/`source`), a core string mark (bold, italic, …) carried as an object, or a structured mark used as a bare string.",
+      "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (structurally malformed block or mark of a known type — WARNING in draft/review).",
+      "note": "This code carries the DRAFT/REVIEW disposition only; the FROZEN/PUBLISHED INTEGRITY-ERROR escalation is deferred to B3 (State Machine section 5.3). The internal field validation of the registered EXTENSION structured marks (citation, footnote, entity, glossary, academic:*-ref, presentation:*, legal:cite) is deferred; those types are in the known set, so they are neither rejected nor ignored."
     }
   }
 }

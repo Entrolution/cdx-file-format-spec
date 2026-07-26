@@ -1,0 +1,38 @@
+{
+  "description": "The typed-object form of an unknown namespaced mark: `{type:\"acme:hl\", …}`. §5.1 admits an unknown namespaced mark as either a bare string or a typed object; both degrade to the unmarked text — IGNORE.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:e84c61a3da7d2697d8d12f5fc033054d96a46f0710b412addadaa415eba22be6\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"acme:hl\",\"color\":\"y\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Namespaced Object Mark\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED",
+        "atLeast": "IGNORE",
+        "atMost": "IGNORE"
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "description": "A registered extension block (academic:theorem) whose `children` contain a would-be-bare block type (`paragrph`). The core classifier recognizes the extension type but does NOT interpret its interior — an extension block's structure is defined by its own schema (academic:theorem uses `children`, academic:exercise-set uses `exercises[]`, …), which the core classifier cannot know — so full extension-content validation is deferred to B1b-3 and the document is CLEAN at this layer, not REJECT. Pins the extension-interior boundary: a change that started descending into registered extension blocks would false-REJECT this (and mishandle extension content generally).",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:813dc95f98f4cdd929ecff37a09c29c7074ec5b7eb932abd823a2ab893531b48\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:theorem\",\"children\":[{\"type\":\"paragrph\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Opaque Extension Interior\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

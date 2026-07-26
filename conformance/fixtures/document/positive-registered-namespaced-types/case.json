@@ -1,0 +1,32 @@
+{
+  "description": "A registered namespaced block (academic:theorem) and, in a core paragraph, a registered namespaced mark (legal:cite). Registered namespaced identifiers belong to the known set (Content Blocks §5.1 line 1019), so they are recognized as known, never treated as unknown extensions (which would be IGNORE) — CLEAN. The theorem interior is opaque to the core classifier (deferred), so the exercised legal:cite mark sits in the core paragraph where it is reached.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 5.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:c1526e539b86978b95c2ed36b52705f0d1d7d393e04692e1dc5136c2a34bc3eb\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:theorem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Pythagoras\"}]}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"legal:cite\",\"cite\":\"Euclid I.47\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Registered Extensions\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

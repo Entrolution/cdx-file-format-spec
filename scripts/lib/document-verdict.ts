@@ -24,19 +24,28 @@
  *     content part (syntax error, or a decompression / resource-limit failure) REJECTs
  *     in every state, since the content and document identity cannot be established
  *     (§5.4.1; §4.3.2).
+ * SCOPE (B1b-2, Tier 2): the content block/mark type classifier — over the parsed
+ * content value, every block type and text-node mark type is classified against the
+ * reader's recognized vocabulary (content-classifier.ts): an unknown BARE type
+ * REJECTs, an unknown NAMESPACED type is IGNOREd, and a structurally malformed
+ * KNOWN block/mark WARNs (§5.4.2 rows for §5/§5.1, draft/review column).
  * The document-ID / file-hash recompute (§5.4.2 "File hash or document-ID
- * mismatch"), full content canonical-validity beyond parseability (block/mark
- * structure, NFC), the Dublin Core / provenance missing-part rows, the block/mark
- * classifier, and the reference resolver arrive in B1b-2 / B1b-3; the
- * FROZEN/PUBLISHED INTEGRITY-ERROR ceilings (which §5.3 gates on a valid signature)
- * arrive in B3. The disposition VALUES are authoritative in errors.json, never
- * invented here.
+ * mismatch"), the Dublin Core / provenance missing-part rows, the reference resolver
+ * (dangling content anchors and cross-references), full content-part schema validity
+ * beyond the block/mark type rows (the root envelope, anchor-range, and the INTERIORS
+ * of registered extension blocks — academic:*, forms:*, … — validated against their
+ * extension schemas), and NFC normalization of content strings arrive in B1b-3; the
+ * FROZEN/PUBLISHED
+ * INTEGRITY-ERROR ceilings for the malformed-known row (which §5.3 gates on a valid
+ * signature) arrive in B3. The disposition VALUES are authoritative in errors.json,
+ * never invented here.
  */
 
 import { loadPart, hasEntry } from './part-loader.js';
 import { validateManifestCore } from './manifest-projection.js';
 import { isPlainObject, CanonicalizationError, firstNonRepresentableNumber } from './canonicalize.js';
 import { resolveVerdict, type LayerVerdict, type VerdictFinding } from './verdict.js';
+import { classifyContent, type ContentVocabulary } from './content-classifier.js';
 import type { ArchiveResult } from './zip-reader.js';
 
 /** Document-layer defect codes this mapper assigns (registered in errors.json). */
@@ -72,13 +81,15 @@ export interface ReaderSupport {
  * Compute the document-layer verdict for an archive whose container layer has
  * already been read. `archive.entries` is the central-directory entry set;
  * `bytes` is the raw archive so parts can be decompressed in memory on demand.
- * `support` is the reader's version/extension support envelope.
+ * `support` is the reader's version/extension support envelope; `vocab` is the
+ * recognized block/mark vocabulary the content classifier compares against
+ * (content-classifier.ts, derived from content.schema.json).
  *
  * Container-layer findings are NOT re-mapped here — the caller composes the two
  * verdicts (max over both), so a container REJECT blocks the document regardless of
  * the part-layer read. This function reports only the part-layer findings it detects.
  */
-export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: ReaderSupport): DocumentVerdict {
+export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: ReaderSupport, vocab: ContentVocabulary): DocumentVerdict {
   const codes: string[] = [];
   const add = (code: string): void => {
     codes.push(code);
@@ -161,11 +172,15 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       // established: REJECT in every state (§5.4.1; §4.3.2 requires canonical JSON).
       // Symmetric with the manifest path above.
       add(c.code ?? CODE.CONTENT_PART_UNPARSEABLE);
-    } else if (c.status === 'ok' && firstNonRepresentableNumber(c.value) !== null) {
+    } else if (c.status === 'ok') {
       // The content part IS hashed, so the state-invariant non-representable-number
       // rule (§5.4.3) applies to it even for a pending-id draft that is never
       // canonicalized.
-      add(CODE.PART_NUMBER_NON_REPRESENTABLE);
+      if (firstNonRepresentableNumber(c.value) !== null) add(CODE.PART_NUMBER_NON_REPRESENTABLE);
+      // B1b-2: classify every block/mark type in the parsed content tree. An unknown
+      // bare type REJECTs, an unknown namespaced type is IGNOREd, a malformed known
+      // block/mark WARNs (§5.4.2, §5/§5.1). resolveVerdict maps each code's disposition.
+      for (const f of classifyContent(c.value, vocab)) add(f.code);
     }
   }
 
