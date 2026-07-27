@@ -29,21 +29,35 @@
  * reader's recognized vocabulary (content-classifier.ts): an unknown BARE type
  * REJECTs, an unknown NAMESPACED type is IGNOREd, and a structurally malformed
  * KNOWN block/mark WARNs (§5.4.2 rows for §5/§5.1, draft/review column).
- * The document-ID / file-hash recompute (§5.4.2 "File hash or document-ID
- * mismatch"), the Dublin Core / provenance missing-part rows, the reference resolver
- * (dangling content anchors and cross-references), full content-part schema validity
- * beyond the block/mark type rows (the root envelope, anchor-range, and the INTERIORS
- * of registered extension blocks — academic:*, forms:*, … — validated against their
- * extension schemas), and NFC normalization of content strings arrive in B1b-3; the
- * FROZEN/PUBLISHED
- * INTEGRITY-ERROR ceilings for the malformed-known row (which §5.3 gates on a valid
- * signature) arrive in B3. The disposition VALUES are authoritative in errors.json,
- * never invented here.
+ * SCOPE (B1b-3a, Tier 3 part 1): the "declared vs computed" half of the §5.4.2 "File
+ * `hash` or document-ID mismatch" row — the file-level content.hash is verified
+ * against the exact stored content bytes (§5.1), and, for a document carrying a real
+ * (non-pending) id, the canonical document ID is recomputed (canonicalize.ts) and
+ * compared to manifest.id (§4.4/§6.3). Both WARN (draft/review); the FROZEN/PUBLISHED
+ * INTEGRITY-ERROR escalation is state-keyed (§6.3) and, because soundly trusting the
+ * `state` needs a projection-covering signature (§5.4.2 note 3), arrives in B3.
+ * The asset-hash mismatch (§5.4.2 "Asset hash mismatch") and presentation-file hash
+ * mismatch, the Dublin Core / provenance missing-part rows, the reference resolver
+ * (dangling content anchors and cross-references), and full content-part schema
+ * validity beyond the block/mark type rows (the root envelope, anchor-range, and the
+ * INTERIORS of registered extension blocks — academic:*, forms:*, … — validated
+ * against their extension schemas), plus NFC normalization of content strings, arrive
+ * in B1b-3b/3c; the FROZEN/PUBLISHED INTEGRITY-ERROR ceilings for the malformed-known
+ * row (which §5.3 gates on a valid signature) arrive in B3. The disposition VALUES are
+ * authoritative in errors.json, never invented here.
  */
 
 import { loadPart, hasEntry } from './part-loader.js';
 import { validateManifestCore } from './manifest-projection.js';
-import { isPlainObject, CanonicalizationError, firstNonRepresentableNumber } from './canonicalize.js';
+import {
+  isPlainObject,
+  CanonicalizationError,
+  firstNonRepresentableNumber,
+  hashBytes,
+  computeDocumentId,
+  algorithmOf,
+  isValidContentHash,
+} from './canonicalize.js';
 import { resolveVerdict, type LayerVerdict, type VerdictFinding } from './verdict.js';
 import { classifyContent, type ContentVocabulary } from './content-classifier.js';
 import type { ArchiveResult } from './zip-reader.js';
@@ -60,6 +74,8 @@ export const CODE = {
   VERSION_MINOR_UNSUPPORTED: 'CDX-E-VERSION-MINOR-UNSUPPORTED',
   EXTENSION_REQUIRED_UNSUPPORTED: 'CDX-E-EXTENSION-REQUIRED-UNSUPPORTED',
   EXTENSION_OPTIONAL_UNSUPPORTED: 'CDX-E-EXTENSION-OPTIONAL-UNSUPPORTED',
+  FILE_HASH_MISMATCH: 'CDX-E-FILE-HASH-MISMATCH',
+  DOCUMENT_ID_MISMATCH: 'CDX-E-DOCUMENT-ID-MISMATCH',
 } as const;
 
 export type { VerdictFinding };
@@ -181,6 +197,69 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       // bare type REJECTs, an unknown namespaced type is IGNOREd, a malformed known
       // block/mark WARNs (§5.4.2, §5/§5.1). resolveVerdict maps each code's disposition.
       for (const f of classifyContent(c.value, vocab)) add(f.code);
+
+      // --- B1b-3a: file-hash + document-ID recompute ("declared vs computed") ----
+      // Both run only on a present-AND-parseable content part: c.bytes are the exact
+      // stored bytes (§5.1), and computeDocumentId re-parses `content`, so a parseable
+      // part means it can only throw a typed CanonicalizationError (never a bare
+      // SyntaxError). An unparseable/dup-key content is already the dominant REJECT.
+
+      // File-hash mismatch (§5.4.2 row "File `hash` … mismatch"; §5.1/§6.3): the file
+      // hash pins the EXACT stored bytes, so hash c.bytes directly, not the re-encoded
+      // text. content.hash was validated well-formed by validateManifestCore, so
+      // algorithmOf won't throw — but hashBytes → nodeHashName throws for an algorithm
+      // this runtime cannot compute (blake3), which is integrity-INDETERMINATE, not a
+      // mismatch and not clean; no 3a fixture exercises it (capability-scoped away in
+      // the adapter), so the reader simply cannot verify and emits nothing.
+      try {
+        if (hashBytes(algorithmOf(core.content.hash), c.bytes) !== core.content.hash) {
+          add(CODE.FILE_HASH_MISMATCH);
+        }
+      } catch (err) {
+        if (!(err instanceof CanonicalizationError)) throw err;
+      }
+
+      // Document-ID mismatch (§5.4.2 same row; §4.4/§6.3): recompute the canonical id
+      // and compare to manifest.id. Only for a document carrying a real id — a draft's
+      // id is `pending` (§7.1), skipped by isValidContentHash (which also skips a
+      // malformed id). The recompute is deliberately NOT state-gated: a draft carrying
+      // a real, stale id that mismatches is still a WARNING (§6.3 draft = Warning);
+      // `pending` is the only draft id in practice. A review/frozen/published document
+      // carrying `id: "pending"` MUST NOT exist (§7.2) but is not a *mismatch* — it is
+      // left for a future state-model slice, not silently blessed here.
+      if (isValidContentHash(manifest.id)) {
+        // The Dublin Core part's metadata projects into the id (§4.3.1), so the recompute
+        // needs its bytes. Two DC states let the recompute proceed: UNREFERENCED (no
+        // metadata.dublinCore — the id was computed over empty metadata, so `{}` is the
+        // correct basis), and REFERENCED-AND-CLEAN (use its text). A REFERENCED-BUT-
+        // UNLOADABLE DC (absent, or a parse/dup-key defect) is NOT `{}` — the id was
+        // computed over the real DC's metadata, so recomputing over `{}` would compare a
+        // different document's basis and manufacture a spurious mismatch. That case is
+        // instead INDETERMINATE here (the missing/unparseable-DC defect is a B1b-3b row);
+        // the recompute is skipped.
+        let dublinCore = '{}';
+        let dcResolvable = true;
+        const dcRef = isPlainObject(manifest.metadata) ? manifest.metadata.dublinCore : undefined;
+        if (typeof dcRef === 'string') {
+          const dc = loadPart(bytes, archive.entries, dcRef);
+          if (dc.status === 'ok') dublinCore = dc.text;
+          else dcResolvable = false; // referenced but unloadable => id basis indeterminate (B1b-3b)
+        }
+        try {
+          if (dcResolvable) {
+            const recomputed = computeDocumentId({ manifest: m.text, content: c.text, dublinCore }, algorithmOf(manifest.id));
+            if (recomputed !== manifest.id) add(CODE.DOCUMENT_ID_MISMATCH);
+          }
+        } catch (err) {
+          // Cannot recompute: either an id algorithm this reader cannot compute
+          // (blake3 — indeterminate), or a canonicalization error from content this
+          // slice does not yet resolve (a dangling asset reference or a duplicate id
+          // → §5.4.2 rows arriving in B1b-3b). Neither is an id *mismatch*; emit
+          // nothing. This is NOT a substitute for the deferred B1b-3b rows. No 3a
+          // fixture reaches this path (all use trivial, asset/id-free content).
+          if (!(err instanceof CanonicalizationError)) throw err;
+        }
+      }
     }
   }
 
