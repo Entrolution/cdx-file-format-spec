@@ -379,7 +379,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
   },
   {
     name: 'positive-review-minimal',
-    description: 'A well-formed review document with a computed document id. Accepted; the review state is valid and every part loads. (The id/hash recompute lands in a later slice; this fixture already carries the correct id so it stays clean then.)',
+    description: 'A well-formed review document with a computed document id. Accepted; the review state is valid, every part loads, the file-level content.hash matches the stored bytes, and the recomputed canonical document ID matches manifest.id — the positive control for the B1b-3a file-hash and document-ID checks (a reader that skips either would fail this).',
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'State Machine section 3.3; Manifest section 4.2',
@@ -935,6 +935,80 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"x","marks":[{"type":"math","format":"latex"}]}]}]}', 'Math Missing Source'),
     ),
     expect: warnOnly('CDX-E-MARK-MALFORMED'),
+  },
+
+  // ===========================================================================
+  // Document/part layer (B1b-3a, Tier 3 part 1): "declared vs computed" — the
+  // §5.4.2 "File `hash` or document-ID mismatch" row (draft/review WARNING column).
+  // The file-level content.hash is verified against the exact stored content bytes
+  // (Document Hashing §5.1), and — for a document carrying a real (non-pending) id —
+  // the canonical document ID is recomputed and compared to manifest.id (§4.4/§6.3).
+  // The FROZEN/PUBLISHED INTEGRITY-ERROR escalation (state-keyed, §6.3) needs a
+  // projection-covering signature (§5.4.2 note 3) and arrives in B3; the asset-index
+  // and presentation-file hash rows arrive in B1b-3b. Content is transform-trivial
+  // (empty blocks) so the id math is verifiable by the independent oracle.
+  // ===========================================================================
+  {
+    name: 'warn-file-hash-mismatch',
+    description: 'A draft whose content part is well-formed but whose declared `content.hash` does not match the stored content bytes (one hex digit flipped) — the file hash pins the exact stored bytes (Document Hashing §5.1), so a mismatch is a WARNING in draft/review. Draft ⇒ id is `pending`, so only the file-hash finding fires. (FROZEN/PUBLISHED escalation to INTEGRITY-ERROR is deferred to B3.)',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 5.1, 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cd' } }),
+      cleanBody('File Hash Mismatch'),
+    ),
+    expect: warnOnly('CDX-E-FILE-HASH-MISMATCH'),
+  },
+  {
+    name: 'warn-document-id-mismatch-metadata',
+    description: 'A review document whose declared `manifest.id` was computed over the title "Minimal Review", but whose Dublin Core title is now "Edited Title" — the metadata projects into the document ID (Document Hashing §4.3.1), so the recomputed id no longer matches the declared one. Models metadata edited after the id was fixed. The `content.hash` is correct, so only the document-ID finding fires — WARNING in draft/review.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.4, 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675', state: 'review' }),
+      cleanBody('Edited Title'),
+    ),
+    expect: warnOnly('CDX-E-DOCUMENT-ID-MISMATCH'),
+  },
+  {
+    name: 'warn-document-id-mismatch-content',
+    description: 'A review document whose stored content differs from the content its declared `manifest.id` was computed over (content `version` 0.2 vs the 0.1 basis) — the content is part of the canonical hash, so the recomputed id differs. The `content.hash` correctly pins the stored (0.2) bytes, so the file hash is clean and only the document-ID finding fires. Proves the recompute reads the content, not just the metadata. WARNING in draft/review.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.4, 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675',
+        state: 'review',
+        content: { path: 'content/document.json', hash: 'sha256:30d5a3dc35063023dc212e6cf97d00232f8eb9d2764aaad2946098ce06d09f80' },
+      }),
+      contentBody('{"version":"0.2","blocks":[]}', 'Minimal Review'),
+    ),
+    expect: warnOnly('CDX-E-DOCUMENT-ID-MISMATCH'),
+  },
+  {
+    name: 'warn-file-and-id-mismatch',
+    description: 'A review document with BOTH a wrong `content.hash` (one hex digit flipped) AND a wrong `manifest.id` (one hex digit flipped) over otherwise-valid content and metadata. Both the file-hash and document-ID checks fire; the document-level disposition is the max over the two WARNINGs (WARNING). Exercises the multi-finding composition path — both findings must be independently confirmed by the oracle.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.4, 5.1, 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df067c',
+        state: 'review',
+        content: { path: 'content/document.json', hash: 'sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cd' },
+      }),
+      cleanBody('Minimal Review'),
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'WARNING' },
+      findings: [
+        { code: 'CDX-E-FILE-HASH-MISMATCH', atLeast: 'WARNING', atMost: 'WARNING' },
+        { code: 'CDX-E-DOCUMENT-ID-MISMATCH', atLeast: 'WARNING', atMost: 'WARNING' },
+      ],
+    },
   },
 ];
 

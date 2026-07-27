@@ -1,11 +1,11 @@
 {
-  "description": "A well-formed review document with a computed document id. Accepted; the review state is valid, every part loads, the file-level content.hash matches the stored bytes, and the recomputed canonical document ID matches manifest.id — the positive control for the B1b-3a file-hash and document-ID checks (a reader that skips either would fail this).",
+  "description": "A review document whose declared `manifest.id` was computed over the title \"Minimal Review\", but whose Dublin Core title is now \"Edited Title\" — the metadata projects into the document ID (Document Hashing §4.3.1), so the recomputed id no longer matches the declared one. Models metadata edited after the id was fixed. The `content.hash` is correct, so only the document-ID finding fires — WARNING in draft/review.",
   "layer": "document",
   "requires": [
     "container",
     "document"
   ],
-  "clause": "State Machine section 3.3; Manifest section 4.2",
+  "clause": "Document Hashing sections 4.4, 6.3; State Machine section 5.4.2",
   "recipe": {
     "entries": [
       {
@@ -18,15 +18,21 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Review\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Edited Title\"}}"
       }
     ]
   },
   "expect": {
     "documentDisposition": {
-      "atLeast": "IGNORE",
-      "atMost": "IGNORE"
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
     },
-    "findings": []
+    "findings": [
+      {
+        "code": "CDX-E-DOCUMENT-ID-MISMATCH",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
   }
 }

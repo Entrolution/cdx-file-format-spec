@@ -1,0 +1,43 @@
+{
+  "description": "A review document with BOTH a wrong `content.hash` (one hex digit flipped) AND a wrong `manifest.id` (one hex digit flipped) over otherwise-valid content and metadata. Both the file-hash and document-ID checks fire; the document-level disposition is the max over the two WARNINGs (WARNING). Exercises the multi-finding composition path — both findings must be independently confirmed by the oracle.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.4, 5.1, 6.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df067c\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cd\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Review\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-FILE-HASH-MISMATCH",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      },
+      {
+        "code": "CDX-E-DOCUMENT-ID-MISMATCH",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

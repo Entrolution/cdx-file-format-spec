@@ -29,6 +29,7 @@ manifest and referenced content part both parse as JSON and carry no duplicate k
 Usage: document_oracle.py check
 """
 
+import hashlib
 import io
 import json
 import math
@@ -36,6 +37,7 @@ import os
 import re
 import struct
 import sys
+import unicodedata
 import zipfile
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "fixtures", "document")
@@ -53,6 +55,21 @@ SUPPORTED_MINOR = 1
 SUPPORTED_EXTENSIONS = {"cdx.security"}
 # Digest lengths mirror canonicalize.ts KNOWN_ALGORITHMS, re-encoded here.
 HEX_LEN = {"sha256": 64, "sha384": 96, "sha512": 128, "sha3-256": 64, "sha3-512": 128, "blake3": 64}
+# The subset of the CDX algorithms the standard library can compute — the same set
+# canonicalize_oracle.py uses. `blake3` is deliberately absent (no stdlib impl), so a
+# blake3 file-hash / document-id is UN-CONFIRMABLE by this oracle, consistent with the
+# reference reader (canonicalize.ts) also refusing to compute it. No B1b-3a fixture
+# uses blake3, so this is never exercised there.
+HASHLIB = {"sha256": hashlib.sha256, "sha384": hashlib.sha384, "sha512": hashlib.sha512,
+           "sha3-256": hashlib.sha3_256, "sha3-512": hashlib.sha3_512}
+
+
+class OracleUnsupported(Exception):
+    """Raised when a fixture's content is richer than this oracle's INDEPENDENT
+    document-id recompute models (see _recompute_id's whitelist). It is a loud
+    signal to EXTEND the oracle, never a silent pass — a negative id-mismatch
+    fixture that trips it fails the check; a clean fixture that trips it has its
+    id cross-check skipped (the TS reader + Level-0 canonicalize vectors cover it)."""
 
 # --- B1b-2 content block/mark classifier: independently RE-ENCODED vocabulary ---
 # The recognized sets are transcribed from content.schema.json (the $defs/block open
@@ -545,6 +562,181 @@ def classify_content(data, cd):
     return out
 
 
+# --- B1b-3a "declared vs computed": file-hash + document-id recompute ----------
+# Independent (shared-nothing) confirmers for the §5.4.2 "File `hash` or document-ID
+# mismatch" row. The file-hash check re-hashes the stored content bytes with `hashlib`
+# (vs the reader's Node crypto). The document-id check re-derives the canonical id from
+# scratch, reusing canonicalize_oracle.py's JCS+digest approach — NOT importing the TS.
+
+def _hash_of(algorithm, raw):
+    """`algorithm:hexdigest` over raw bytes, or None if the algorithm is un-computable
+    here (blake3). Mirrors canonicalize_oracle.py's digest()."""
+    fn = HASHLIB.get(algorithm)
+    return None if fn is None else f"{algorithm}:{fn(raw).hexdigest()}"
+
+
+def file_hash_mismatch(data, cd):
+    """The declared file-level content.hash differs from sha256(stored content bytes).
+    Present iff both are readable, the hash is well-formed and computable, and they differ."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return False
+    c = m.get("content")
+    if not (isinstance(c, dict) and isinstance(c.get("path"), str) and isinstance(c.get("hash"), str)):
+        return False  # a shape defect is CDX-E-MANIFEST-REFERENCE-MALFORMED
+    declared = c["hash"]
+    if not is_valid_content_hash(declared):
+        return False  # a malformed hash is CDX-E-MANIFEST-HASH-MALFORMED
+    e = cd_map(cd).get(c["path"])
+    if e is None:
+        return False  # a missing content part is CDX-E-CONTENT-PART-MISSING
+    raw = store_bytes(data, e)
+    if raw is None:
+        return False  # non-Store / unreadable (the document fixtures are all Store)
+    real = _hash_of(declared.split(":", 1)[0], raw)
+    return real is not None and real != declared  # blake3 → un-confirmable
+
+
+def _dublin_core_value(data, cd):
+    """The parsed Dublin Core object the document id projects over. Mirrors the reader's
+    dc-resolution gate: UNREFERENCED (no metadata.dublinCore) → `{}` (the id was computed
+    over empty metadata); REFERENCED-AND-CLEAN → the parsed value. A REFERENCED-BUT-
+    UNLOADABLE part (absent, duplicate-key, or unparseable) is INDETERMINATE, not `{}` —
+    the reader skips the recompute for it (the missing/unparseable-DC defect is a B1b-3b
+    row), so the oracle raises OracleUnsupported rather than recompute over a wrong basis."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return {}
+    meta = m.get("metadata")
+    ref = meta.get("dublinCore") if isinstance(meta, dict) else None
+    if not isinstance(ref, str):
+        return {}  # unreferenced → empty-metadata basis
+    text = part_text(data, cd_map(cd), ref)
+    if text is None:
+        raise OracleUnsupported("Dublin Core part referenced but absent")
+    if has_duplicate_key(text):
+        raise OracleUnsupported("Dublin Core part has a duplicate key")  # reader's parseStrictJson rejects it
+    try:
+        return json.loads(text)  # a non-object value is rejected downstream by _project_metadata
+    except json.JSONDecodeError:
+        raise OracleUnsupported("Dublin Core part referenced but unparseable")
+
+
+def _require_inert_string(s):
+    """Reject a string the reference canonicalizer would refuse (validateStoredByteInvariants,
+    §4.3.2): not well-formed Unicode (a lone surrogate), or not in NFC. The reference throws
+    on these — so the id is indeterminate and the oracle must not compute a (wrong) one, and
+    must not crash on the later UTF-8 encode. Distinguishing absent (`t not in terms`) from a
+    present JSON `null` matches the reference too (projectMetadata throws on a null term)."""
+    try:
+        s.encode("utf-8")
+    except UnicodeEncodeError:
+        raise OracleUnsupported("metadata string is not well-formed Unicode")
+    if unicodedata.normalize("NFC", s) != s:
+        raise OracleUnsupported("metadata string is not in NFC")
+
+
+def _project_metadata(dc):
+    """Re-encode canonicalize.ts projectMetadata (§4.3.1): title/description as strings,
+    creator/subject/language as string arrays (scalars coerced), empty values omitted. A
+    malformed term (present but non-string / non-array, incl. a present `null`) or a string
+    the reference rejects (non-NFC / ill-formed) raises OracleUnsupported, never silently
+    drops — the reference throws on exactly these, so the id would be indeterminate."""
+    out = {}
+    if not isinstance(dc, dict):
+        raise OracleUnsupported("Dublin Core is not an object")
+    if "terms" not in dc:
+        return out  # absent terms → no projected metadata
+    terms = dc["terms"]  # a present `null` is not a dict → raises below, matching the reference
+    if not isinstance(terms, dict):
+        raise OracleUnsupported("Dublin Core `terms` is not an object")
+    for t in ("title", "description"):
+        if t not in terms:
+            continue  # absent → omit (a present `null` falls through and raises below)
+        v = terms[t]
+        if not isinstance(v, str):
+            raise OracleUnsupported(f"term {t} is not a string")
+        _require_inert_string(v)
+        if v != "":
+            out[t] = v
+    for t in ("creator", "subject", "language"):
+        if t not in terms:
+            continue
+        v = terms[t]
+        if isinstance(v, str):
+            _require_inert_string(v)
+            if v != "":
+                out[t] = [v]
+        elif isinstance(v, list):
+            if not all(isinstance(e, str) for e in v):
+                raise OracleUnsupported(f"term {t} array is not all strings")
+            for e in v:
+                _require_inert_string(e)
+            ne = [e for e in v if e != ""]
+            if ne:
+                out[t] = ne
+        else:
+            raise OracleUnsupported(f"term {t} is neither a string nor an array")
+    return out
+
+
+def _assert_inert_content(content):
+    """WHITELIST guard: the id recompute below assumes the canonical content transform
+    (canonicalize.ts §4.3.1 — strip derived fields, resolve asset refs, normalize marks,
+    merge text, relabel ids) is the IDENTITY. That holds ONLY for the transform-trivial
+    content B1b-3a fixtures use: a root object with keys ⊆ {version, blocks}, a STRING
+    version, and an EMPTY blocks array. Anything else (non-empty blocks, marks, ids,
+    asset refs, crdt, numbers, …) is transformed and/or risks JCS number formatting, so
+    the identity assumption would compute a WRONG id — raise, forcing the oracle to be
+    extended, never silently mis-confirm. (canonicalize_oracle.py makes the analogous
+    faithfulness assumption for hand-authored canonical objects.)"""
+    if not isinstance(content, dict):
+        raise OracleUnsupported("content value is not an object")
+    for k, v in content.items():
+        if k == "version":
+            if not isinstance(v, str):
+                raise OracleUnsupported("content.version is not a string")
+            _require_inert_string(v)  # NFC + well-formed, mirroring validateStoredByteInvariants
+        elif k == "blocks":
+            if v != []:
+                raise OracleUnsupported("content.blocks is not empty (non-inert; extend the oracle)")
+        else:
+            raise OracleUnsupported(f"content carries an un-modelled key {k!r}")
+
+
+def _jcs(obj):
+    """RFC 8785 JCS for ASCII-key, number-free content — as canonicalize_oracle.py."""
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _recompute_id(content, dc, algorithm):
+    """The INDEPENDENT canonical document id for transform-inert content: build the
+    {content, metadata} envelope (§4.2), JCS it, and digest. Raises OracleUnsupported
+    if the content is not provably inert or the algorithm is un-computable here."""
+    _assert_inert_content(content)
+    if algorithm not in HASHLIB:
+        raise OracleUnsupported(f"un-computable id algorithm {algorithm!r}")
+    envelope = {"content": content, "metadata": _project_metadata(dc)}
+    return _hash_of(algorithm, _jcs(envelope).encode("utf-8"))
+
+
+def document_id_mismatch(data, cd):
+    """The declared manifest.id differs from the recomputed canonical document id.
+    Only for a real (non-pending, well-formed) id; may raise OracleUnsupported for
+    content the oracle does not model (a loud signal, surfaced by check())."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return False
+    declared = m.get("id")
+    if not (isinstance(declared, str) and is_valid_content_hash(declared)):
+        return False  # pending / malformed id is not this row
+    content = _content_value(data, cd)
+    if content is None:
+        return False
+    recomputed = _recompute_id(content, _dublin_core_value(data, cd), declared.split(":", 1)[0])
+    return recomputed != declared
+
+
 CONFIRMERS = {
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
     "CDX-E-BLOCK-TYPE-UNKNOWN-BARE": lambda data, cd: "block_bare" in classify_content(data, cd),
@@ -567,6 +759,8 @@ CONFIRMERS = {
     "CDX-E-VERSION-MINOR-UNSUPPORTED": minor_unsupported,
     "CDX-E-EXTENSION-REQUIRED-UNSUPPORTED": required_extension_unsupported,
     "CDX-E-EXTENSION-OPTIONAL-UNSUPPORTED": optional_extension_unsupported,
+    "CDX-E-FILE-HASH-MISMATCH": file_hash_mismatch,
+    "CDX-E-DOCUMENT-ID-MISMATCH": document_id_mismatch,
 }
 
 
@@ -610,6 +804,21 @@ def confirm_clean(name, data):
     findings = classify_content(data, cd)
     if findings:
         return f"clean case content has block/mark classifier finding(s): {sorted(findings)}"
+    # B1b-3a: a clean fixture's declared file hash must match the stored bytes, and — for
+    # a document carrying a real id — the recomputed canonical document id must match it.
+    # Otherwise a reader that skips hash/id verification would wrongly pass this fixture.
+    if file_hash_mismatch(data, cd):
+        return "clean case content.hash does not match the stored content bytes"
+    declared_id = manifest.get("id")
+    if isinstance(declared_id, str) and is_valid_content_hash(declared_id):
+        try:
+            recomputed = _recompute_id(json.loads(ctext), _dublin_core_value(data, cd), declared_id.split(":", 1)[0])
+            if recomputed != declared_id:
+                return "clean case recomputed document id does not match manifest.id"
+        except OracleUnsupported:
+            pass  # content richer than the oracle models — the TS reader + Level-0
+            # canonicalize vectors cover its id; a wrong id would still make the reader
+            # emit CDX-E-DOCUMENT-ID-MISMATCH and fail check:conformance.
     return None
 
 
@@ -642,7 +851,15 @@ def check():
                 print(f"FAIL {name}: no independent confirmer for {code} (add one to CONFIRMERS)")
                 failures += 1
                 continue
-            if confirm(data, cd):
+            try:
+                confirmed = confirm(data, cd)
+            except OracleUnsupported as exc:
+                # A negative fixture whose content the id recompute does not model —
+                # a loud signal to extend the oracle's whitelist, never a silent pass.
+                print(f"FAIL {name}: confirmer for {code} cannot model this fixture ({exc}); extend the oracle")
+                failures += 1
+                continue
+            if confirmed:
                 n_malformed += 1
             else:
                 print(f"FAIL {name}: could not independently confirm {code} in case.cdx")

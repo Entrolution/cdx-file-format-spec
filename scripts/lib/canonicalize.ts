@@ -114,6 +114,20 @@ export function isValidContentHash(h: unknown): h is string {
   return expected !== undefined && digest.length === expected && /^[0-9a-f]+$/.test(digest);
 }
 
+/**
+ * Compute `algorithm:hexdigest` over raw bytes, resolving the algorithm through
+ * the same `nodeHashName` allowlist `computeDocumentId` uses — so an algorithm the
+ * runtime cannot compute (`blake3`, or one absent from this runtime's `crypto`)
+ * throws a typed `CanonicalizationError` rather than silently producing a wrong
+ * digest. The single place a file-level hash is computed: the document mapper's
+ * file-hash verification (State Machine §5.4.2 "File `hash` … mismatch"; §5.1) and
+ * the document-ID hashing therefore cannot drift on algorithm handling.
+ */
+export function hashBytes(algorithm: string, data: Buffer): string {
+  const hashName = nodeHashName(algorithm);
+  return `${algorithm}:${crypto.createHash(hashName).update(data).digest('hex')}`;
+}
+
 /** Resolve an algorithm to its Node `crypto` hash name, or throw if unusable. */
 function nodeHashName(algorithm: string): string {
   if (!KNOWN_ALGORITHMS.includes(algorithm)) {

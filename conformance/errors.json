@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.6",
+  "version": "0.7",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -319,6 +319,20 @@
       "disposition": "WARNING",
       "dispositionClause": "State Machine section 5.4.2 (structurally malformed block or mark of a known type — WARNING in draft/review).",
       "note": "This code carries the DRAFT/REVIEW disposition only; the FROZEN/PUBLISHED INTEGRITY-ERROR escalation is deferred to B3 (State Machine section 5.3). The internal field validation of the registered EXTENSION structured marks (citation, footnote, entity, glossary, academic:*-ref, presentation:*, legal:cite) is deferred; those types are in the known set, so they are neither rejected nor ignored."
+    },
+    "CDX-E-FILE-HASH-MISMATCH": {
+      "summary": "A declared file-level hash does not match the exact stored bytes it pins: the digest of the content part's raw decompressed bytes, under the algorithm named by the hash's own prefix (Document Hashing section 3.3), differs from `manifest.content.hash`.",
+      "clause": "Document Hashing sections 5.1, 6.3; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
+      "note": "STATE-VARYING: the DRAFT/REVIEW disposition is WARNING; on a FROZEN/PUBLISHED document it escalates to INTEGRITY-ERROR (state-keyed per Document Hashing section 6.3 — the document asserts fixed, integrity-checked bytes). The escalation is deferred to B3: soundly trusting `state = frozen`/`published` requires a projection-covering signature (State Machine section 5.4.2 note 3, lifecycle-downgrade), which needs B2 trust material. B1b-3a verifies the file-level `content.hash`; the asset-index and presentation-file hashes are verified in B1b-3b."
+    },
+    "CDX-E-DOCUMENT-ID-MISMATCH": {
+      "summary": "The document ID recomputed from the canonical content (Document Hashing section 4) does not equal the declared `manifest.id`.",
+      "clause": "Document Hashing sections 4.4, 6.3, 7.2; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
+      "note": "STATE-VARYING: WARNING in DRAFT/REVIEW, escalating to INTEGRITY-ERROR on FROZEN/PUBLISHED (state-keyed per Document Hashing section 6.3; deferred to B3 via State Machine section 5.4.2 note 3, as for CDX-E-FILE-HASH-MISMATCH). Recomputed only for a document carrying a real id — a draft's id is `pending` (Document Hashing section 7.1) and has nothing to recompute. A *stale* id (one computed over earlier content or metadata) is exactly what this row detects; a review/frozen/published document carrying a `pending` id is instead a section 7.2 violation this row does not catch, since a pending id is skipped rather than recomputed."
     }
   }
 }

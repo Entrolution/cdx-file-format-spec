@@ -24,8 +24,13 @@ import { parseStrictJson, CanonicalizationError } from './canonicalize.js';
 export type PartLoad =
   /** No central-directory entry with this path. */
   | { status: 'absent' }
-  /** Parsed cleanly; `value` is the JSON value, `text` the raw UTF-8 bytes. */
-  | { status: 'ok'; text: string; value: unknown }
+  /**
+   * Parsed cleanly; `value` is the JSON value, `text` the decoded UTF-8 string,
+   * and `bytes` the exact decompressed part bytes. `bytes` is what a file-level
+   * `content.hash` pins (Document Hashing §5.1) — it is hashed directly, never via
+   * `text`, whose UTF-8 re-encoding could differ from the stored bytes.
+   */
+  | { status: 'ok'; text: string; value: unknown; bytes: Buffer }
   /**
    * Present but unloadable. `code` is the conformance code the canonicalizer
    * attached to a typed CanonicalizationError (e.g. `CDX-E-PART-DUPLICATE-KEYS`)
@@ -58,18 +63,19 @@ export function loadPart(bytes: Buffer, entries: readonly ArchiveEntry[], path: 
   const entry = findEntry(entries, path);
   if (!entry) return { status: 'absent' };
 
-  let text: string;
+  let raw: Buffer;
   try {
-    text = inflateEntry(bytes, entry).toString('utf8');
+    raw = inflateEntry(bytes, entry);
   } catch (err) {
     // A bounded-inflate overflow or a corrupt Deflate stream. The bytes exist but
     // cannot be recovered; the mapper decides the per-part disposition.
     return { status: 'defect', code: null, detail: err instanceof Error ? err.message : String(err) };
   }
+  const text = raw.toString('utf8');
 
   try {
     const value = parseStrictJson(text);
-    return { status: 'ok', text, value };
+    return { status: 'ok', text, value, bytes: raw };
   } catch (err) {
     if (err instanceof CanonicalizationError) {
       // Duplicate keys / resource-limit: parseStrictJson attaches the code when it
