@@ -101,21 +101,46 @@ const manifestJson = (overrides: Record<string, unknown> = {}): string =>
     ...overrides,
   });
 
+/**
+ * A conformant Dublin Core part. 08-metadata §3.3.1/§3.3.2 make BOTH `title` and
+ * `creator` required (`title` a non-empty string, `creator` at least one value), as does
+ * dublin-core.schema.json — so a DC part carrying only `title` violates the §5.4.2
+ * "Missing required metadata — the Dublin Core part or a required term" row that
+ * B1b-3b-1 targets.
+ *
+ * JSON.stringify, not template interpolation (as manifestJson above): a title bearing a
+ * quote or backslash would emit a malformed part, and NOTHING would catch it — the
+ * reader treats an unloadable DC as an indeterminate id basis and skips the recompute
+ * (document-verdict.ts), and the oracle's _dublin_core_value raises OracleUnsupported,
+ * which confirm_clean swallows. A corrupt DC silently buys LESS verification, not a
+ * failure.
+ *
+ * `creator` is SCALAR so the id positive control also covers projectMetadata's
+ * scalar-to-one-element-array coercion (06 §4.3.1); primary coverage for that coercion
+ * is conformance/vectors/document-id.json, which carries both shapes.
+ *
+ * (Container-layer fixtures keep their own inline parts — documentVerdict does not run
+ * for `layer: 'container'`, so their DC is never read.)
+ */
+const dublinCoreJson = (dcTitle: string): string =>
+  JSON.stringify({ version: '1.1', terms: { title: dcTitle, creator: 'A. Author' } });
+
 /** The standard clean content + Dublin Core entries that follow a manifest entry. */
 const cleanBody = (dcTitle = 'Minimal Draft'): ZipEntryRecipe[] => [
   { name: 'content/document.json', text: CLEAN_CONTENT },
-  { name: 'metadata/dublin-core.json', text: `{"version":"1.1","terms":{"title":"${dcTitle}"}}` },
+  { name: 'metadata/dublin-core.json', text: dublinCoreJson(dcTitle) },
 ];
 
 /**
  * A body carrying a specific content part (B1b-2 block/mark-classifier cases) plus a
- * clean Dublin Core part. The content `hash` in each case's manifest is the SHA-256
- * of exactly this `contentText` (a real file hash — the mapper does not yet verify
- * it, but computing it keeps the fixtures correct for the B1b-3 recompute).
+ * clean Dublin Core part. The content `hash` in each case's manifest is the SHA-256 of
+ * exactly this `contentText` — a real file hash, which B1b-3a's file-hash pass now
+ * verifies against the stored bytes (document-verdict.ts), so a wrong one here makes
+ * the fixture emit CDX-E-FILE-HASH-MISMATCH.
  */
 const contentBody = (contentText: string, dcTitle: string): ZipEntryRecipe[] => [
   { name: 'content/document.json', text: contentText },
-  { name: 'metadata/dublin-core.json', text: `{"version":"1.1","terms":{"title":"${dcTitle}"}}` },
+  { name: 'metadata/dublin-core.json', text: dublinCoreJson(dcTitle) },
 ];
 
 /** A document archive: a manifest entry followed by the given body entries. */
@@ -384,7 +409,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     requires: ['container', 'document'],
     clause: 'State Machine section 3.3; Manifest section 4.2',
     recipe: documentArchive(
-      manifestJson({ id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675', state: 'review' }),
+      manifestJson({ id: 'sha256:34d8f862fc561be2e9ca4fe379103ab525dd83e97191fed53ff05be3a3355793', state: 'review' }),
       cleanBody('Minimal Review'),
     ),
     expect: CLEAN,
@@ -422,7 +447,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       manifestJson({ content: { path: 'content/document.json', hash: 'sha256:468aef983350ce40146c8cf5776075bac3598183983afcee130f910879ed0ebb' } }),
       [
         { name: 'content/document.json', text: '{"version":"0.1","version":"0.2","blocks":[]}' },
-        { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Dup Key Case"}}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Dup Key Case') },
       ],
     ),
     expect: rejectOnly('CDX-E-PART-DUPLICATE-KEYS'),
@@ -449,7 +474,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       manifestJson({ content: { path: 'content/document.json', hash: 'sha256:156e2ef9faf24fc3335e02ff5d1f730c608af852d47e6b064c314ac25ec0db5b' } }),
       [
         { name: 'content/document.json', text: '{"version":"0.1","blocks":[],"n":9999999999999999}' },
-        { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Big Number"}}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Big Number') },
       ],
     ),
     expect: rejectOnly('CDX-E-PART-NUMBER-NON-REPRESENTABLE'),
@@ -464,7 +489,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       manifestJson({ content: { path: 'content/document.json', hash: 'sha256:8a7ac01a8f44a74aaec47a6af867f7179028254e0caa522b0accf42bea5d56ed' } }),
       [
         { name: 'content/document.json', text: '{"version":"0.1","blocks":[],"n":1e19}' },
-        { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Big Float"}}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Big Float') },
       ],
     ),
     expect: rejectOnly('CDX-E-PART-NUMBER-NON-REPRESENTABLE'),
@@ -478,7 +503,13 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
     recipe: documentArchive(manifestJson(), [
       { name: 'content/document.json', text: CLEAN_CONTENT },
-      { name: 'metadata/dublin-core.json', text: '{"version":"1.1","version":"9.9","terms":{"title":"Dup DC"}}' },
+      // Spliced from dublinCoreJson so the duplicate `version` key is the ONLY
+      // difference from a conformant part — JSON.stringify cannot emit a duplicate key,
+      // and re-spelling the part by hand would let it drift into testing something else.
+      // A splice that stopped matching yields a part with no duplicate, which fails
+      // loudly (mutation-verified): the conformance verdict drops to IGNORE and
+      // document_oracle.py cannot confirm CDX-E-PART-DUPLICATE-KEYS.
+      { name: 'metadata/dublin-core.json', text: dublinCoreJson('Dup DC').replace('{"version":"1.1",', '{"version":"1.1","version":"9.9",') },
     ]),
     expect: rejectOnly('CDX-E-PART-DUPLICATE-KEYS'),
   },
@@ -597,7 +628,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'Manifest section 4.6; State Machine section 5.4.2',
-    recipe: documentArchive(manifestJson(), [{ name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"No Content"}}' }]),
+    recipe: documentArchive(manifestJson(), [{ name: 'metadata/dublin-core.json', text: dublinCoreJson('No Content') }]),
     expect: rejectOnly('CDX-E-CONTENT-PART-MISSING'),
   },
   {
@@ -610,7 +641,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       manifestJson({ content: { path: 'content/document.json', hash: 'sha256:db6ef2aaf754c4c6a77a4c92b3e0f4065d7bcf1b48f970a3596f76bdbdc2f1f4' } }),
       [
         { name: 'content/document.json', text: '{"version":"0.1" "blocks":[]}' },
-        { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Bad Content"}}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Bad Content') },
       ],
     ),
     expect: rejectOnly('CDX-E-CONTENT-PART-UNPARSEABLE'),
@@ -967,7 +998,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     requires: ['container', 'document'],
     clause: 'Document Hashing sections 4.4, 6.3; State Machine section 5.4.2',
     recipe: documentArchive(
-      manifestJson({ id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675', state: 'review' }),
+      manifestJson({ id: 'sha256:34d8f862fc561be2e9ca4fe379103ab525dd83e97191fed53ff05be3a3355793', state: 'review' }),
       cleanBody('Edited Title'),
     ),
     expect: warnOnly('CDX-E-DOCUMENT-ID-MISMATCH'),
@@ -980,7 +1011,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     clause: 'Document Hashing sections 4.4, 6.3; State Machine section 5.4.2',
     recipe: documentArchive(
       manifestJson({
-        id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675',
+        id: 'sha256:34d8f862fc561be2e9ca4fe379103ab525dd83e97191fed53ff05be3a3355793',
         state: 'review',
         content: { path: 'content/document.json', hash: 'sha256:30d5a3dc35063023dc212e6cf97d00232f8eb9d2764aaad2946098ce06d09f80' },
       }),
@@ -996,7 +1027,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     clause: 'Document Hashing sections 4.4, 5.1, 6.3; State Machine section 5.4.2',
     recipe: documentArchive(
       manifestJson({
-        id: 'sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df067c',
+        id: 'sha256:34d8f862fc561be2e9ca4fe379103ab525dd83e97191fed53ff05be3a335579c',
         state: 'review',
         content: { path: 'content/document.json', hash: 'sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cd' },
       }),
