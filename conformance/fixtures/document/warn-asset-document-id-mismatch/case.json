@@ -1,0 +1,46 @@
+{
+  "description": "A review document that DECLARES an asset category and carries a `manifest.id` one hex digit away from the id its parts canonicalize to. The recompute must run and report the mismatch — and it can only run if the category's index is supplied to it: `buildAssetMap` throws \"no asset index supplied for category\" for any declared category it is handed no index text for, whatever the content contains. This is the fixture that pins the `assetIndexes` wiring, which before B1b-3b-2 was omitted entirely, making every asset-bearing document silently skip its id check inside the recompute's catch. A clean asset-bearing positive cannot catch that regression, because a skipped id check also looks clean. The content is deliberately INERT (empty blocks), so the asset index affects only whether the recompute RUNS, never what it computes — which both isolates the wiring and keeps the fixture confirmable by the independent oracle. Asset resolution's effect on the id VALUE is pinned separately, by the hand-authored asset vectors in conformance/vectors/document-id.json.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.3.1, 4.4, 6.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:465c67c5dac8783c81a472f651d3f442fa9d3155269fdace496375916f76752b\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":1,\"totalSize\":62,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:b437c9030604dd9d987bb6d165de2a651d787e251b665e5b13818921af3aba5d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Asset Wiring\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\"}]}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-DOCUMENT-ID-MISMATCH",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

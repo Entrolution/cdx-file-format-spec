@@ -1,0 +1,36 @@
+{
+  "description": "A review document declaring one `paginated` presentation layer whose stored bytes match its declared hash and whose single `pageElement` targets a block the content defines. The positive control for the presentation rows: a reader that mis-hashed the layer, or resolved `blockId` against the wrong namespace, would emit a spurious finding here. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Presentation Layers sections 12, 13.4; Document Hashing section 6.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:cab6b00ff455db74d01a1ded0fac20fae3450f8f9faa3c50522a8d05faa3fc39\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"presentation\":[{\"type\":\"paginated\",\"path\":\"presentation/paginated.json\",\"hash\":\"sha256:810575a84b9b5537290d20adf364cc4f83e41f672e6c65cffa7222141af519b8\"}]}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Presentation Document\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "presentation/paginated.json",
+        "text": "{\"version\":\"0.1\",\"type\":\"paginated\",\"pages\":[{\"number\":1,\"elements\":[{\"blockId\":\"p1\",\"position\":{\"x\":0,\"y\":0,\"width\":100,\"height\":20}}]}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

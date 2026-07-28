@@ -1,0 +1,42 @@
+{
+  "description": "The index lists an asset the archive does not ship (Asset Embedding §11.1 item 1). This is the missing hash-bound-part row, NOT a dangling reference: the reference still RESOLVES, because §4.3.1 item 2 binds the index's declared hash into the document ID rather than the asset's bytes — so the id is unaffected and only the bytes are missing. A reader that reported this as a dangling asset reference would misattribute an integrity failure of the archive to the content tree.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Asset Embedding sections 3.2, 11.1; Document Hashing section 4.3.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d4f68c68e67a9fff2870e84432e4e7572cc3ff2a8a784522d08298317bf52a4e\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":1,\"totalSize\":62,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:b437c9030604dd9d987bb6d165de2a651d787e251b665e5b13818921af3aba5d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"id\":\"img1\",\"src\":\"assets/images/fig1.svg\",\"alt\":\"Figure 1\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Asset Bytes Absent\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-MISSING-BOUND",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

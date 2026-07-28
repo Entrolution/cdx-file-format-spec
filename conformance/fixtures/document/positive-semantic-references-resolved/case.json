@@ -1,0 +1,40 @@
+{
+  "description": "A review document declaring `semantic.bibliography` and `semantic.glossary` as `{path, hash}` config references, both present and correctly hashed, whose content carries a `citation` mark resolving to a bibliography entry id and a `glossary` mark resolving to a term id. The positive control for the two namespaces §5.4.2's extension-cross-reference row names alongside the academic marks — and for keeping them SEPARATE from the content-anchor namespace, which is why §4.3.1 item 5 leaves both as authored. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.1 item 5; Security Extension section 9.7; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:708d2e14b2f96dbf780d73a4e5f00b33fc09e9bef2dd5e9341fc6d8215af62e2\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:0ae5597a1417d01f1a39f9ee2ba93b885058ab9de23bad2329e78ed41ee9f73c\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"semantic\":{\"bibliography\":{\"path\":\"semantic/bibliography.json\",\"hash\":\"sha256:2769581d4c19da11daed52e0e62e81e95a791adaba0eb6b6777c23c9211b2136\"},\"glossary\":{\"path\":\"semantic/glossary.json\",\"hash\":\"sha256:5f8f47e6a8e441be2e21e215fb2a10656b0dac93a5c038c189e397b8c418b67d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"smith2020\"]}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"glossary\",\"ref\":\"entropy\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Semantic Document\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "semantic/bibliography.json",
+        "text": "{\"version\":\"0.1\",\"entries\":[{\"id\":\"smith2020\",\"type\":\"book\",\"title\":\"A Book\"}]}"
+      },
+      {
+        "name": "semantic/glossary.json",
+        "text": "{\"version\":\"0.1\",\"terms\":[{\"id\":\"entropy\",\"term\":\"Entropy\",\"definition\":\"A measure.\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

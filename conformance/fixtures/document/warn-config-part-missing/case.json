@@ -1,0 +1,42 @@
+{
+  "description": "The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs is genuinely open: the out-of-hash row covers \"a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)\", but semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7) — so the row's qualifier and its examples disagree, and a conformant declaration is never path-only. Both readings give WARNING in draft/review; the expectation is authored as an INTERVAL so neither is foreclosed and B3 can settle the frozen column. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "State Machine section 5.4.2; Security Extension section 9.7",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:0ae5597a1417d01f1a39f9ee2ba93b885058ab9de23bad2329e78ed41ee9f73c\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"semantic\":{\"bibliography\":{\"path\":\"semantic/bibliography.json\",\"hash\":\"sha256:2769581d4c19da11daed52e0e62e81e95a791adaba0eb6b6777c23c9211b2136\"},\"glossary\":{\"path\":\"semantic/glossary.json\",\"hash\":\"sha256:5f8f47e6a8e441be2e21e215fb2a10656b0dac93a5c038c189e397b8c418b67d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"smith2020\"]}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"glossary\",\"ref\":\"entropy\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Bibliography Missing\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "semantic/glossary.json",
+        "text": "{\"version\":\"0.1\",\"terms\":[{\"id\":\"entropy\",\"term\":\"Entropy\",\"definition\":\"A measure.\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONFIG-PART-MISSING",
+        "atLeast": "WARNING",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

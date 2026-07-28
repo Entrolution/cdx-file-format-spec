@@ -59,6 +59,9 @@ jobs:
       - name: Test canonicalizer
         run: npm run test:canonicalize
 
+      - name: Test document verdict (must-not-report properties)
+        run: npm run test:document-verdict
+
       - name: Check spec-schema sync
         run: npm run check:sync
 

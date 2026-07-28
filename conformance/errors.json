@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.8",
+  "version": "0.9",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -325,7 +325,7 @@
       "clause": "Document Hashing sections 5.1, 6.3; State Machine section 5.4.2",
       "disposition": "WARNING",
       "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
-      "note": "STATE-VARYING: the DRAFT/REVIEW disposition is WARNING; on a FROZEN/PUBLISHED document it escalates to INTEGRITY-ERROR (state-keyed per Document Hashing section 6.3 — the document asserts fixed, integrity-checked bytes). The escalation is deferred to B3: soundly trusting `state = frozen`/`published` requires a projection-covering signature (State Machine section 5.4.2 note 3, lifecycle-downgrade), which needs B2 trust material. B1b-3a verifies the file-level `content.hash`; the asset-index and presentation-file hashes are verified in B1b-3b."
+      "note": "STATE-VARYING: the DRAFT/REVIEW disposition is WARNING; on a FROZEN/PUBLISHED document it escalates to INTEGRITY-ERROR (state-keyed per Document Hashing section 6.3 — the document asserts fixed, integrity-checked bytes). The escalation is deferred to B3: soundly trusting `state = frozen`/`published` requires a projection-covering signature (State Machine section 5.4.2 note 3, lifecycle-downgrade), which needs B2 trust material. B1b-3a verifies the file-level `content.hash`, which is what this code's summary is scoped to; the asset-index, asset, presentation-file and config-side-file hashes are verified under their own codes (CDX-E-ASSET-INDEX-HASH-MISMATCH, CDX-E-ASSET-HASH-MISMATCH, CDX-E-PRESENTATION-HASH-MISMATCH, CDX-E-CONFIG-FILE-HASH-MISMATCH), added in B1b-3b-2 rather than folded in here — widening a published summary is the kind of re-pointing the append-only policy forbids."
     },
     "CDX-E-DOCUMENT-ID-MISMATCH": {
       "summary": "The document ID recomputed from the canonical content (Document Hashing section 4) does not equal the declared `manifest.id`.",
@@ -403,6 +403,104 @@
       "disposition": "INTEGRITY-ERROR",
       "dispositionClause": "Anchors and References section 7.2 (ID collides with another ID in the shared namespace — Error in ALL states), whose severities section 7.2 maps onto the WARNING and INTEGRITY-ERROR dispositions of State Machine section 5.4.",
       "note": "STATE-INVARIANT, and the only INTEGRITY-ERROR this layer assigns before B2/B3: because the disposition does not vary by state, it needs no projection-covering signature to be sound, unlike every deferred frozen/published escalation. Anchors and References section 7.2 makes a collision an Error in all states — a duplicate makes a reference ambiguous, so which content an anchor addresses is undecidable. The canonicalizer already refuses such a document (Document Hashing section 4.3.1 item 5 rejects a duplicate id while relabelling), which is why this is reported before the document-ID recompute rather than left to surface as an unexplained inability to compute the id. The namespace is exactly the one Document Hashing section 4.3.1 item 5 relabels, so identifiers addressing SEPARATE namespaces — a bibliography entry's citation key, a footnote or glossary mark id — do not collide with it."
+    },
+    "CDX-E-PART-MISSING-BOUND": {
+      "summary": "A part the manifest references AND binds by hash cannot be obtained — absent from the archive, or present but unloadable: a declared `presentation[]` layer, an asset category's index file, or an asset the index lists.",
+      "clause": "State Machine section 5.4.2; Asset Embedding sections 3.1, 11.1; Presentation Layers section 12",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing a referenced part bound by the document hash or manifest projection — WARNING in draft/review).",
+      "note": "STATE-VARYING: WARNING in draft/review, INTEGRITY-ERROR on a frozen or published document, where the manifest projection a signature covers binds the missing part's hash — the escalation is deferred to B3 with every other state-keyed ceiling (State Machine section 5.4.2 note 3). Distinguished from CDX-E-PART-MISSING-UNBOUND by whether a hash binds the reference at all: a path-only reference binds nothing, so its target's absence cannot signal tampering. An asset LISTED in the index but absent from the archive belongs here rather than under CDX-E-ASSET-REFERENCE-DANGLING, because the reference still RESOLVES — Document Hashing section 4.3.1 item 2 binds the index's declared hash into the document ID, not the asset's bytes — so the document ID is unaffected and only the bytes are missing (Asset Embedding section 11.1 item 1)."
+    },
+    "CDX-E-ASSET-INDEX-UNUSABLE": {
+      "summary": "A declared asset category's index file is present but cannot be used to resolve the category's assets: it does not parse, it is not an object, it carries no `assets` array, an entry declares a malformed hash, two entries resolve to one archive path under conflicting hashes, or the category key is not a valid path segment.",
+      "clause": "Asset Embedding section 3.1; Document Hashing section 4.3.1 item 2; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing a referenced part bound by the document hash or manifest projection — WARNING in draft/review), read as covering a hash-bound part that is present but unusable. Asset Embedding section 3.1 requires each declared category to HAVE an index file; a file that cannot yield the category's assets does not provide one, so the same row governs and the same disposition follows.",
+      "note": "STATE-VARYING as CDX-E-PART-MISSING-BOUND; the frozen/published escalation is B3. THE CLASSIFICATION IS A READING, recorded here rather than assumed silently: the row's literal text says \"missing\", and section 5.4.2 has no row for a hash-bound part that is present but unusable. The alternative — `disposition: null`, this vocabulary's convention for a defect the specification assigns no row (see CDX-E-MANIFEST-REFERENCE-HASH-CONFLICT) — is not the conservative choice here but the wrong one: a null disposition does not raise the document verdict, so a document whose asset category cannot be resolved at all would load indistinguishably from a clean one, which section 5.4.2's integrity-binding axis contradicts for material the manifest projection binds. Row 310 is the closest analogue and Asset Embedding section 3.1 makes having a usable index a MUST, so that row is taken and a dedicated one is raised as a specification question. Every cause listed makes the category INDETERMINATE: the document-ID recompute is skipped for it and its asset references are neither confirmed nor reported dangling, exactly as an unloadable Dublin Core part suspends the id check rather than recomputing over an empty basis."
+    },
+    "CDX-E-ASSET-INDEX-HASH-MISMATCH": {
+      "summary": "An asset category's index file does not match the hash the manifest declares for it in `manifest.assets.<category>.hash`.",
+      "clause": "Asset Embedding sections 3.1, 8.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 assigns the same pair of dispositions to both rows this defect can be read under — \"File `hash` or document-ID mismatch\" and \"Asset hash mismatch (Asset Embedding section 8)\" are each WARNING in draft/review and INTEGRITY-ERROR in frozen/published — so the classification does not affect the disposition. Asset Embedding section 8.1 step 3 names `manifest.assets.<category>.hash` as the index file's declared hash.",
+      "note": "STATE-VARYING; the frozen/published escalation is B3. This is the anchor of the whole category: because the index enumerates every asset's and every variant's own hash, hash-pinning the one index file transitively attests the category (Asset Embedding section 3.1), and a manifest-covering signature binds that index hash (Security Extension section 9.7). A mismatch here does NOT suspend the per-asset checks — the index's bytes exist and parse, so the hashes it carries are still verifiable, and reporting both is more informative than reporting the outer failure alone."
+    },
+    "CDX-E-ASSET-HASH-MISMATCH": {
+      "summary": "An asset's stored bytes, or an image variant's, do not match the `hash` the category index declares for them.",
+      "clause": "Asset Embedding sections 4.3, 8.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Asset hash mismatch, Asset Embedding section 8 — WARNING in draft/review).",
+      "note": "STATE-VARYING: INTEGRITY-ERROR on a frozen or published document (Asset Embedding section 8.1 step 4), deferred to B3. Covers a top-level asset and an image VARIANT alike, because Asset Embedding section 4.3 makes the variant — not the parent — what a viewer actually sees: without its own binding a swapped variant would substitute displayed content while the parent hash, the document ID and every signature still verify."
+    },
+    "CDX-E-ASSET-VARIANT-MISSING": {
+      "summary": "An image variant the category index lists is absent from the archive.",
+      "clause": "Asset Embedding section 4.3; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "Asset Embedding section 4.3 (\"Missing variants SHOULD produce a warning but MUST NOT prevent the image from being displayed\"), whose severity maps onto the WARNING disposition of State Machine section 5.4.",
+      "note": "STATE-INVARIANT, and deliberately NOT the escalating CDX-E-PART-MISSING-BOUND row that a missing top-level asset earns. Asset Embedding section 4.3 requires the reader to fall back to the full-resolution image, so the document still renders exactly the content it asserts: the absence degrades resolution selection, it does not withhold bound material. A variant that IS present but mismatched is a different matter and is CDX-E-ASSET-HASH-MISMATCH."
+    },
+    "CDX-E-ASSET-INDEX-PATH-DIVERGENT": {
+      "summary": "A declared `manifest.assets.<category>.index` path differs from the derived location `assets/<category>/index.json`.",
+      "clause": "Asset Embedding section 3.1",
+      "disposition": null,
+      "dispositionClause": "State Machine section 5.4.2 assigns NO row to this defect class. Asset Embedding section 3.1 states the equality as a MUST and then resolves the conflict itself — \"if an explicit `index` value disagrees with it the derived path governs\" — so the document remains loadable and the specification states no load-time disposition. None is inferred here. Tracked as a specification gap.",
+      "note": "Reported because the divergence opens a real seam rather than a harmless redundancy: the manifest projection binds the DECLARED path's hash (Security Extension section 9.7, via the asset-index references) while the document ID is computed from the DERIVED path's bytes (Document Hashing section 4.3.1 item 2 builds every asset archive path from the category key). A signature therefore attests one file while identity depends on another."
+    },
+    "CDX-E-ASSET-REFERENCE-DANGLING": {
+      "summary": "A content asset reference — an `image`/`svg` `src`, a `signature` `image`, or a `link` mark `href` naming an `assets/`-rooted path — resolves to no registered asset.",
+      "clause": "Document Hashing section 4.3.1 item 2; Asset Embedding section 3.2; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling asset reference — a canonicalization error once the ID is computed — WARNING in draft/review).",
+      "note": "STATE-VARYING: INTEGRITY-ERROR on a frozen or published document, deferred to B3. Unlike the render-time cross-reference marks, this one is an integrity failure of hashed content: Document Hashing section 4.3.1 item 2 REPLACES the reference with the asset's hash, so an unresolvable one makes the document's identity uncomputable, which is why section 5.4.2 defines the row as a canonicalization error. A reference marked `external`, carrying a URL scheme, or beginning with `#` is not an asset path and never fires this (Asset Embedding sections 3.2, 9.2). A reference into a category whose index could not be loaded is INDETERMINATE, not dangling, and is not reported."
+    },
+    "CDX-E-PRESENTATION-HASH-MISMATCH": {
+      "summary": "A declared `manifest.presentation[]` layer's stored bytes do not match the `hash` the manifest declares for it.",
+      "clause": "Document Hashing section 6.3; Presentation Layers section 12; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
+      "note": "STATE-VARYING; the frozen/published INTEGRITY-ERROR is B3. Separate from CDX-E-FILE-HASH-MISMATCH, whose published summary is specifically `manifest.content.hash` over the content part's bytes — conformance/errors.json is append-only, so that entry's meaning cannot be widened after publication. A presentation layer's hash IS bound into the manifest projection (Security Extension section 9.7), so on a frozen or published document a mismatch is caught by the signature as well; the dangling-reference row for the same file is NOT integrity-binding (see CDX-E-PRESENTATION-REFERENCE-DANGLING), and the two must not be conflated."
+    },
+    "CDX-E-PRESENTATION-REFERENCE-DANGLING": {
+      "summary": "A presentation rule targets a content block that does not exist — a `pageElement` `blockId`, a `section` `blockRefs` entry, or a `flow` element's `blockIds` entry.",
+      "clause": "Presentation Layers sections 6.4, 13.4; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling presentation reference — a `blockId` or `blockRefs` targeting a non-existent content block — WARNING in BOTH columns).",
+      "note": "STATE-INVARIANT. Presentation Layers section 13.4 gives the reason: presentation sits outside the document-hash boundary (Document Hashing section 4.1a), so a dangling presentation reference degrades rendering but never impugns document integrity, in any state — the reader omits that rule and renders the affected content with default styling. The presentation FILE's own integrity is a separate matter, dispositioned by CDX-E-PRESENTATION-HASH-MISMATCH and CDX-E-PART-MISSING-BOUND. The section 5.4.2 row enumerates `blockId` and `blockRefs` only; a flow element's `blockIds` references content blocks identically (section 6.4) and is reported under the same code at the same state-invariant disposition, with the enumeration gap raised as a specification question."
+    },
+    "CDX-E-PRESENTATION-UNDECLARED": {
+      "summary": "A presentation or precise-layout file is present in the archive but is not declared in `manifest.presentation[]`, so no hash binds it.",
+      "clause": "Presentation Layers sections 12, 12.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2's preamble, which expressly excludes this file from the out-of-hash WARNING it would otherwise fall under: such a file \"is bound by neither the hash nor the projection, so on a frozen or published document it is unauthenticated and MUST NOT be presented as the document's appearance — an injected layout is an attempt to alter signed content, not a benign out-of-hash annotation\". Presentation Layers section 12 directs that its presence \"SHOULD be surfaced as an integrity concern\", citing section 5.4.2, which is the WARNING disposition in draft/review.",
+      "note": "STATE-VARYING in intent: the specification's concern is sharpest on a frozen or published document, where a manifest-covering signature is mandatory and an undeclared layout is precisely what such a signature cannot attest — the escalation is deferred to B3 with every other state-keyed ceiling. Section 5.4.2 carries no dedicated ROW for this defect, only the preamble's exclusion and section 12's instruction; the reading is recorded here rather than assumed, and a dedicated row is raised as a specification question. `disposition: null` is deliberately NOT used despite the missing row, and the specification's own words are why: a null disposition does not raise the document verdict, which is exactly the \"benign out-of-hash layer\" treatment both the section 5.4.2 preamble and Presentation Layers section 12 expressly refuse this file. WARNING is the least severe disposition compatible with \"SHOULD be surfaced as an integrity concern\". The finding reports the file's presence, never a judgement about rendering: the normative requirement is that a renderer MUST NOT treat it as authoritative appearance."
+    },
+    "CDX-E-CONFIG-PART-MISSING": {
+      "summary": "A `{path, hash}` side file declared in an extension config slot — a semantic bibliography or glossary, an academic numbering configuration — cannot be obtained: absent from the archive, or present but unloadable.",
+      "clause": "State Machine section 5.4.2; Security Extension section 9.7",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 assigns WARNING in draft/review under EITHER of the two rows this defect can be read under, so the draft/review disposition is settled even though the classification is not (see note).",
+      "note": "STATE-VARYING, and WHICH WAY is genuinely open — which is why this is a separate code from CDX-E-PART-MISSING-BOUND rather than a reuse of it. Section 5.4.2's out-of-hash row covers \"a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)\", which would make it WARNING in every state. But semantic.schema.json and academic.schema.json both declare these references as a `fileReference` with `required: [path, hash]` and `additionalProperties: false`, and collectConfigFileReferences binds every such `{path, hash}` into the manifest projection (Security Extension section 9.7 — whose own schema says the binding exists to attest \"academic numbering, semantic bibliography/glossary\"), which would make it the hash-bound row and INTEGRITY-ERROR when frozen. So the row's QUALIFIER and its EXAMPLES disagree: a conformant declaration is never path-only. Two codes at the same draft/review disposition let B3 settle the frozen column without re-pointing a published code, and the disagreement is raised as a specification erratum."
+    },
+    "CDX-E-CONFIG-FILE-HASH-MISMATCH": {
+      "summary": "A `{path, hash}` side file declared in an extension config slot does not match the hash declared for it.",
+      "clause": "Document Hashing section 6.3; Security Extension section 9.7; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
+      "note": "STATE-VARYING; the frozen/published escalation is B3. Separate from CDX-E-FILE-HASH-MISMATCH for the same append-only reason as CDX-E-PRESENTATION-HASH-MISMATCH: that code's published summary names `manifest.content.hash` specifically. Unlike CDX-E-CONFIG-PART-MISSING, this code's ROW is not contested — the file declares a hash, so comparing it against the stored bytes is the file-hash row on either reading of where the missing-file case belongs."
+    },
+    "CDX-E-CITATION-REFERENCE-DANGLING": {
+      "summary": "A `citation` mark's `refs` entry names no entry in the document's AUTHORITATIVE bibliography source — the external `semantic/bibliography.json` when the manifest declares `semantic.bibliography`, otherwise the inline `entries` of a `semantic:bibliography` block.",
+      "clause": "Semantic Extension section 4.4; Document Hashing section 4.3.1 item 5; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling extension cross-reference resolved at render time — a citation, glossary, footnote, or academic/legal cross-reference mark whose target does not resolve — WARNING in every state), which Semantic Extension section 4.4 restates for this mark: a `ref` that resolves against neither source \"is a rendering-degradation WARNING in all states … never an integrity failure\".",
+      "note": "STATE-INVARIANT, for the reason section 5.4.2's preamble gives: the mark is resolved at render time to inject a label or number, so a dangling one degrades rendering only while the signed bytes remain intact and hash-verified. A separate code from CDX-E-CROSS-REFERENCE-DANGLING, whose published summary enumerates the three `academic:*-ref` marks specifically and cannot be widened under the append-only policy. PRECEDENCE, NOT UNION: Semantic Extension section 4.4 makes the external file the SINGLE authoritative source when declared — \"inline `entries` are not consulted, so the two cannot diverge\" — so a `ref` naming an inline entry the declared file omits IS dangling. Unioning the two sources would report such a document clean. The namespace is not the content-anchor namespace either: Document Hashing section 4.3.1 item 5 leaves a `semantic:bibliography` entry's CSL citation key as authored precisely because it addresses a separate one. When a declared side file could not be loaded the namespace is indeterminate, and no citation is reported dangling."
+    },
+    "CDX-E-GLOSSARY-REFERENCE-DANGLING": {
+      "summary": "A `glossary` mark's `ref`, or a `semantic:term` block's `see` entry, names no term in the document's AUTHORITATIVE glossary source — `semantic/glossary.json` when the manifest declares `semantic.glossary`, otherwise the in-document `semantic:term` blocks.",
+      "clause": "Semantic Extension section 8.3; Document Hashing section 4.3.1 item 5; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling extension cross-reference resolved at render time — WARNING in every state), which Semantic Extension section 8.3 restates for this mark: a `ref` or `see` resolving against neither source \"is a rendering-degradation WARNING in all states … never an integrity failure\".",
+      "note": "STATE-INVARIANT, as CDX-E-CITATION-REFERENCE-DANGLING, and a separate code from it so the two namespaces stay independently reportable. PRECEDENCE, NOT UNION, and the fallback is IN-DOCUMENT: Semantic Extension section 8.3 gives two rules — (1) a declared external glossary \"is authoritative: … a `glossary` `ref` (or a `see`) resolves against the file's term `id`s\"; (2) \"Otherwise, the in-document `semantic:term` blocks are the source … a `glossary` `ref` (or a `see`) resolves against their `id`s.\" Modelling rule 2's namespace as empty would report a dangling reference on every document that defines its terms inline. SPECIFICATION TENSION, recorded rather than resolved here: Document Hashing section 4.3.1 item 5 relabels a `semantic:term` block's `id` to `b<n>` — it is a block id in the shared namespace — while leaving a `glossary` `ref` as authored, so after canonicalization the two can never match. Resolution is therefore performed over RAW stored content, where they do match, which is the only reading under which section 8.3 rule 2 has effect; the collision between the two namespaces is raised as a specification question. When a declared side file could not be loaded the namespace is indeterminate and nothing is reported dangling."
     }
   }
 }

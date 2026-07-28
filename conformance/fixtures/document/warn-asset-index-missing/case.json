@@ -1,0 +1,42 @@
+{
+  "description": "The manifest declares an `images` asset category but the archive ships no `assets/images/index.json`. The index is bound by the manifest projection (Security Extension §9.7), so its absence is the hash-BOUND missing-part row — WARNING in draft/review. The content still references an asset, and the reader must NOT also report that reference dangling: with the index unloadable the category is INDETERMINATE, and fanning one missing index out into a finding per reference would claim defects the document may not have.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Asset Embedding section 3.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d4f68c68e67a9fff2870e84432e4e7572cc3ff2a8a784522d08298317bf52a4e\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":1,\"totalSize\":62,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:b437c9030604dd9d987bb6d165de2a651d787e251b665e5b13818921af3aba5d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"id\":\"img1\",\"src\":\"assets/images/fig1.svg\",\"alt\":\"Figure 1\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Asset Index Missing\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-MISSING-BOUND",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

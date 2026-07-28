@@ -1,0 +1,50 @@
+{
+  "description": "Two adjacent text nodes carry the SAME `anchor` id and link to two DIFFERENT assets. Their hrefs resolve to different hashes, so the mark sets differ, the nodes do NOT merge, and both `anchor` marks survive into the shared identifier namespace — a duplicate id, an Error in every state (Anchors and References §7.2). The exact counterpart of positive-aliased-assets-merge, and the case a reader that cannot resolve asset references MISSES: keying every packaged-asset href alike over-merges the two nodes and hides this collision entirely. Authored as an interval because INTEGRITY-ERROR is a floor with MAY-escalation (§5.4.1).",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References section 7.2; Document Hashing section 4.3.1 items 2-5; State Machine sections 5.4.1, 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:39de48508e370e56a4ab50401e915af6cad59cd256ffe64ee1300bd62803e4e9\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":2,\"totalSize\":124,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:88064367fb204feebd67b7de4918bdd5df55752265c013591646f2788c798690\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig1.svg\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig2.svg\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Distinct Asset Links\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\"},{\"id\":\"fig2\",\"path\":\"fig2.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:b16192e8b20733db17467a22bce6861e4de6bc7c918508b8a18daad6f0d87868\"}]}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      },
+      {
+        "name": "assets/images/fig2.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"9\" height=\"9\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "INTEGRITY-ERROR",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ID-COLLISION",
+        "atLeast": "INTEGRITY-ERROR",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

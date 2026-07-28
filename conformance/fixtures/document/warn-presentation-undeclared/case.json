@@ -1,0 +1,42 @@
+{
+  "description": "A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2's preamble expressly refuses to treat such a file as a benign out-of-hash annotation — \"an injected layout is an attempt to alter signed content\" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file's presence; the normative requirement it backs is that a renderer MUST NOT present it as the document's appearance. Authored as an INTERVAL, deliberately: §5.4.2's preamble only REMOVES this file from the out-of-hash WARNING row without supplying a replacement, and the one characterisation the specification does offer — \"an integrity concern\" — points ABOVE WARNING rather than at it. WARNING is therefore a floor, and asserting it as a ceiling would fail a conformant reader that escalates.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Presentation Layers sections 12, 12.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Undeclared Layout\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "presentation/layouts/letter.json",
+        "text": "{\"version\":\"0.1\",\"presentationType\":\"precise\",\"targetFormat\":\"letter\"}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PRESENTATION-UNDECLARED",
+        "atLeast": "WARNING",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

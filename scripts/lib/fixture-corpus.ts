@@ -148,6 +148,88 @@ const documentArchive = (manifest: string, body: ZipEntryRecipe[]): ZipRecipe =>
   entries: [{ name: 'manifest.json', text: manifest }, ...body],
 });
 
+// --- B1b-3b-2: asset / presentation / config-slot fixture infrastructure -----
+//
+// Every hash and every document ID below is REAL — computed from these exact bytes by a
+// throwaway script and hard-coded here, so a reader that skips a hash check cannot pass and
+// `check:fixtures` can re-derive the archives byte-for-byte.
+//
+// TWO AUTHORING TRAPS, both a consequence of what enters the document ID (§4.3.1 item 2
+// replaces a content asset reference with the referenced asset's DECLARED hash from the
+// index, never with the asset's bytes):
+//   - a fixture that tampers an asset's BYTES leaves the id basis untouched, so its
+//     `manifest.id` must be the CLEAN one — otherwise it also trips
+//     CDX-E-DOCUMENT-ID-MISMATCH and stops isolating the asset-hash row;
+//   - an index tamper that edits `size`, `type` or `id` likewise leaves the basis untouched,
+//     because only the path→hash MAPPING is drawn from an index, never its bytes. Editing an
+//     entry's `path` or `hash` DOES change the basis, and only then must the id be recomputed
+//     over the tampered index.
+// Asset payloads are SVG: real, plausible image bytes that are also valid UTF-8 text, which
+// is all `ZipEntryRecipe` carries (binary payloads arrive with the declared-MIME row).
+
+const FIG1 = '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>';
+const FIG1_HASH = 'sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86';
+const FIG2 = '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9"/>';
+const FIG1_SMALL = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>';
+
+/** One asset, no variants — the baseline index. */
+const INDEX_ONE =
+  '{"version":"0.1","assets":[{"id":"fig1","path":"fig1.svg","type":"image/svg+xml","size":62,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86"}]}';
+const INDEX_ONE_HASH = 'sha256:b437c9030604dd9d987bb6d165de2a651d787e251b665e5b13818921af3aba5d';
+/** The same index with `size` bumped by one — tampered bytes, hash left as declared. */
+const INDEX_ONE_TAMPERED =
+  '{"version":"0.1","assets":[{"id":"fig1","path":"fig1.svg","type":"image/svg+xml","size":63,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86"}]}';
+/** Two DISTINCT assets. */
+const INDEX_TWO =
+  '{"version":"0.1","assets":[{"id":"fig1","path":"fig1.svg","type":"image/svg+xml","size":62,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86"},{"id":"fig2","path":"fig2.svg","type":"image/svg+xml","size":62,"hash":"sha256:b16192e8b20733db17467a22bce6861e4de6bc7c918508b8a18daad6f0d87868"}]}';
+const INDEX_TWO_HASH = 'sha256:88064367fb204feebd67b7de4918bdd5df55752265c013591646f2788c798690';
+/** Two paths whose entries declare the SAME hash (both copies stored; no `aliasOf`). */
+const INDEX_ALIAS =
+  '{"version":"0.1","assets":[{"id":"fig1","path":"fig1.svg","type":"image/svg+xml","size":62,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86"},{"id":"fig1copy","path":"fig1-copy.svg","type":"image/svg+xml","size":62,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86"}]}';
+const INDEX_ALIAS_HASH = 'sha256:a3b6abe7526ebcc7df52a3211da3e76198b6165cc2e4a48633532e5490cabc61';
+/** One asset carrying an image variant (05 §4.3). */
+const INDEX_VARIANT =
+  '{"version":"0.1","assets":[{"id":"fig1","path":"fig1.svg","type":"image/svg+xml","size":62,"hash":"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86","variants":[{"path":"fig1-4.svg","width":4,"size":62,"hash":"sha256:5b10d22019dbf0238b178c09957cac2af302655093bbe81a741d207a4e58e53a"}]}]}';
+const INDEX_VARIANT_HASH = 'sha256:9928d4ff89ad6f76d18df6928eb625a3a8c7793975e2fe064a0f48916133c632';
+
+const CONTENT_IMAGE = '{"version":"0.1","blocks":[{"type":"image","id":"img1","src":"assets/images/fig1.svg","alt":"Figure 1"}]}';
+const CONTENT_IMAGE_HASH = 'sha256:d4f68c68e67a9fff2870e84432e4e7572cc3ff2a8a784522d08298317bf52a4e';
+const CONTENT_IMAGE_DANGLING = '{"version":"0.1","blocks":[{"type":"image","id":"img1","src":"assets/images/gone.svg","alt":"Figure 1"}]}';
+const CONTENT_IMAGE_DANGLING_HASH = 'sha256:972230484087f85d8dce50276adc15773790c5a1f88c872bb99e8a2263c5cb15';
+/** Two adjacent text nodes sharing an `anchor` id, linking to DISTINCT assets. */
+const CONTENT_DISTINCT_LINKS =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"x"},{"type":"link","href":"assets/images/fig1.svg"}]},{"type":"text","value":"b","marks":[{"type":"anchor","id":"x"},{"type":"link","href":"assets/images/fig2.svg"}]}]}]}';
+const CONTENT_DISTINCT_LINKS_HASH = 'sha256:39de48508e370e56a4ab50401e915af6cad59cd256ffe64ee1300bd62803e4e9';
+/** The same shape, both links naming the SAME bytes under two paths. */
+const CONTENT_ALIASED_LINKS =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"x"},{"type":"link","href":"assets/images/fig1.svg"}]},{"type":"text","value":"b","marks":[{"type":"anchor","id":"x"},{"type":"link","href":"assets/images/fig1-copy.svg"}]}]}]}';
+const CONTENT_ALIASED_LINKS_HASH = 'sha256:df02f5f3b985d2d974dbfa23f2356c9ab561177ffa075472b5c29af63bc7ca53';
+const CONTENT_PARAGRAPH = '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"x"}]}]}';
+const CONTENT_PARAGRAPH_HASH = 'sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc';
+const CONTENT_SEMANTIC =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"citation","refs":["smith2020"]}]},{"type":"text","value":"b","marks":[{"type":"glossary","ref":"entropy"}]}]}]}';
+const CONTENT_SEMANTIC_HASH = 'sha256:0ae5597a1417d01f1a39f9ee2ba93b885058ab9de23bad2329e78ed41ee9f73c';
+const CONTENT_SEMANTIC_DANGLING =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"citation","refs":["nosuchkey"]}]},{"type":"text","value":"b","marks":[{"type":"glossary","ref":"nosuchterm"}]}]}]}';
+const CONTENT_SEMANTIC_DANGLING_HASH = 'sha256:bc004c0f5f81ed2229b1557e663bd2566a5206a9136d4dfdabbe19a04b79dd17';
+
+const BIBLIOGRAPHY = '{"version":"0.1","entries":[{"id":"smith2020","type":"book","title":"A Book"}]}';
+const BIBLIOGRAPHY_HASH = 'sha256:2769581d4c19da11daed52e0e62e81e95a791adaba0eb6b6777c23c9211b2136';
+const GLOSSARY = '{"version":"0.1","terms":[{"id":"entropy","term":"Entropy","definition":"A measure."}]}';
+const GLOSSARY_HASH = 'sha256:5f8f47e6a8e441be2e21e215fb2a10656b0dac93a5c038c189e397b8c418b67d';
+
+const PRESENTATION_OK =
+  '{"version":"0.1","type":"paginated","pages":[{"number":1,"elements":[{"blockId":"p1","position":{"x":0,"y":0,"width":100,"height":20}}]}]}';
+const PRESENTATION_OK_HASH = 'sha256:810575a84b9b5537290d20adf364cc4f83e41f672e6c65cffa7222141af519b8';
+const PRESENTATION_DANGLING =
+  '{"version":"0.1","type":"paginated","pages":[{"number":1,"elements":[{"blockId":"gone","position":{"x":0,"y":0,"width":100,"height":20}}]}]}';
+const PRESENTATION_DANGLING_HASH = 'sha256:44b9fd7aa780facf15567cb5d124376f41170ed97af780626f6f2e59fea8734b';
+
+/** A `manifest.assets` block for one `images` category (schema: {count, totalSize, index, hash}). */
+const imagesCategory = (indexHash: string, count = 1, totalSize = 62): Record<string, unknown> => ({
+  images: { count, totalSize, index: 'assets/images/index.json', hash: indexHash },
+});
+
 /** An exact IGNORE carried by a single finding (an unrecognized but tolerated element). */
 const ignoreOnly = (code: string): AuthoredVerdict => ({
   documentDisposition: { atLeast: 'IGNORE', atMost: 'IGNORE' },
@@ -1344,6 +1426,437 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       { name: 'provenance/record.json', text: '{"version":"0.1","events":[' },
     ]),
     expect: warnOnly('CDX-E-EXTENSION-DATA-PART-UNPARSEABLE'),
+  },
+
+  // ===========================================================================
+  // Document/part layer (B1b-3b-2, Tier 3 part 3): the hash-BOUND material
+  // outside the content part — asset categories, presentation layers, and the
+  // extension config-slot side files, plus the reference rows that resolve
+  // against them (§5.4.2). Every FROZEN/PUBLISHED escalation is B3.
+  // ===========================================================================
+
+  // --- assets: the positives -------------------------------------------------
+  {
+    name: 'positive-asset-resolved',
+    description: 'A review document with one registered image asset: the index sits at the DERIVED path `assets/images/index.json` and matches the manifest\'s declared index hash, the asset\'s stored bytes match its hash in the index, the content `image` block resolves against it, and the declared `manifest.id` is the id recomputed WITH the asset index in the basis (Document Hashing §4.3.1 item 2 replaces the reference with the asset\'s hash). The positive control for the whole asset chain, and specifically for the `assetIndexes` wiring: before B1b-3b-2 the recompute passed no index, so `buildAssetMap` threw and every asset-bearing document silently skipped its id check — a reader with that gap computes a different id here and fails. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding sections 3.1, 3.2, 8.1; Document Hashing section 4.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:17e034cf9f7b30d0cdc00f3638fac6fe503c98ec0fd985bb2475fcfffb36ac3e',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Asset Document'),
+        { name: 'assets/images/index.json', text: INDEX_ONE },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-asset-variant-resolved',
+    description: 'An asset carrying an image variant, both present and both matching their own hashes in the index (Asset Embedding §8.1 verifies the index file, the top-level asset AND each variant). The positive control for the variant arm: a reader that verified only the parent asset would still pass a swapped variant, which is what §4.3 warns about — the variant, not the parent, is what a viewer actually sees. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding sections 4.3, 8.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:7dad350905c46c6a780e43e6fe47d2e0473144d55dea618d5f3ac492f7a1f718',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_VARIANT_HASH, 1, 124),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Variant Document'),
+        { name: 'assets/images/index.json', text: INDEX_VARIANT },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+        { name: 'assets/images/fig1-4.svg', text: FIG1_SMALL },
+      ],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-aliased-assets-merge',
+    description: 'Two adjacent text nodes carry the SAME `anchor` id and link to two different asset PATHS whose index entries declare the same hash. (Both copies are stored here; Asset Embedding §10.2\'s `aliasOf` deduplication hint is a separate case.) `normalizeMarks` resolves each href to the asset hash BEFORE `mergeAdjacentText` compares mark sets, so the resolved marks are equal, the nodes merge, and the shared anchor id is ONE id — not a collision. A reader whose raw content walk resolved hrefs to anything other than the asset hash (leaving the paths distinct) would report a spurious CDX-E-ID-COLLISION, an INTEGRITY-ERROR on a document the canonicalizer accepts. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 items 2-4; Asset Embedding section 10.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:ab82e1d5fa6448db1a098085603391f86c15d5e1e52245d2e264aca7756751e2',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_ALIASED_LINKS_HASH },
+        assets: imagesCategory(INDEX_ALIAS_HASH, 2, 124),
+      }),
+      [
+        ...contentBody(CONTENT_ALIASED_LINKS, 'Aliased Assets'),
+        { name: 'assets/images/index.json', text: INDEX_ALIAS },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+        { name: 'assets/images/fig1-copy.svg', text: FIG1 },
+      ],
+    ),
+    expect: CLEAN,
+  },
+
+  // --- assets: the defect rows -----------------------------------------------
+  {
+    name: 'integrity-error-id-collision-distinct-assets',
+    description: 'Two adjacent text nodes carry the SAME `anchor` id and link to two DIFFERENT assets. Their hrefs resolve to different hashes, so the mark sets differ, the nodes do NOT merge, and both `anchor` marks survive into the shared identifier namespace — a duplicate id, an Error in every state (Anchors and References §7.2). The exact counterpart of positive-aliased-assets-merge, and the case a reader that cannot resolve asset references MISSES: keying every packaged-asset href alike over-merges the two nodes and hides this collision entirely. Authored as an interval because INTEGRITY-ERROR is a floor with MAY-escalation (§5.4.1).',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 7.2; Document Hashing section 4.3.1 items 2-5; State Machine sections 5.4.1, 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_DISTINCT_LINKS_HASH },
+        assets: imagesCategory(INDEX_TWO_HASH, 2, 124),
+      }),
+      [
+        ...contentBody(CONTENT_DISTINCT_LINKS, 'Distinct Asset Links'),
+        { name: 'assets/images/index.json', text: INDEX_TWO },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+        { name: 'assets/images/fig2.svg', text: FIG2 },
+      ],
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-ID-COLLISION', atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }],
+    },
+  },
+  {
+    name: 'warn-asset-index-missing',
+    description: 'The manifest declares an `images` asset category but the archive ships no `assets/images/index.json`. The index is bound by the manifest projection (Security Extension §9.7), so its absence is the hash-BOUND missing-part row — WARNING in draft/review. The content still references an asset, and the reader must NOT also report that reference dangling: with the index unloadable the category is INDETERMINATE, and fanning one missing index out into a finding per reference would claim defects the document may not have.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding section 3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [...contentBody(CONTENT_IMAGE, 'Asset Index Missing'), { name: 'assets/images/fig1.svg', text: FIG1 }],
+    ),
+    expect: warnOnly('CDX-E-PART-MISSING-BOUND'),
+  },
+  {
+    name: 'warn-asset-index-unusable',
+    description: 'The index file is present and parses, but carries no `assets` array. `buildAssetMap` SKIPS such a category without throwing, so a reader relying on the canonicalizer to surface the problem gets an empty asset map that nothing notices — the quiet failure this row exists to make loud. The category is indeterminate, so the content\'s asset reference is again not reported dangling. Authored as an INTERVAL because §5.4.2 assigns no row to a hash-bound part that is present but unusable: WARNING is the floor this suite reads from the missing-part row, and pinning it as a CEILING would fail a reader that treats an unusable integrity anchor more severely — a ceiling the specification never set.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding section 3.1; Document Hashing section 4.3.1 item 2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        // The REAL hash of the malformed index below, so the fixture isolates the
+        // unusable-index row instead of also tripping the index-hash row.
+        assets: imagesCategory('sha256:cf107005b0df40f356d1f8643fa611bf27dd3a388f6950830880049a86b76295'),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Asset Index Unusable'),
+        { name: 'assets/images/index.json', text: '{"version":"0.1"}' },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-ASSET-INDEX-UNUSABLE', atLeast: 'WARNING', atMost: 'REJECT' }],
+    },
+  },
+  {
+    name: 'warn-asset-index-hash-mismatch',
+    description: 'The index file\'s stored bytes (one `size` field edited) do not match the hash the manifest declares for the category. Asset Embedding §8.1 step 3 makes `manifest.assets.<category>.hash` the index\'s declared hash, and §3.1 makes that one hash the transitive anchor for the whole category. The `manifest.id` here is recomputed over the TAMPERED index text — the bytes that actually enter the id basis — so the fixture isolates the index-hash row instead of also tripping the document-ID row.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding sections 3.1, 8.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:dce9f0d97e1b1b514c435bab0c9d581cb6bccf20aa30e9877837d7e8d7ad34eb',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Index Hash Mismatch'),
+        { name: 'assets/images/index.json', text: INDEX_ONE_TAMPERED },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ASSET-INDEX-HASH-MISMATCH'),
+  },
+  {
+    name: 'warn-asset-hash-mismatch',
+    description: 'The asset\'s stored bytes differ from the `hash` the index declares for it (Asset Embedding §8.1 steps 1-4). The index itself is intact and its own hash matches, so only the per-asset row fires — proving the reader verifies each asset, not merely the index that anchors them. The declared `manifest.id` is the CLEAN one: §4.3.1 item 2 resolves the content reference to the index\'s DECLARED hash, never to the asset\'s bytes, so tampering the bytes leaves the id basis untouched.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding section 8.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:98b87bc5b6cc0dd070e8d2e29df66ec791a30243bf904f24ea72a7c4a579cf71',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Asset Bytes Tampered'),
+        { name: 'assets/images/index.json', text: INDEX_ONE },
+        { name: 'assets/images/fig1.svg', text: FIG2 },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ASSET-HASH-MISMATCH'),
+  },
+  {
+    name: 'warn-asset-document-id-mismatch',
+    description: 'A review document that DECLARES an asset category and carries a `manifest.id` one hex digit away from the id its parts canonicalize to. The recompute must run and report the mismatch — and it can only run if the category\'s index is supplied to it: `buildAssetMap` throws "no asset index supplied for category" for any declared category it is handed no index text for, whatever the content contains. This is the fixture that pins the `assetIndexes` wiring, which before B1b-3b-2 was omitted entirely, making every asset-bearing document silently skip its id check inside the recompute\'s catch. A clean asset-bearing positive cannot catch that regression, because a skipped id check also looks clean. The content is deliberately INERT (empty blocks), so the asset index affects only whether the recompute RUNS, never what it computes — which both isolates the wiring and keeps the fixture confirmable by the independent oracle. Asset resolution\'s effect on the id VALUE is pinned separately, by the hand-authored asset vectors in conformance/vectors/document-id.json.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.3.1, 4.4, 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        // The real id for this basis is …752a; the final digit is changed to `b`.
+        id: 'sha256:465c67c5dac8783c81a472f651d3f442fa9d3155269fdace496375916f76752b',
+        state: 'review',
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [
+        ...cleanBody('Asset Wiring'),
+        { name: 'assets/images/index.json', text: INDEX_ONE },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: warnOnly('CDX-E-DOCUMENT-ID-MISMATCH'),
+  },
+  {
+    name: 'warn-asset-listed-but-absent',
+    description: 'The index lists an asset the archive does not ship (Asset Embedding §11.1 item 1). This is the missing hash-bound-part row, NOT a dangling reference: the reference still RESOLVES, because §4.3.1 item 2 binds the index\'s declared hash into the document ID rather than the asset\'s bytes — so the id is unaffected and only the bytes are missing. A reader that reported this as a dangling asset reference would misattribute an integrity failure of the archive to the content tree.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding sections 3.2, 11.1; Document Hashing section 4.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [...contentBody(CONTENT_IMAGE, 'Asset Bytes Absent'), { name: 'assets/images/index.json', text: INDEX_ONE }],
+    ),
+    expect: warnOnly('CDX-E-PART-MISSING-BOUND'),
+  },
+  {
+    name: 'warn-asset-variant-missing',
+    description: 'An image variant listed in the index is absent from the archive. Asset Embedding §4.3 requires the reader to fall back to the full-resolution image — "Missing variants SHOULD produce a warning but MUST NOT prevent the image from being displayed" — so this is deliberately NOT the escalating missing-hash-bound-part row a missing top-level asset earns: the document still renders exactly the content it asserts.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding section 4.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: imagesCategory(INDEX_VARIANT_HASH, 1, 124),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Variant Absent'),
+        { name: 'assets/images/index.json', text: INDEX_VARIANT },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ASSET-VARIANT-MISSING'),
+  },
+  {
+    name: 'warn-asset-reference-dangling',
+    description: 'The content\'s `image` block names `assets/images/gone.svg`, which the (loadable, intact) index does not register. §5.4.2 defines this row as "a canonicalization error once the ID is computed": Document Hashing §4.3.1 item 2 REPLACES the reference with the asset\'s hash, so an unresolvable one makes the document identity uncomputable. Draft (`id: pending`), so no id recompute competes with the finding.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 item 2; Asset Embedding section 3.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_DANGLING_HASH },
+        assets: imagesCategory(INDEX_ONE_HASH),
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE_DANGLING, 'Dangling Asset Reference'),
+        { name: 'assets/images/index.json', text: INDEX_ONE },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ASSET-REFERENCE-DANGLING'),
+  },
+
+  // --- presentation layers ---------------------------------------------------
+  {
+    name: 'positive-presentation-resolved',
+    description: 'A review document declaring one `paginated` presentation layer whose stored bytes match its declared hash and whose single `pageElement` targets a block the content defines. The positive control for the presentation rows: a reader that mis-hashed the layer, or resolved `blockId` against the wrong namespace, would emit a spurious finding here. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Presentation Layers sections 12, 13.4; Document Hashing section 6.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:cab6b00ff455db74d01a1ded0fac20fae3450f8f9faa3c50522a8d05faa3fc39',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH },
+        presentation: [{ type: 'paginated', path: 'presentation/paginated.json', hash: PRESENTATION_OK_HASH }],
+      }),
+      [...contentBody(CONTENT_PARAGRAPH, 'Presentation Document'), { name: 'presentation/paginated.json', text: PRESENTATION_OK }],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-presentation-part-missing',
+    description: 'A declared `manifest.presentation[]` layer whose file the archive omits. §5.4.2 names a declared presentation layer as the example of a part bound by the document hash or manifest projection, so its absence is the hash-BOUND row — WARNING in draft/review, and distinct from the path-only row a missing provenance record earns.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Presentation Layers section 12; Security Extension section 9.7; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH },
+        presentation: [{ type: 'paginated', path: 'presentation/paginated.json', hash: PRESENTATION_OK_HASH }],
+      }),
+      contentBody(CONTENT_PARAGRAPH, 'Presentation Missing'),
+    ),
+    expect: warnOnly('CDX-E-PART-MISSING-BOUND'),
+  },
+  {
+    name: 'warn-presentation-hash-mismatch',
+    description: 'A declared presentation layer whose stored bytes do not match the `hash` the manifest declares for it. The file-hash row, under its own code rather than CDX-E-FILE-HASH-MISMATCH — that code\'s published summary is specifically `manifest.content.hash` over the content part\'s bytes, and conformance/errors.json is append-only, so its meaning cannot be widened after publication. The shipped layer\'s own `blockId` resolves cleanly, so the state-VARYING file-hash row is isolated from the state-INVARIANT reference row.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 6.3; Presentation Layers section 12; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH },
+        // Declares the hash of a DIFFERENT presentation file than the one shipped below.
+        presentation: [{ type: 'paginated', path: 'presentation/paginated.json', hash: PRESENTATION_DANGLING_HASH }],
+      }),
+      [...contentBody(CONTENT_PARAGRAPH, 'Presentation Hash Mismatch'), { name: 'presentation/paginated.json', text: PRESENTATION_OK }],
+    ),
+    expect: warnOnly('CDX-E-PRESENTATION-HASH-MISMATCH'),
+  },
+  {
+    name: 'warn-presentation-reference-dangling',
+    description: 'A declared presentation layer, correctly hashed, whose `pageElement` targets a `blockId` the content does not define. Presentation Layers §13.4: the reader omits that rule and renders the affected content with default styling. WARNING in EVERY state — presentation sits outside the document-hash boundary (Document Hashing §4.1a), so a stale reference degrades rendering and never impugns integrity. The file hash is correct here precisely so the state-INVARIANT reference row is isolated from the state-VARYING file-hash row.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Presentation Layers section 13.4; Document Hashing section 4.1a; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH },
+        presentation: [{ type: 'paginated', path: 'presentation/paginated.json', hash: PRESENTATION_DANGLING_HASH }],
+      }),
+      [...contentBody(CONTENT_PARAGRAPH, 'Dangling Presentation'), { name: 'presentation/paginated.json', text: PRESENTATION_DANGLING }],
+    ),
+    expect: warnOnly('CDX-E-PRESENTATION-REFERENCE-DANGLING'),
+  },
+  {
+    name: 'warn-presentation-undeclared',
+    description: 'A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2\'s preamble expressly refuses to treat such a file as a benign out-of-hash annotation — "an injected layout is an attempt to alter signed content" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file\'s presence; the normative requirement it backs is that a renderer MUST NOT present it as the document\'s appearance. Authored as an INTERVAL, deliberately: §5.4.2\'s preamble only REMOVES this file from the out-of-hash WARNING row without supplying a replacement, and the one characterisation the specification does offer — "an integrity concern" — points ABOVE WARNING rather than at it. WARNING is therefore a floor, and asserting it as a ceiling would fail a conformant reader that escalates.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Presentation Layers sections 12, 12.1; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH } }), [
+      ...contentBody(CONTENT_PARAGRAPH, 'Undeclared Layout'),
+      { name: 'presentation/layouts/letter.json', text: '{"version":"0.1","presentationType":"precise","targetFormat":"letter"}' },
+    ]),
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-PRESENTATION-UNDECLARED', atLeast: 'WARNING', atMost: 'REJECT' }],
+    },
+  },
+
+  // --- extension config-slot side files, and the namespaces they carry -------
+  {
+    name: 'positive-semantic-references-resolved',
+    description: 'A review document declaring `semantic.bibliography` and `semantic.glossary` as `{path, hash}` config references, both present and correctly hashed, whose content carries a `citation` mark resolving to a bibliography entry id and a `glossary` mark resolving to a term id. The positive control for the two namespaces §5.4.2\'s extension-cross-reference row names alongside the academic marks — and for keeping them SEPARATE from the content-anchor namespace, which is why §4.3.1 item 5 leaves both as authored. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 item 5; Security Extension section 9.7; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        id: 'sha256:708d2e14b2f96dbf780d73a4e5f00b33fc09e9bef2dd5e9341fc6d8215af62e2',
+        state: 'review',
+        content: { path: 'content/document.json', hash: CONTENT_SEMANTIC_HASH },
+        semantic: {
+          bibliography: { path: 'semantic/bibliography.json', hash: BIBLIOGRAPHY_HASH },
+          glossary: { path: 'semantic/glossary.json', hash: GLOSSARY_HASH },
+        },
+      }),
+      [
+        ...contentBody(CONTENT_SEMANTIC, 'Semantic Document'),
+        { name: 'semantic/bibliography.json', text: BIBLIOGRAPHY },
+        { name: 'semantic/glossary.json', text: GLOSSARY },
+      ],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-citation-and-glossary-dangling',
+    description: 'Both side files load cleanly, but the content\'s `citation` mark names no bibliography entry and its `glossary` mark names no term. Two findings, two codes — neither reusing CDX-E-CROSS-REFERENCE-DANGLING, whose published summary enumerates the three `academic:*-ref` marks specifically. WARNING in every state: §5.4.2\'s preamble explains that such a mark is resolved at RENDER time to inject a label or definition, so a dangling one degrades rendering while the signed bytes stay intact and hash-verified.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 item 5; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_SEMANTIC_DANGLING_HASH },
+        semantic: {
+          bibliography: { path: 'semantic/bibliography.json', hash: BIBLIOGRAPHY_HASH },
+          glossary: { path: 'semantic/glossary.json', hash: GLOSSARY_HASH },
+        },
+      }),
+      [
+        ...contentBody(CONTENT_SEMANTIC_DANGLING, 'Dangling Cross References'),
+        { name: 'semantic/bibliography.json', text: BIBLIOGRAPHY },
+        { name: 'semantic/glossary.json', text: GLOSSARY },
+      ],
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'WARNING' },
+      findings: [
+        { code: 'CDX-E-CITATION-REFERENCE-DANGLING', atLeast: 'WARNING', atMost: 'WARNING' },
+        { code: 'CDX-E-GLOSSARY-REFERENCE-DANGLING', atLeast: 'WARNING', atMost: 'WARNING' },
+      ],
+    },
+  },
+  {
+    name: 'warn-config-part-missing',
+    description: 'The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs is genuinely open: the out-of-hash row covers "a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)", but semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7) — so the row\'s qualifier and its examples disagree, and a conformant declaration is never path-only. Both readings give WARNING in draft/review; the expectation is authored as an INTERVAL so neither is foreclosed and B3 can settle the frozen column. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'State Machine section 5.4.2; Security Extension section 9.7',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_SEMANTIC_HASH },
+        semantic: {
+          bibliography: { path: 'semantic/bibliography.json', hash: BIBLIOGRAPHY_HASH },
+          glossary: { path: 'semantic/glossary.json', hash: GLOSSARY_HASH },
+        },
+      }),
+      [...contentBody(CONTENT_SEMANTIC, 'Bibliography Missing'), { name: 'semantic/glossary.json', text: GLOSSARY }],
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-CONFIG-PART-MISSING', atLeast: 'WARNING', atMost: 'REJECT' }],
+    },
+  },
+  {
+    name: 'warn-config-file-hash-mismatch',
+    description: 'The `semantic.bibliography` file is present but its stored bytes do not match the declared hash. Unlike the MISSING case above, this row is not contested: the reference declares a hash, so comparing it against the stored bytes is the file-hash row on either reading of where the missing-file case belongs. The glossary file is intact, so the glossary namespace stays clean and only the bibliography finding fires.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 6.3; Security Extension section 9.7; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_SEMANTIC_HASH },
+        semantic: {
+          bibliography: { path: 'semantic/bibliography.json', hash: BIBLIOGRAPHY_HASH },
+          glossary: { path: 'semantic/glossary.json', hash: GLOSSARY_HASH },
+        },
+      }),
+      [
+        ...contentBody(CONTENT_SEMANTIC, 'Bibliography Hash Mismatch'),
+        { name: 'semantic/bibliography.json', text: '{"version":"0.1","entries":[{"id":"smith2020","type":"book","title":"Another Book"}]}' },
+        { name: 'semantic/glossary.json', text: GLOSSARY },
+      ],
+    ),
+    expect: warnOnly('CDX-E-CONFIG-FILE-HASH-MISMATCH'),
   },
 ];
 

@@ -929,15 +929,39 @@ def _is_packaged_asset_ref(v):
     return v.startswith("assets/") or _normalize_path(v).startswith("assets/")
 
 
-def _merge_key(node):
+def _resolve_link_href_for_merge(m, asset_map):
+    """normalizeMarks' href resolution, WITHOUT resolveAssetRef's throw — branch order
+    mirrors canonicalize.ts `resolveLinkHrefForMerge` exactly: a `#` reference and a
+    scheme-bearing URL come back verbatim, THEN the map is consulted, and only a MISS that is
+    `assets/`-rooted becomes the placeholder. Consulting the map before testing the prefix
+    matters because buildAssetMap does not constrain an index entry's `path`: an entry whose
+    path escapes its category directory registers a key that is not `assets/`-rooted, and
+    gating the LOOKUP on that prefix would key two aliased hrefs differently and fail to merge
+    nodes the canonicalizer merges."""
+    if not (isinstance(m, dict) and m.get("type") == "link" and isinstance(m.get("href"), str)):
+        return m
+    href = m["href"]
+    if href.startswith("#") or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", href):
+        return m
+    resolved = asset_map.get(_normalize_path(href))
+    if resolved is not None:
+        return dict(m, href=resolved)
+    return dict(m, href="\u0000unresolved-asset") if _is_packaged_asset_ref(href) else m
+
+
+def _merge_key(node, asset_map=None):
     """The key mergeAdjacentText compares, modelled IN CANON'S ORDER: canon recurses into a
     child (deleting its derived fields, normalizing a text node's marks) and merges the
     array only afterwards. None when the node is not merge-eligible, so it breaks the run.
     `marks` is read verbatim when not a list — canon guards normalizeMarks on isArray and
-    marksEqual then compares that raw value. A packaged-asset link href keys as one
-    placeholder: canon resolves it to an asset hash before comparing, and without the asset
-    index (B1b-3b-2) equality is undecidable — over-merging costs a missed collision,
-    under-merging would be a FALSE INTEGRITY-ERROR on a document canon accepts."""
+    marksEqual then compares that raw value.
+
+    A packaged-asset link href resolves through `asset_map` exactly as normalizeMarks does,
+    so hrefs naming the same bytes under different paths compare EQUAL (their nodes merge)
+    while hrefs naming different bytes stay distinct (their nodes do not). A miss falls back
+    to a placeholder rather than raising: canon rejects such a document outright, and
+    over-merging costs a missed collision where under-merging would be a FALSE
+    INTEGRITY-ERROR on a document canon accepts."""
     if not (isinstance(node, dict) and node.get("type") == "text" and isinstance(node.get("value"), str)):
         return None
     kept = [k for k in node if not _is_derived_field(node, k)]
@@ -945,8 +969,8 @@ def _merge_key(node):
         return None
     marks = node.get("marks")
     if isinstance(marks, list):
-        masked = [dict(m, href=" asset") if isinstance(m, dict) and m.get("type") == "link"
-                  and _is_packaged_asset_ref(m.get("href")) else m for m in marks]
+        amap = asset_map or {}
+        masked = [_resolve_link_href_for_merge(m, amap) for m in marks]
         keyed = sorted(_jcs(m) for m in masked)
         normalized = "[" + ",".join(k for i, k in enumerate(keyed) if i == 0 or k != keyed[i - 1]) + "]"
     else:
@@ -954,13 +978,13 @@ def _merge_key(node):
     return normalized
 
 
-def _drop_absorbed_text_nodes(arr):
+def _drop_absorbed_text_nodes(arr, asset_map=None):
     """Remove each text node mergeAdjacentText would fold into its predecessor (§4.3.1
     item 4). The absorbed node's marks vanish with it, so two adjacent text nodes bearing
     the SAME `anchor` id are ONE id after canonicalization, not a collision."""
     out, prev_key = [], None
     for node in arr:
-        key = _merge_key(node)
+        key = _merge_key(node, asset_map)
         if key is not None and prev_key is not None and key == prev_key:
             continue
         prev_key = key
@@ -968,7 +992,7 @@ def _drop_absorbed_text_nodes(arr):
     return out
 
 
-def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None, in_text_marks=False):
+def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None, in_text_marks=False, asset_map=None):
     """Raw-content walk reproducing every canon transform that changes which ids exist:
     adjacent merge-eligible text nodes with equal mark sets collapse, marks identical
     within ONE TEXT NODE's array dedup, and derived fields drop. The last two are scoped
@@ -976,9 +1000,9 @@ def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None,
     duplicate marks genuinely survive) and does NOT recurse into a text node's marks (so a
     derived field carried on or under such a mark survives and its ids ARE relabelled)."""
     if isinstance(value, list):
-        items = value if in_text_marks else _drop_absorbed_text_nodes(value)
+        items = value if in_text_marks else _drop_absorbed_text_nodes(value, asset_map)
         for el in items:
-            _walk_content(el, visit, in_marks, True, parent_key, in_text_marks)
+            _walk_content(el, visit, in_marks, True, parent_key, in_text_marks, asset_map)
         return
     if not isinstance(value, dict):
         return
@@ -1000,14 +1024,14 @@ def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None,
                         continue
                     seen.add(k)
                     deduped.append(mark)
-                _walk_content(deduped, visit, True, False, key, True)
+                _walk_content(deduped, visit, True, False, key, True, asset_map)
             else:
-                _walk_content(child, visit, False, False, key, True)
+                _walk_content(child, visit, False, False, key, True, asset_map)
             continue
-        _walk_content(child, visit, key == "marks" and isinstance(child, list), False, key, in_text_marks)
+        _walk_content(child, visit, key == "marks" and isinstance(child, list), False, key, in_text_marks, asset_map)
 
 
-def _collect_ids(content):
+def _collect_ids(content, asset_map=None):
     """(unique ids in first-occurrence order, ids defined more than once)."""
     seen, ids, duplicates = set(), [], []
 
@@ -1021,7 +1045,7 @@ def _collect_ids(content):
             seen.add(i)
             ids.append(i)
 
-    _walk_content(content, visit)
+    _walk_content(content, visit, asset_map=asset_map)
     return ids, duplicates
 
 
@@ -1046,7 +1070,10 @@ def _content_reference_findings(data, cd):
     out = set()
     if content is None:
         return out
-    ids, duplicates = _collect_ids(content)
+    # The asset map decides which adjacent text nodes MERGE, so it decides which ids
+    # survive into the namespace — without it two nodes linking to DIFFERENT assets
+    # over-merge and a real collision goes unseen.
+    ids, duplicates = _collect_ids(content, _asset_map(data, cd))
     if duplicates:
         out.add("collision")
     defined = set(ids)
@@ -1139,7 +1166,7 @@ def annotation_anchor_dangling(data, cd):
     content = _content_value(data, cd)
     if content is None:
         return False
-    defined = set(_collect_ids(content)[0])
+    defined = set(_collect_ids(content, _asset_map(data, cd))[0])
     cdm = cd_map(cd)
     for path in sorted(_annotation_paths(data, cd)):
         text = part_text(data, cdm, path)
@@ -1171,8 +1198,490 @@ def annotation_anchor_dangling(data, cd):
     return False
 
 
+# --- B1b-3b-2: assets, presentation, and the config-slot side files -----------
+# INDEPENDENCE, stated plainly. Asset PATH RESOLUTION below is a genuine from-scratch
+# re-derivation: joining `assets/<category>/` with an index entry's `path`, normalizing,
+# and matching is simple enough to re-derive without reference to the TS, so a porting slip
+# in the reader would show up here. The same holds for the hash chain (hashlib vs Node
+# crypto) and the presence sweeps.
+#
+# What this section does NOT confirm is the DOCUMENT ID of an asset-bearing fixture.
+# `_assert_inert_content` accepts only an empty `blocks` array, and an asset-bearing
+# document necessarily has a non-empty one, so `confirm_clean` takes its OracleUnsupported
+# path and the id arm is silently off for those cases. Confirming it would mean porting the
+# whole of Document Hashing section 4.3.1 into Python — strip derived fields, resolve asset
+# refs, normalize and dedupe marks, merge adjacent text, alpha-rename, JCS. That is out of
+# proportion to this slice, so the coverage is placed elsewhere instead: the Level-0
+# `document-id` vectors carry two hand-authored asset cases (expected canonical bytes
+# transcribed by hand, digests taken with shasum), which pin exactly the resolution and
+# transform ORDERING the Level-1 fixtures exercise.
+
+_ASSET_DIR = "assets/"
+
+
+def _asset_categories(data, cd):
+    """`manifest.assets` as a dict of category -> declaration, or {}."""
+    m = manifest_obj(data, cd) or {}
+    assets = m.get("assets")
+    return assets if isinstance(assets, dict) else {}
+
+
+def _asset_index(data, cd, category):
+    """The parsed index for a category, read from the DERIVED path (Asset Embedding
+    section 3.1: the derived path governs, whatever `index` says), or None."""
+    text = part_text(data, cd_map(cd), f"assets/{category}/index.json")
+    if text is None:
+        return None
+    try:
+        val = json.loads(text)
+    except Exception:  # noqa: BLE001
+        return None
+    return val if isinstance(val, dict) else None
+
+
+def _asset_entries(index):
+    """The index's asset entries, or [] when it carries no `assets` array."""
+    entries = index.get("assets") if isinstance(index, dict) else None
+    return [a for a in entries if isinstance(a, dict)] if isinstance(entries, list) else []
+
+
+def _unresolvable_categories(data, cd):
+    """Categories whose index is absent or carries no `assets` array — their references
+    are indeterminate rather than dangling."""
+    out = set()
+    for category in _asset_categories(data, cd):
+        index = _asset_index(data, cd, category)
+        if index is None or not isinstance(index.get("assets"), list):
+            out.add(category)
+    return out
+
+
+def _asset_map(data, cd):
+    """archive path -> declared hash, over the categories that loaded.
+
+    The join is NORMALIZED, here and at every other `assets/<category>/<path>` join below:
+    Asset Embedding section 3.2 matches a reference "after path normalization", so an entry
+    whose `path` carries a dot segment is stored at, and referenced by, the normalized
+    location. Joining without normalizing looks for an archive entry that cannot exist."""
+    out = {}
+    for category in _asset_categories(data, cd):
+        index = _asset_index(data, cd, category)
+        if index is None:
+            continue
+        for a in _asset_entries(index):
+            if isinstance(a.get("path"), str) and isinstance(a.get("hash"), str):
+                out[_normalize_path(f"assets/{category}/{a['path']}")] = a["hash"]
+    return out
+
+
+def asset_index_path_divergent(data, cd):
+    for category, declared in _asset_categories(data, cd).items():
+        index = declared.get("index") if isinstance(declared, dict) else None
+        if isinstance(index, str) and index != f"assets/{category}/index.json":
+            return True
+    return False
+
+
+def asset_index_unusable(data, cd):
+    """An index PRESENT but unusable: not JSON, not an object, or no `assets` array."""
+    cdm = cd_map(cd)
+    for category in _asset_categories(data, cd):
+        text = cdm.get(f"assets/{category}/index.json")
+        if text is None:
+            continue  # absent is CDX-E-PART-MISSING-BOUND
+        index = _asset_index(data, cd, category)
+        if index is None or not isinstance(index.get("assets"), list):
+            return True
+    return False
+
+
+def asset_index_hash_mismatch(data, cd):
+    cdm = cd_map(cd)
+    for category, declared in _asset_categories(data, cd).items():
+        if not isinstance(declared, dict) or not is_valid_content_hash(declared.get("hash")):
+            continue
+        e = cdm.get(f"assets/{category}/index.json")
+        if e is None:
+            continue
+        raw = store_bytes(data, e)
+        if raw is None:
+            continue
+        real = _hash_of(declared["hash"].split(":", 1)[0], raw)
+        if real is not None and real != declared["hash"]:
+            return True
+    return False
+
+
+def asset_hash_mismatch(data, cd):
+    """An asset's — or a present variant's — bytes differ from the index's declared hash."""
+    cdm = cd_map(cd)
+    for category in _asset_categories(data, cd):
+        index = _asset_index(data, cd, category)
+        if index is None:
+            continue
+        for a in _asset_entries(index):
+            targets = [(a.get("path"), a.get("hash"))]
+            if isinstance(a.get("variants"), list):
+                targets += [(v.get("path"), v.get("hash")) for v in a["variants"] if isinstance(v, dict)]
+            for path, declared in targets:
+                if not isinstance(path, str) or not is_valid_content_hash(declared):
+                    continue
+                e = cdm.get(_normalize_path(f"assets/{category}/{path}"))
+                if e is None:
+                    continue  # absence is a different row
+                raw = store_bytes(data, e)
+                if raw is None:
+                    continue
+                real = _hash_of(declared.split(":", 1)[0], raw)
+                if real is not None and real != declared:
+                    return True
+    return False
+
+
+def asset_variant_missing(data, cd):
+    cdm = cd_map(cd)
+    for category in _asset_categories(data, cd):
+        index = _asset_index(data, cd, category)
+        if index is None:
+            continue
+        for a in _asset_entries(index):
+            for v in a.get("variants", []) if isinstance(a.get("variants"), list) else []:
+                if isinstance(v, dict) and isinstance(v.get("path"), str) and _normalize_path(f"assets/{category}/{v['path']}") not in cdm:
+                    return True
+    return False
+
+
+def _presentation_entries(data, cd):
+    m = manifest_obj(data, cd) or {}
+    entries = m.get("presentation")
+    return [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+
+
+def _config_file_refs(data, cd):
+    """Every `{path, hash}` pair declared in an extension config slot — the set the
+    manifest projection binds (Security Extension section 9.7). Re-derived by walking the
+    four slots for two-key {path, hash} objects, as the projector does."""
+    m = manifest_obj(data, cd) or {}
+    found = []
+
+    def visit(v):
+        if isinstance(v, dict):
+            if set(v.keys()) == {"path", "hash"} and isinstance(v.get("path"), str) and is_valid_content_hash(v.get("hash")):
+                found.append((v["path"], v["hash"]))
+                return
+            for x in v.values():
+                visit(x)
+        elif isinstance(v, list):
+            for x in v:
+                visit(x)
+
+    for slot in ("academic", "semantic", "legal", "collaboration"):
+        visit(m.get(slot))
+    return found
+
+
+def part_missing_bound(data, cd):
+    """A hash-BOUND referenced part absent from the archive: a declared presentation
+    layer, a category's index file, or an asset the index lists."""
+    cdm = cd_map(cd)
+    for category in _asset_categories(data, cd):
+        if f"assets/{category}/index.json" not in cdm:
+            return True
+        index = _asset_index(data, cd, category)
+        if index is None:
+            continue
+        for a in _asset_entries(index):
+            if isinstance(a.get("path"), str) and _normalize_path(f"assets/{category}/{a['path']}") not in cdm:
+                return True
+    for entry in _presentation_entries(data, cd):
+        path = entry.get("path")
+        if not isinstance(path, str):
+            continue
+        if path not in cdm:
+            return True
+        # The reader emits this code for a declared layer that is PRESENT but will not parse
+        # too — a hash-bound part that cannot be obtained either way. A duplicate key is the
+        # state-invariant REJECT instead, so it is excluded.
+        text = part_text(data, cdm, path)
+        if text is not None and not has_duplicate_key(text):
+            try:
+                json.loads(text)
+            except json.JSONDecodeError:
+                return True
+    return False
+
+
+def presentation_hash_mismatch(data, cd):
+    cdm = cd_map(cd)
+    for entry in _presentation_entries(data, cd):
+        if not isinstance(entry.get("path"), str) or not is_valid_content_hash(entry.get("hash")):
+            continue
+        e = cdm.get(entry["path"])
+        if e is None:
+            continue
+        raw = store_bytes(data, e)
+        if raw is None:
+            continue
+        real = _hash_of(entry["hash"].split(":", 1)[0], raw)
+        if real is not None and real != entry["hash"]:
+            return True
+    return False
+
+
+_PRESENTATION_TYPES = {"paginated", "continuous", "responsive", "precise"}
+
+
+def presentation_undeclared(data, cd):
+    """A LAYOUT file under `presentation/` that no manifest.presentation[] entry declares, so
+    no hash binds it (Presentation Layers section 12). Membership is decided by the file's own
+    discriminator (section 13.3) — `presentationType` for a precise layout, `type` for a
+    reactive one — not by location alone: an unrelated file parked under the directory is an
+    unrecognized file, which State Machine section 5.4.2 IGNOREs."""
+    declared = {e["path"] for e in _presentation_entries(data, cd) if isinstance(e.get("path"), str)}
+    cdm = cd_map(cd)
+    for e in cd:
+        name = e["name"]
+        if not name.startswith("presentation/") or name.endswith("/") or name in declared:
+            continue
+        text = part_text(data, cdm, name)
+        if text is None:
+            continue
+        try:
+            part = json.loads(text)
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(part, dict):
+            continue
+        discriminator = part.get("presentationType", part.get("type"))
+        if isinstance(discriminator, str) and discriminator in _PRESENTATION_TYPES:
+            return True
+    return False
+
+
+def config_part_missing(data, cd):
+    cdm = cd_map(cd)
+    for path, _hash in _config_file_refs(data, cd):
+        if path not in cdm:
+            return True
+        text = part_text(data, cdm, path)
+        if text is None:
+            continue
+        try:
+            json.loads(text)
+        except json.JSONDecodeError:
+            if not has_duplicate_key(text):
+                return True
+    return False
+
+
+def config_file_hash_mismatch(data, cd):
+    cdm = cd_map(cd)
+    for path, declared in _config_file_refs(data, cd):
+        e = cdm.get(path)
+        if e is None:
+            continue
+        raw = store_bytes(data, e)
+        if raw is None:
+            continue
+        real = _hash_of(declared.split(":", 1)[0], raw)
+        if real is not None and real != declared:
+            return True
+    return False
+
+
+def _config_value(data, cd, slot_key, member):
+    """(declared, parsed-value) for `manifest.<slot>.<member>` — a {path, hash} reference.
+    `declared and value is None` means the namespace is INDETERMINATE, not empty."""
+    m = manifest_obj(data, cd) or {}
+    slot = m.get(slot_key)
+    ref = slot.get(member) if isinstance(slot, dict) else None
+    path = ref.get("path") if isinstance(ref, dict) else None
+    if not isinstance(path, str):
+        return False, None
+    text = part_text(data, cd_map(cd), path)
+    if text is None:
+        return True, None
+    try:
+        return True, json.loads(text)
+    except Exception:  # noqa: BLE001
+        return True, None
+
+
+def _asset_reference_findings(data, cd):
+    """Every unresolvable packaged-asset reference in the content, mirroring which nodes
+    the canonicalizer actually resolves: `image`/`svg` `src` and `signature` `image`
+    (honouring `external`), and a `link` mark href taken from the TEXT node that owns it —
+    the canonicalizer resolves link hrefs only under `case 'text'`. References into an
+    unresolvable category are indeterminate and excluded."""
+    content = _content_value(data, cd)
+    if content is None:
+        return False
+    amap = _asset_map(data, cd)
+    unresolvable = _unresolvable_categories(data, cd)
+    hits = []
+
+    def check(value, external):
+        if external or not isinstance(value, str):
+            return
+        if value.startswith("#") or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value):
+            return
+        normalized = _normalize_path(value)
+        if not (value.startswith(_ASSET_DIR) or normalized.startswith(_ASSET_DIR)):
+            return
+        if normalized in amap:
+            return
+        parts = normalized.split("/")
+        if len(parts) >= 3 and parts[1] in unresolvable:
+            return
+        hits.append(normalized)
+
+    def walk(node, in_text_marks):
+        if isinstance(node, list):
+            for x in node:
+                walk(x, in_text_marks)
+            return
+        if not isinstance(node, dict):
+            return
+        if not in_text_marks:
+            t = node.get("type")
+            if t in ("image", "svg"):
+                check(node.get("src"), node.get("external") is True)
+            elif t == "signature":
+                check(node.get("image"), node.get("external") is True)
+            elif t == "text" and isinstance(node.get("marks"), list):
+                for mk in node["marks"]:
+                    if isinstance(mk, dict) and mk.get("type") == "link":
+                        check(mk.get("href"), False)
+        for key, child in node.items():
+            walk(child, in_text_marks or (key == "marks" and node.get("type") == "text"))
+
+    walk(content, False)
+    return bool(hits)
+
+
+def _presentation_reference_findings(data, cd):
+    """A presentation rule targeting a block id the content does not define."""
+    content = _content_value(data, cd)
+    if content is None:
+        return False
+    ids = _collect_ids(content, _asset_map(data, cd))[0]
+    cdm = cd_map(cd)
+    for entry in _presentation_entries(data, cd):
+        path = entry.get("path")
+        if not isinstance(path, str):
+            continue
+        text = part_text(data, cdm, path)
+        if text is None:
+            continue
+        try:
+            part = json.loads(text)
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(part, dict):
+            continue
+        targets = []
+        for page in part.get("pages", []) if isinstance(part.get("pages"), list) else []:
+            for el in page.get("elements", []) if isinstance(page, dict) and isinstance(page.get("elements"), list) else []:
+                if not isinstance(el, dict):
+                    continue
+                targets.append(el.get("blockId"))
+                if isinstance(el.get("blockIds"), list):
+                    targets += el["blockIds"]
+        for section in part.get("sections", []) if isinstance(part.get("sections"), list) else []:
+            if isinstance(section, dict) and isinstance(section.get("blockRefs"), list):
+                targets += section["blockRefs"]
+        if any(isinstance(t, str) and t not in ids for t in targets):
+            return True
+    return False
+
+
+def _semantic_reference_findings(data, cd):
+    """{'citation', 'glossary'} for the namespaces that have a dangling reference. A
+    DECLARED-but-unloadable side file leaves its namespace indeterminate, so nothing in it
+    is reported."""
+    content = _content_value(data, cd)
+    if content is None:
+        return set()
+    bib_declared, bib_value = _config_value(data, cd, "semantic", "bibliography")
+    gls_declared, gls_value = _config_value(data, cd, "semantic", "glossary")
+
+    # PRECEDENCE, not union (Semantic Extension sections 4.4 and 8.3): a DECLARED external
+    # side file is the single authoritative source and the in-document fallback is not
+    # consulted; with no declaration, the in-document source IS the namespace. `None` means
+    # indeterminate — declared but unloadable.
+    def walk_blocks(node, visit):
+        if isinstance(node, list):
+            for x in node:
+                walk_blocks(x, visit)
+        elif isinstance(node, dict):
+            visit(node)
+            for x in node.values():
+                walk_blocks(x, visit)
+
+    bib_ids = None if (bib_declared and bib_value is None) else set()
+    if bib_ids is not None:
+        if bib_declared:
+            if isinstance(bib_value, dict) and isinstance(bib_value.get("entries"), list):
+                bib_ids |= {e["id"] for e in bib_value["entries"] if isinstance(e, dict) and isinstance(e.get("id"), str)}
+        else:
+            def visit_bib(node):
+                if node.get("type") == "semantic:bibliography" and isinstance(node.get("entries"), list):
+                    bib_ids.update(e["id"] for e in node["entries"] if isinstance(e, dict) and isinstance(e.get("id"), str))
+            walk_blocks(content, visit_bib)
+
+    gls_ids = None if (gls_declared and gls_value is None) else set()
+    if gls_ids is not None:
+        if gls_declared:
+            if isinstance(gls_value, dict) and isinstance(gls_value.get("terms"), list):
+                gls_ids |= {t["id"] for t in gls_value["terms"] if isinstance(t, dict) and isinstance(t.get("id"), str)}
+        else:
+            # Section 8.3 rule 2: the in-document `semantic:term` blocks are the source.
+            def visit_term(node):
+                if node.get("type") == "semantic:term" and isinstance(node.get("id"), str):
+                    gls_ids.add(node["id"])
+            walk_blocks(content, visit_term)
+
+    out = set()
+
+    def walk(node, in_marks):
+        if isinstance(node, list):
+            for x in node:
+                walk(x, in_marks)
+            return
+        if not isinstance(node, dict):
+            return
+        t = node.get("type")
+        if in_marks and t == "citation" and isinstance(node.get("refs"), list) and bib_ids is not None:
+            if any(isinstance(r, str) and r not in bib_ids for r in node["refs"]):
+                out.add("citation")
+        if in_marks and t == "glossary" and gls_ids is not None and isinstance(node.get("ref"), str) and node["ref"] not in gls_ids:
+            out.add("glossary")
+        if not in_marks and t == "semantic:term" and isinstance(node.get("see"), list) and gls_ids is not None:
+            if any(isinstance(s, str) and s not in gls_ids for s in node["see"]):
+                out.add("glossary")
+        for key, child in node.items():
+            walk(child, key == "marks" and isinstance(child, list))
+
+    walk(content, False)
+    return out
+
+
 CONFIRMERS = {
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
+    "CDX-E-PART-MISSING-BOUND": part_missing_bound,
+    "CDX-E-ASSET-INDEX-UNUSABLE": asset_index_unusable,
+    "CDX-E-ASSET-INDEX-HASH-MISMATCH": asset_index_hash_mismatch,
+    "CDX-E-ASSET-HASH-MISMATCH": asset_hash_mismatch,
+    "CDX-E-ASSET-VARIANT-MISSING": asset_variant_missing,
+    "CDX-E-ASSET-INDEX-PATH-DIVERGENT": asset_index_path_divergent,
+    "CDX-E-ASSET-REFERENCE-DANGLING": _asset_reference_findings,
+    "CDX-E-PRESENTATION-HASH-MISMATCH": presentation_hash_mismatch,
+    "CDX-E-PRESENTATION-UNDECLARED": presentation_undeclared,
+    "CDX-E-PRESENTATION-REFERENCE-DANGLING": _presentation_reference_findings,
+    "CDX-E-CONFIG-PART-MISSING": config_part_missing,
+    "CDX-E-CONFIG-FILE-HASH-MISMATCH": config_file_hash_mismatch,
+    "CDX-E-CITATION-REFERENCE-DANGLING": lambda data, cd: "citation" in _semantic_reference_findings(data, cd),
+    "CDX-E-GLOSSARY-REFERENCE-DANGLING": lambda data, cd: "glossary" in _semantic_reference_findings(data, cd),
     "CDX-E-METADATA-PART-MISSING": metadata_part_missing,
     "CDX-E-METADATA-PART-UNPARSEABLE": metadata_part_unparseable,
     "CDX-E-METADATA-TERM-MISSING": metadata_term_missing,
@@ -1269,6 +1778,38 @@ def confirm_clean(name, data):
     refs = _content_reference_findings(data, cd)
     if refs:
         return f"clean case content has reference finding(s): {sorted(refs)}"
+    # B1b-3b-2: a genuinely clean document's hash-bound material must all be present and
+    # verified — every asset index, asset and variant; every declared presentation layer;
+    # every config-slot side file — and every asset, presentation and cross-reference must
+    # resolve. Without these arms a reader that skipped the whole asset chain would still
+    # pass positive-asset-resolved.
+    if part_missing_bound(data, cd):
+        return "clean case is missing a hash-bound part (asset index, listed asset, or presentation layer)"
+    if asset_index_unusable(data, cd):
+        return "clean case has an asset index that cannot be used to resolve the category"
+    if asset_index_path_divergent(data, cd):
+        return "clean case declares an asset index path that differs from the derived location"
+    if asset_index_hash_mismatch(data, cd):
+        return "clean case asset index does not match its declared hash"
+    if asset_hash_mismatch(data, cd):
+        return "clean case asset or variant does not match its declared hash"
+    if asset_variant_missing(data, cd):
+        return "clean case lists an image variant the archive omits"
+    if _asset_reference_findings(data, cd):
+        return "clean case content references an asset that resolves to no registered asset"
+    if presentation_hash_mismatch(data, cd):
+        return "clean case presentation layer does not match its declared hash"
+    if presentation_undeclared(data, cd):
+        return "clean case ships a presentation file no manifest.presentation[] entry declares"
+    if _presentation_reference_findings(data, cd):
+        return "clean case presentation targets a block id the content does not define"
+    if config_part_missing(data, cd):
+        return "clean case declares a config-slot side file that is absent or unparseable"
+    if config_file_hash_mismatch(data, cd):
+        return "clean case config-slot side file does not match its declared hash"
+    semantic = _semantic_reference_findings(data, cd)
+    if semantic:
+        return f"clean case has dangling cross-reference(s): {sorted(semantic)}"
     # B1b-3a: a clean fixture's declared file hash must match the stored bytes, and — for
     # a document carrying a real id — the recomputed canonical document id must match it.
     # Otherwise a reader that skips hash/id verification would wrongly pass this fixture.
@@ -1284,6 +1825,16 @@ def confirm_clean(name, data):
             pass  # content richer than the oracle models — the TS reader + Level-0
             # canonicalize vectors cover its id; a wrong id would still make the reader
             # emit CDX-E-DOCUMENT-ID-MISMATCH and fail check:conformance.
+            #
+            # SAY IT PLAINLY: every ASSET-BEARING positive lands here, because
+            # _assert_inert_content accepts only an empty `blocks` array and an
+            # asset-bearing document necessarily has a non-empty one. So the ids of
+            # positive-asset-resolved, positive-asset-variant-resolved and
+            # positive-aliased-assets-merge are NOT confirmed by this oracle. Their
+            # coverage is the two hand-authored asset vectors in
+            # conformance/vectors/document-id.json, whose expected canonical bytes were
+            # transcribed by hand and digested with shasum — that is where the asset
+            # resolution and transform ordering are independently pinned.
     return None
 
 

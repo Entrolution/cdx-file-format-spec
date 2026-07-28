@@ -8,6 +8,7 @@
     "validate:schemas": "npx tsx scripts/validate-schemas.ts",
     "validate:examples": "npx tsx scripts/validate-examples.ts",
     "test:canonicalize": "npx tsx scripts/test-canonicalize.ts",
+    "test:document-verdict": "npx tsx scripts/test-document-verdict.ts",
     "check:sync": "npx tsx scripts/check-spec-schema-sync.ts",
     "check:refs": "npx tsx scripts/validate-cross-refs.ts",
     "check:coverage": "npx tsx scripts/check-example-coverage.ts",
