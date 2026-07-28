@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"String Mark As Object\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"String Mark As Object\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

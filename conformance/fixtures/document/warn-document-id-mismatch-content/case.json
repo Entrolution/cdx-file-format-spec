@@ -10,7 +10,7 @@
     "entries": [
       {
         "name": "manifest.json",
-        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:b580ac3b69152f9b2898b03170a58d531b6726a4f6e5ba752c77ab0ad2df0675\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:30d5a3dc35063023dc212e6cf97d00232f8eb9d2764aaad2946098ce06d09f80\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:34d8f862fc561be2e9ca4fe379103ab525dd83e97191fed53ff05be3a3355793\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:30d5a3dc35063023dc212e6cf97d00232f8eb9d2764aaad2946098ce06d09f80\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
       },
       {
         "name": "content/document.json",
@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Review\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Minimal Review\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

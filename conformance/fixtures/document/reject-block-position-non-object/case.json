@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-object Block Position\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-object Block Position\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

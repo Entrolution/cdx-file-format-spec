@@ -1,0 +1,36 @@
+{
+  "description": "A provenance record — a path-only referenced part, but NOT an annotation layer — that happens to carry a top-level `changes` array whose entries look anchor-shaped. Only the layers whose schemas DECLARE a ContentAnchor position anchor into content, so this must not be read as one: resolving anchors in every path-only part would report a dangling anchor for a `changes` array that means something else entirely. The part is well-formed, so the unparseable row stays silent too. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References section 7.2; State Machine sections 5.4.2, 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"provenance\":\"provenance/record.json\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non Annotation Part\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "provenance/record.json",
+        "text": "{\"version\":\"0.1\",\"changes\":[{\"anchor\":{\"blockId\":\"not-a-content-id\"}}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

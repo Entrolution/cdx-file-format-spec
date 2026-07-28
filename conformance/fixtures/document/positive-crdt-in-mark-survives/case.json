@@ -1,0 +1,32 @@
+{
+  "description": "A `crdt` payload carried ON a text node's `anchor` mark, holding a block with id `ghost`, and a `semantic:ref` targeting `#ghost`. Canonicalization strips `crdt` only where it RECURSES, and it deliberately does not recurse into a text node's `marks` (they are final after normalization) — so this payload SURVIVES, its id is relabelled, and the reference resolves. The mirror image of `positive-crdt-id-not-in-namespace`: there the payload sits on a block and is stripped. A resolver that erased derived fields everywhere would make the raw namespace a strict SUBSET of the canonical one and report a spurious dangling reference here. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.1a, 4.3.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:fb892ccdd88d6e8af876b86b7230b19b30fc9764f3f98ba3376a7384026a4c4d\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p\",\"children\":[{\"type\":\"text\",\"value\":\"v\",\"marks\":[{\"type\":\"anchor\",\"id\":\"a\",\"crdt\":{\"type\":\"paragraph\",\"id\":\"ghost\"}}]}]},{\"type\":\"semantic:ref\",\"id\":\"r\",\"target\":\"#ghost\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Crdt In Mark Survives\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

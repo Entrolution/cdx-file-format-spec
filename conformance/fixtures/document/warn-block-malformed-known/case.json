@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Malformed Block\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Malformed Block\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Namespaced Mark\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Namespaced Mark\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"File Hash Mismatch\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"File Hash Mismatch\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

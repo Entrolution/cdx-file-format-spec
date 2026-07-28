@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Opaque Extension Interior\"}}"
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Opaque Extension Interior\",\"creator\":\"A. Author\"}}"
       }
     ]
   },

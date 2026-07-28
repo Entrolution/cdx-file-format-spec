@@ -1,0 +1,38 @@
+{
+  "description": "The Dublin Core part carries a well-formed `title` and `creator` but a `subject` of the wrong type (a number). The metadata projection REJECTS a malformed term rather than dropping it (Document Hashing §4.3.1), so the metadata cannot be projected and the document-ID basis is indeterminate — reported as an unusable metadata part. Without this arm one malformed ADVISORY term would silently disable the document-ID check while the document still loaded clean: an integrity check switched off by a field that does not even enter the required set.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.1; Metadata section 3.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Malformed Term\",\"creator\":\"A. Author\",\"subject\":42}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-METADATA-PART-UNPARSEABLE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

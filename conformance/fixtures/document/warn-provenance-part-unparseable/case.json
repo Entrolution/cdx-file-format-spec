@@ -1,0 +1,42 @@
+{
+  "description": "The manifest declares a provenance record by path and the archive ships it corrupt. The same out-of-hash row as a bad collaboration file, reached through a manifest-declared path rather than a conventional directory: a path-only reference binds nothing, so a corrupt target is a WARNING in every state. Pins the symmetry — covering only a MISSING path-only part while staying silent on a CORRUPT one would report the milder defect and ignore the worse.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Extensions overview (Integrity Status of Extension Data); Security Extension section 9.8; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"provenance\":\"provenance/record.json\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Corrupt Provenance\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "provenance/record.json",
+        "text": "{\"version\":\"0.1\",\"events\":["
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-EXTENSION-DATA-PART-UNPARSEABLE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

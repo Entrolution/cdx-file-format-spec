@@ -1,0 +1,42 @@
+{
+  "description": "A manifest-declared out-of-hash side file (`metadata.jsonld`) at a path that does NOT end in `.json`, containing a duplicate key. §5.4.3 rejects a duplicate key in ANY part in EVERY state — the split-view substitution vector — and nothing obliges a part to be named `.json` (the relative-path form permits any name). A duplicate-key sweep keyed only on the extension would let this part load clean, so the sweep covers every manifest-declared part path as well.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\",\"jsonld\":\"metadata/doc.jsonld\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Declared Part Duplicate Keys\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "metadata/doc.jsonld",
+        "text": "{\"@context\":\"a\",\"@context\":\"b\"}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-DUPLICATE-KEYS",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

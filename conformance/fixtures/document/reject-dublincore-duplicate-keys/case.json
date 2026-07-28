@@ -18,7 +18,7 @@
       },
       {
         "name": "metadata/dublin-core.json",
-        "text": "{\"version\":\"1.1\",\"version\":\"9.9\",\"terms\":{\"title\":\"Dup DC\"}}"
+        "text": "{\"version\":\"1.1\",\"version\":\"9.9\",\"terms\":{\"title\":\"Dup DC\",\"creator\":\"A. Author\"}}"
       }
     ]
   },
