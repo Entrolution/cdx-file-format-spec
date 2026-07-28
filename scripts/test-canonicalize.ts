@@ -16,6 +16,7 @@ import {
   CanonicalizationError,
   MAX_CANONICALIZATION_DEPTH,
   algorithmOf,
+  buildAssetMap,
   canonicalContent,
   collectDefinedIds,
   walkContentNodes,
@@ -1188,25 +1189,138 @@ test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () =
   }
 });
 
-test('collectDefinedIds: aliased asset links must not manufacture a collision', () => {
-  // normalizeMarks resolves a link href to its ASSET HASH before mergeAdjacentText
-  // compares mark sets, so two nodes whose links name different paths carrying the same
-  // bytes merge — and their shared anchor id is one id, not a collision. The raw walk has
-  // no asset index (that arrives in B1b-3b-2), so it keys a packaged-asset href as a
-  // placeholder: over-merging, which risks a missed collision, rather than under-merging,
-  // which would be a false INTEGRITY-ERROR on a document the canonicalizer accepts.
-  const content = { version: '0.1', blocks: [{ type: 'paragraph', children: [
-    { type: 'text', value: 'a', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: 'assets/images/a.png' }] },
-    { type: 'text', value: 'b', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: 'assets/images/b.png' }] }] }] };
-  const hash = `sha256:${'a'.repeat(64)}`;
-  const parts: DocumentParts = {
-    manifest: '{"assets":{"images":{"index":"assets/images/index.json"}}}',
-    content: JSON.stringify(content),
-    dublinCore: '{}',
-    assetIndexes: { images: JSON.stringify({ assets: [{ id: 'a', path: 'a.png', hash }, { id: 'b', path: 'b.png', hash }] }) },
+// --- The asset map in the raw walk (B1b-3b-2) --------------------------------
+// `normalizeMarks` resolves a `link` mark's href to its asset HASH before
+// `mergeAdjacentText` compares mark sets, so whether two adjacent text nodes merge — and
+// therefore whether a shared `anchor` id is ONE id or a COLLISION — depends on the asset
+// index. These fixtures are shared by the tests below.
+const ASSET_HASH_A = `sha256:${'a'.repeat(64)}`;
+const ASSET_HASH_B = `sha256:${'b'.repeat(64)}`;
+const ASSET_MANIFEST = '{"assets":{"images":{"index":"assets/images/index.json"}}}';
+const ASSET_INDEX = JSON.stringify({
+  assets: [
+    { id: 'a', path: 'a.png', hash: ASSET_HASH_A },
+    { id: 'alias', path: 'alias.png', hash: ASSET_HASH_A }, // same bytes, second path
+    { id: 'b', path: 'b.png', hash: ASSET_HASH_B },
+  ],
+});
+
+/** Two adjacent text nodes sharing the anchor id `x`, each carrying one `link` mark. */
+const twoLinkedTexts = (hrefA: string, hrefB: string, extra: Record<string, unknown> = {}): unknown => ({
+  version: '0.1',
+  blocks: [
+    { type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: hrefA, ...extra }] },
+      { type: 'text', value: 'b', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: hrefB, ...extra }] },
+    ] },
+  ],
+});
+
+test('collectDefinedIds: the asset map reproduces canon merging, checked AGAINST canon', () => {
+  // Differential, as the erasure test above: for each input the raw namespace must have a
+  // duplicate exactly when computeDocumentId rejects for one. Before the map existed every
+  // packaged-asset href keyed as one placeholder, so `distinct assets` below was a MISSED
+  // collision — a real INTEGRITY-ERROR the raw walk could not see.
+  const assetMap = buildAssetMap(JSON.parse(ASSET_MANIFEST), { images: ASSET_INDEX });
+  const rejectsForDuplicateId = (content: unknown): boolean => {
+    try {
+      computeDocumentId(
+        { manifest: ASSET_MANIFEST, content: JSON.stringify(content), dublinCore: '{}', assetIndexes: { images: ASSET_INDEX } },
+        'sha256',
+      );
+      return false;
+    } catch (err) {
+      if (err instanceof CanonicalizationError && /duplicate id/.test(err.message)) return true;
+      throw err; // any other rejection means the case is not testing what it claims
+    }
   };
-  assert.doesNotThrow(() => computeDocumentId(parts, 'sha256'), 'the canonicalizer merges the aliased nodes');
-  assert.deepEqual(collectDefinedIds(content, { rawInput: true }).duplicates, [], 'the raw walk must agree');
+  const cases: Array<[string, unknown]> = [
+    // same bytes under two paths -> resolved hrefs are equal -> merged -> one id
+    ['aliased assets merge', twoLinkedTexts('assets/images/a.png', 'assets/images/alias.png')],
+    ['identical hrefs merge', twoLinkedTexts('assets/images/a.png', 'assets/images/a.png')],
+    // `resolveAssetRef` normalizes before the map lookup, so `./` is the SAME asset
+    ['a dot-segment path is the same asset', twoLinkedTexts('assets/images/a.png', './assets/images/a.png')],
+    // DIFFERENT bytes -> hrefs stay distinct -> no merge -> both anchors survive -> collision
+    ['distinct assets do NOT merge', twoLinkedTexts('assets/images/a.png', 'assets/images/b.png')],
+    // `normalizeMarks` passes `external: false` for a LINK mark unconditionally, so the flag
+    // that exempts an image/svg/signature source does nothing here and the href still resolves
+    ['external on a link mark does not exempt it', twoLinkedTexts('assets/images/a.png', 'assets/images/alias.png', { external: true })],
+    // non-asset hrefs are left verbatim by both, so distinct ones keep the nodes apart
+    ['scheme-bearing hrefs are not asset refs', twoLinkedTexts('https://example.test/a', 'https://example.test/b')],
+    ['identical scheme-bearing hrefs merge', twoLinkedTexts('https://example.test/a', 'https://example.test/a')],
+    // a relative path outside `assets/` is not a packaged-asset reference either
+    ['non-asset relative paths are not asset refs', twoLinkedTexts('images/a.png', 'images/b.png')],
+  ];
+  for (const [label, content] of cases) {
+    const { duplicates } = collectDefinedIds(content, { rawInput: true, assetMap });
+    assert.equal(duplicates.length > 0, rejectsForDuplicateId(content), `raw walk disagrees with canonicalization: ${label}`);
+  }
+});
+
+test('collectDefinedIds: the merge key consults the asset map BEFORE testing the assets/ prefix', () => {
+  // `resolveAssetRef` consults the map for ANY href that is not `#`-prefixed and carries no
+  // scheme; only the FALLBACK is gated on `assets/`-rootedness. That distinction is invisible
+  // while every map key is `assets/`-rooted — but `buildAssetMap` does not constrain an index
+  // entry's `path`, so an entry escaping its category directory registers a key that is not.
+  // A merge key that gated the LOOKUP on the prefix would then resolve one spelling of that
+  // asset and leave the other verbatim, keep the nodes apart, and report a duplicate id the
+  // canonicalizer does not — a FALSE INTEGRITY-ERROR.
+  const hash = `sha256:${'c'.repeat(64)}`;
+  const manifest = '{"assets":{"images":{"index":"assets/images/index.json"}}}';
+  const index = JSON.stringify({ assets: [{ id: 'e', path: '../../evil.svg', hash }] });
+  const assetMap = buildAssetMap(JSON.parse(manifest), { images: index });
+  assert.deepEqual([...assetMap.keys()], ['evil.svg'], 'the registered key escapes the assets/ tree');
+
+  // Two spellings of the SAME registered asset: the bare key, and a path that normalizes to it.
+  const content = twoLinkedTexts('evil.svg', 'assets/images/../../evil.svg');
+  assert.doesNotThrow(
+    () => computeDocumentId({ manifest, content: JSON.stringify(content), dublinCore: '{}', assetIndexes: { images: index } }, 'sha256'),
+    'the canonicalizer resolves both spellings and merges the nodes',
+  );
+  assert.deepEqual(collectDefinedIds(content, { rawInput: true, assetMap }).duplicates, [], 'the raw walk must agree');
+});
+
+test('collectDefinedIds: an unresolvable asset href must not throw out of the walk', () => {
+  // `resolveAssetRef` THROWS for an `assets/`-rooted href the map does not carry. If
+  // mergeKeyOf called it, that throw would propagate through walkContentNodes into the
+  // conformance resolver's catch-all and silently discard EVERY finding of that pass — the
+  // id collision included. So one dangling asset href would switch off an INTEGRITY-ERROR.
+  const assetMap = buildAssetMap(JSON.parse(ASSET_MANIFEST), { images: ASSET_INDEX });
+  const content = twoLinkedTexts('assets/images/gone.png', 'assets/images/also-gone.png');
+  assert.throws(
+    () => computeDocumentId({ manifest: ASSET_MANIFEST, content: JSON.stringify(content), dublinCore: '{}', assetIndexes: { images: ASSET_INDEX } }, 'sha256'),
+    /resolves to no registered asset/,
+    'the canonicalizer rejects the document outright',
+  );
+  // The walk must still complete. Both hrefs fall back to the same placeholder, so the nodes
+  // merge and no duplicate is reported — the conservative direction: a possibly missed
+  // collision on a document that is unloadable anyway, never a FALSE collision.
+  let ids: ReturnType<typeof collectDefinedIds> | undefined;
+  assert.doesNotThrow(() => {
+    ids = collectDefinedIds(content, { rawInput: true, assetMap });
+  }, 'the raw walk must not inherit resolveAssetRef throw');
+  assert.deepEqual(ids?.duplicates, []);
+});
+
+test('collectDefinedIds: with no asset map, packaged hrefs keep the conservative placeholder', () => {
+  // A caller that cannot resolve assets (an absent or malformed index) gets the pre-3b-2
+  // behaviour: every packaged-asset href keys alike, so the nodes OVER-merge. That risks a
+  // missed collision rather than manufacturing a false one, which would be an
+  // INTEGRITY-ERROR on a document the canonicalizer accepts.
+  const content = twoLinkedTexts('assets/images/a.png', 'assets/images/b.png');
+  assert.deepEqual(collectDefinedIds(content, { rawInput: true }).duplicates, [], 'no map -> over-merge');
+  const assetMap = buildAssetMap(JSON.parse(ASSET_MANIFEST), { images: ASSET_INDEX });
+  assert.deepEqual(collectDefinedIds(content, { rawInput: true, assetMap }).duplicates, ['x'], 'with the map -> the real collision');
+});
+
+test('collectDefinedIds: assetMap changes nothing on the non-rawInput path', () => {
+  // The merge model exists only to mirror `canon` when walking RAW content. `alphaRenameIds`
+  // walks canon's OUTPUT, where merging has already happened, so applying it there would
+  // widen what computeDocumentId accepts. Pin that the option is inert without `rawInput`.
+  const assetMap = buildAssetMap(JSON.parse(ASSET_MANIFEST), { images: ASSET_INDEX });
+  const content = twoLinkedTexts('assets/images/a.png', 'assets/images/alias.png');
+  assert.deepEqual(collectDefinedIds(content).ids, collectDefinedIds(content, { assetMap }).ids);
+  assert.deepEqual(collectDefinedIds(content).duplicates, collectDefinedIds(content, { assetMap }).duplicates);
 });
 
 test('collectDefinedIds: a non-array `marks` is not a mark collection', () => {

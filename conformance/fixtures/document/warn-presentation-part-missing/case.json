@@ -1,0 +1,38 @@
+{
+  "description": "A declared `manifest.presentation[]` layer whose file the archive omits. §5.4.2 names a declared presentation layer as the example of a part bound by the document hash or manifest projection, so its absence is the hash-BOUND row — WARNING in draft/review, and distinct from the path-only row a missing provenance record earns.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Presentation Layers section 12; Security Extension section 9.7; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"presentation\":[{\"type\":\"paginated\",\"path\":\"presentation/paginated.json\",\"hash\":\"sha256:810575a84b9b5537290d20adf364cc4f83e41f672e6c65cffa7222141af519b8\"}]}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Presentation Missing\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-MISSING-BOUND",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

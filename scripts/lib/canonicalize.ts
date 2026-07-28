@@ -412,8 +412,16 @@ function projectMetadata(dublinCore: unknown): Record<string, unknown> {
  * — joined with the asset's index `path` (§4.3.1 item 2). Per-category index
  * model (05 §3.1): `manifest.assets[<category>].index` points at that
  * category's index file, supplied here as `parts.assetIndexes[<category>]`.
+ *
+ * Exported as the SINGLE definition of which archive path carries which asset hash — the
+ * discipline `collectDefinedIds` holds for the identifier namespace. A consumer that
+ * re-derived this mapping would resolve references against a set the document ID was never
+ * computed over. Note it registers from the INDEX's entries, never from the archive's
+ * bytes: an asset listed in the index but absent from the archive still RESOLVES (to its
+ * declared hash), because §4.3.1 item 2 binds the declared hash into the ID rather than the
+ * bytes — such an asset is a missing hash-bound part (07 §5.4.2), not a dangling reference.
  */
-function buildAssetMap(manifest: unknown, assetIndexes?: Record<string, string>): Map<string, string> {
+export function buildAssetMap(manifest: unknown, assetIndexes?: Record<string, string>): Map<string, string> {
   const map = new Map<string, string>();
   const assets = isPlainObject(manifest) ? manifest.assets : undefined;
   if (!isPlainObject(assets)) return map; // no registered assets
@@ -645,11 +653,28 @@ export interface CollectOptions {
    *     does NOT recurse into those (they are already final), so a derived field carried
    *     on or under such a mark SURVIVES and its ids ARE relabelled.
    * The remaining `canon` transforms — asset-reference resolution on `link` hrefs and on
-   * `image`/`svg`/`signature` sources — cannot affect the namespace: none of those nodes
-   * defines an id, and `resolveAssetRef` returns a `#`-prefixed value verbatim.
+   * `image`/`svg`/`signature` sources — cannot affect the namespace directly: none of those
+   * nodes defines an id, and `resolveAssetRef` returns a `#`-prefixed value verbatim. They
+   * do affect it INDIRECTLY, through the merge above, which is what `assetMap` supplies.
    * Left off (the default) this is a pure traversal, so `alphaRenameIds` is unaffected.
    */
   rawInput?: boolean;
+  /**
+   * The document's resolved asset map (`buildAssetMap`), used ONLY under `rawInput` and
+   * ONLY by the merge key.
+   *
+   * `normalizeMarks` resolves a `link` mark's href to its asset HASH before
+   * `mergeAdjacentText` compares mark sets, so whether two adjacent text nodes merge depends
+   * on the asset index: hrefs naming different paths that carry the SAME bytes compare equal
+   * and merge, while hrefs naming different bytes do not. Supplying the map makes the raw
+   * walk agree with the canonicalizer in both directions.
+   *
+   * Omitted, every packaged-asset href keys as one placeholder — the conservative fallback
+   * for a caller that cannot resolve assets (a missing or malformed index). That OVER-merges:
+   * it risks missing a real id collision, rather than manufacturing a false one, which would
+   * be an INTEGRITY-ERROR on a document `computeDocumentId` accepts.
+   */
+  assetMap?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -695,6 +720,14 @@ export interface WalkContext {
   inArray: boolean;
   /** The field name the node was reached through. */
   parentKey: string | undefined;
+  /**
+   * The node sits at or below a TEXT node's `marks` — the one subtree `canon` normalizes
+   * in place and then skips, so none of its recursive transforms reach inside. A consumer
+   * mirroring a transform `canon` applies during recursion (asset-reference resolution on
+   * an `image`/`svg`/`signature` source, derived-field deletion) must not apply it here, or
+   * it models a rewrite the canonicalizer never performs.
+   */
+  inTextMarks: boolean;
 }
 
 /**
@@ -719,15 +752,18 @@ export function walkContentNodes(
   // the derived-field deletion reaches inside them.
   const walk = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined, inTextMarks: boolean): void => {
     if (Array.isArray(value)) {
-      const items = raw && !inTextMarks ? dropAbsorbedTextNodes(value) : value;
+      const items = raw && !inTextMarks ? dropAbsorbedTextNodes(value, options.assetMap) : value;
       for (const el of items) walk(el, inMarks, true, parentKey, inTextMarks); // items inherit the array's field name
       return;
     }
     if (!isPlainObject(value)) return;
-    visit(value, { inMarks, inArray, parentKey });
+    visit(value, { inMarks, inArray, parentKey, inTextMarks });
     for (const key of Object.keys(value).sort()) {
       if (raw && !inTextMarks && isDerivedField(value, key)) continue; // canon deletes it before relabeling
       const child = value[key];
+      // Positional, so it is tracked whether or not `rawInput` is set — the raw-only
+      // ERASURES below still gate on `raw`, leaving canonical-path traversal unchanged.
+      const childInTextMarks = inTextMarks || (key === 'marks' && value.type === 'text');
       if (raw && key === 'marks' && value.type === 'text') {
         // canon's skip (`type === 'text' && key === 'marks'`) has NO array test, so the
         // whole subtree is preserved either way — `inTextMarks` must be set even for a
@@ -739,25 +775,31 @@ export function walkContentNodes(
       // `Array.isArray` matches rewriteIds' own dispatch: a `marks` value that is not an
       // array is not a mark collection to the canonicalizer, so treating its members as
       // marks here would resolve references the canonicalizer never rewrites.
-      walk(child, key === 'marks' && Array.isArray(child), false, key, inTextMarks);
+      walk(child, key === 'marks' && Array.isArray(child), false, key, childInTextMarks);
     }
   };
   walk(content, false, false, undefined, false);
 }
 
 /**
- * A `link` href that `resolveAssetRef` would rewrite to an asset hash — a packaged-asset
- * path, i.e. neither an internal `#` reference nor a scheme-bearing URL.
- */
-/**
- * Stands in for a packaged-asset href the raw walk cannot resolve. Written as an explicit
+ * Stands in for a packaged-asset href no asset map could resolve. Written as an explicit
  * escape because it must be a value no conformant href can hold — `safeUri` and
  * `relativePath` both exclude control characters — so two marks compare equal here only
  * when both genuinely reference packaged assets.
  */
 const UNRESOLVED_ASSET_HREF = '\u0000unresolved-asset';
 
-function isPackagedAssetRef(value: unknown): boolean {
+/**
+ * A `link` href that `resolveAssetRef` would rewrite to an asset hash — a packaged-asset
+ * path, i.e. neither an internal `#` reference nor a scheme-bearing URL.
+ *
+ * Exported as the shared definition of "this reference addresses a packaged asset", so the
+ * conformance resolver's dangling-asset-reference row (07 §5.4.2) tests the same predicate
+ * `resolveAssetRef` throws on rather than re-deriving it. It does NOT model the `external`
+ * carve-out: that flag lives on the referencing NODE, not in the reference string, so the
+ * caller applies it exactly as `canon` does at the `image`/`svg`/`signature` call sites.
+ */
+export function isPackagedAssetRef(value: unknown): boolean {
   if (typeof value !== 'string') return false;
   if (value.startsWith('#')) return false; // an internal reference, returned verbatim
   if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) return false; // carries a URL scheme
@@ -780,33 +822,67 @@ function isPackagedAssetRef(value: unknown): boolean {
  * `canon` guards `normalizeMarks` on `Array.isArray`, and `marksEqual` then compares that
  * raw value, so collapsing it to `[]` would merge nodes the canonicalizer keeps apart.
  *
- * ASSET ALIASING, deliberately conservative: `normalizeMarks` resolves a `link` href to
- * its asset hash BEFORE the comparison, so two hrefs naming distinct paths that carry the
- * same bytes compare EQUAL and their nodes merge. Resolving that needs the asset index,
- * which arrives with the rest of the asset handling in B1b-3b-2. Until then a packaged-
- * asset href keys as a single placeholder, which over-merges rather than under-merges:
- * the cost is a missed id collision on an asset-bearing document (whose id recompute is
- * already indeterminate without an index), and the alternative would be a FALSE
- * INTEGRITY-ERROR — the harsher error on a document the canonicalizer accepts.
+ * ASSET ALIASING: `normalizeMarks` resolves a `link` href to its asset hash BEFORE the
+ * comparison, so two hrefs naming distinct paths that carry the same bytes compare EQUAL
+ * and their nodes merge, while two naming DIFFERENT bytes stay distinct. `assetMap`
+ * reproduces both directions.
+ *
+ * The lookup is deliberately NOT `resolveAssetRef`, even though that is the function being
+ * mirrored: it THROWS for an `assets/`-rooted href the map does not carry, and nothing on
+ * this path catches such a throw (`mergeKeyOf`'s own `try` covers `jcsOf` alone). It would
+ * propagate out through `dropAbsorbedTextNodes` and `walkContentNodes` to the conformance
+ * resolver's catch-all, silently discarding EVERY finding of that pass — the id collision
+ * included. One dangling asset href would then switch off an INTEGRITY-ERROR. So a miss
+ * falls back to the placeholder instead, which is also what a caller with no map at all
+ * gets: over-merging (a possibly missed collision) rather than under-merging (a FALSE
+ * INTEGRITY-ERROR on a document the canonicalizer accepts).
  */
-function mergeKeyOf(node: unknown): string | null {
+function mergeKeyOf(node: unknown, assetMap?: ReadonlyMap<string, string>): string | null {
   if (!isPlainObject(node) || node.type !== 'text' || typeof node.value !== 'string') return null;
   const stripped = Object.keys(node).filter((k) => !isDerivedField(node, k));
   if (!stripped.every((k) => k === 'type' || k === 'value' || k === 'marks')) return null;
   const marks = node.marks;
-  let normalized: unknown;
-  if (Array.isArray(marks)) {
-    normalized = sortDedupMarks(
-      marks.map((m) => (isPlainObject(m) && m.type === 'link' && isPackagedAssetRef(m.href) ? { ...m, href: UNRESOLVED_ASSET_HREF } : m)),
-    );
-  } else {
-    normalized = marks ?? [];
-  }
+  // The whole normalization is guarded, not just the final serialization: `sortDedupMarks`
+  // calls `jcsOf` per mark, so an unserializable mark throws THERE. That throw is a
+  // CanonicalizationError, and on the raw-walk path nothing between here and the conformance
+  // resolver's catch-all would stop it discarding every finding of that pass — the id
+  // collision included. A node whose marks cannot be serialized simply cannot be PROVEN equal
+  // to its neighbour, so it never merges, which is what returning null means.
   try {
+    let normalized: unknown;
+    if (Array.isArray(marks)) {
+      normalized = sortDedupMarks(marks.map((m) => resolveLinkHrefForMerge(m, assetMap)));
+    } else {
+      normalized = marks ?? [];
+    }
     return jcsOf(normalized);
   } catch {
-    return null; // unserializable marks cannot be proven equal, so the node never merges
+    return null;
   }
+}
+
+/**
+ * Apply to one mark what `normalizeMarks` applies to a `link` href, WITHOUT `resolveAssetRef`'s
+ * throw. The branch order mirrors that function exactly (canonicalize.ts, "Resolve one content
+ * asset reference"): a `#` reference and a scheme-bearing URL come back verbatim, then the map
+ * is consulted, and only a MISS that is `assets/`-rooted is the case `resolveAssetRef` rejects.
+ *
+ * Consulting the map for every non-`#`, non-scheme href — rather than only for an
+ * `assets/`-rooted one — matters because `buildAssetMap` does not constrain an index entry's
+ * `path`: an entry whose path escapes its category directory registers a key that is not
+ * `assets/`-rooted at all. Gating the LOOKUP on `assets/`-rootedness would then miss that key,
+ * key two aliased hrefs differently, and fail to merge nodes the canonicalizer merges — a
+ * false collision. The `assets/` test belongs only on the fallback, where it reproduces
+ * exactly which references `resolveAssetRef` throws for.
+ */
+function resolveLinkHrefForMerge(m: unknown, assetMap?: ReadonlyMap<string, string>): unknown {
+  if (!isPlainObject(m) || m.type !== 'link' || typeof m.href !== 'string') return m;
+  const href = m.href;
+  if (href.startsWith('#')) return m; // an internal reference, returned verbatim
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(href)) return m; // carries a URL scheme
+  const resolved = assetMap?.get(normalizePath(href));
+  if (resolved !== undefined) return { ...m, href: resolved };
+  return isPackagedAssetRef(href) ? { ...m, href: UNRESOLVED_ASSET_HREF } : m;
 }
 
 /**
@@ -817,12 +893,15 @@ function mergeKeyOf(node: unknown): string | null {
  * text nodes carrying the SAME `anchor` id are ONE id after canonicalization, not a
  * collision. An id-bearing text node has a key outside {type, value, marks} and is never
  * absorbed.
+ *
+ * `assetMap` is threaded to `mergeKeyOf`, whose doc explains why the resolution it performs
+ * cannot be `resolveAssetRef` itself.
  */
-function dropAbsorbedTextNodes(arr: unknown[]): unknown[] {
+function dropAbsorbedTextNodes(arr: unknown[], assetMap?: ReadonlyMap<string, string>): unknown[] {
   const out: unknown[] = [];
   let prevKey: string | null = null; // merge key of the last kept node, if mergeable
   for (const node of arr) {
-    const key = mergeKeyOf(node);
+    const key = mergeKeyOf(node, assetMap);
     if (key !== null && prevKey !== null && key === prevKey) continue; // absorbed
     prevKey = key; // null for a non-mergeable element, which breaks the run as canon's does
     out.push(node);
@@ -1187,8 +1266,15 @@ function isValidPathSegment(seg: string): boolean {
   return seg.length > 0 && seg !== '.' && seg !== '..' && !seg.includes('/');
 }
 
-/** Resolve `.`/`..`/empty segments (case-sensitive); join with '/'. */
-function normalizePath(p: string): string {
+/**
+ * Resolve `.`/`..`/empty segments (case-sensitive); join with '/'.
+ *
+ * Exported because asset-reference resolution outside this module must decide
+ * "is this an `assets/`-rooted path?" the way `resolveAssetRef` decides it — which is
+ * AFTER normalization, so `./assets/images/x.png` is a packaged-asset reference. A
+ * consumer testing only the raw prefix would under-report a dangling asset reference.
+ */
+export function normalizePath(p: string): string {
   const out: string[] = [];
   for (const seg of p.split('/')) {
     if (seg === '' || seg === '.') continue;

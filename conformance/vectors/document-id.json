@@ -5,7 +5,7 @@
   "kind": "document-id",
   "clause": "Document Hashing section 4",
   "description": "Canonical content form and document-ID computation: expectedCanonicalJcs is the RFC 8785 (JCS) byte string a faithful canonicalizer MUST produce for the given parts, and expectedId is the algorithm-prefixed digest of exactly those UTF-8 bytes.",
-  "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation.",
+  "oracle": "Expected bytes are HAND-AUTHORED and their digests were computed from exactly those bytes by an out-of-band tool (shasum), never by this repository's implementation — so a mistyped vector cannot pass by matching a wrong implementation. The two asset vectors are hand-authored the same way: the resolved `src`/`href` values are the index's declared hashes, transcribed by hand from the parts above, and both digests were taken with shasum over exactly the expectedCanonicalJcs bytes.",
   "vectors": [
     {
       "name": "spec-4-5-heading",
@@ -214,6 +214,34 @@
       },
       "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"X\"}],\"id\":\"b0\",\"level\":2,\"type\":\"heading\"},{\"id\":\"b1\",\"items\":[{\"id\":\"k\",\"label\":\"L\"}],\"type\":\"x:widget\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
       "expectedId": "sha256:1534d1ee22b6f6ceeaa8f56365071dbb1aeabbdbe50520044c3b9b6e6087208c"
+    },
+    {
+      "name": "asset-reference-resolved",
+      "description": "An `image` block's `src` naming a packaged asset is REPLACED by that asset's content hash from the category index (Document Hashing section 4.3.1 item 2), so the document ID binds the asset's bytes without embedding them. Pins the assetIndexes input to the canonical form.",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":1,\"totalSize\":62,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"alt\":\"F\",\"src\":\"assets/images/fig1.svg\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Assets\",\"creator\":\"A. Author\"}}",
+        "assetIndexes": {
+          "images": "{\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"alt\":\"F\",\"src\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"image\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"A. Author\"],\"title\":\"Assets\"}}",
+      "expectedId": "sha256:09c177af2c8fcbb23db861b25b38ab6378d3518316b4c50b254b7fbdc69e8e7d"
+    },
+    {
+      "name": "asset-alias-merges-adjacent-text",
+      "description": "Two adjacent text nodes carry the same `anchor` id and link to two different asset PATHS whose index entries declare the SAME hash. Because item 2 resolves each href to that hash before item 3 normalizes the marks and item 4 compares them, the mark sets are equal, the nodes merge into one, and the shared id is a SINGLE id relabelled to `b0` rather than a duplicate. Pins the ordering of the four transforms: resolve, then normalize, then merge, then relabel.",
+      "parts": {
+        "manifest": "{\"assets\":{\"images\":{\"count\":2,\"totalSize\":124,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig1.svg\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig1-copy.svg\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Aliased\",\"creator\":\"A. Author\"}}",
+        "assetIndexes": {
+          "images": "{\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"id\":\"fig1copy\",\"path\":\"fig1-copy.svg\",\"hash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}"
+        }
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"href\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"link\"},{\"id\":\"b0\",\"type\":\"anchor\"}],\"type\":\"text\",\"value\":\"ab\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"A. Author\"],\"title\":\"Aliased\"}}",
+      "expectedId": "sha256:80cfe936bbf7e0270442cdb7079bbcb7815549ccff7582f9f1435a57dc9dbf2e"
     }
   ]
 }

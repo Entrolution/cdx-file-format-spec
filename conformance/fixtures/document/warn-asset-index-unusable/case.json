@@ -1,0 +1,46 @@
+{
+  "description": "The index file is present and parses, but carries no `assets` array. `buildAssetMap` SKIPS such a category without throwing, so a reader relying on the canonicalizer to surface the problem gets an empty asset map that nothing notices — the quiet failure this row exists to make loud. The category is indeterminate, so the content's asset reference is again not reported dangling. Authored as an INTERVAL because §5.4.2 assigns no row to a hash-bound part that is present but unusable: WARNING is the floor this suite reads from the missing-part row, and pinning it as a CEILING would fail a reader that treats an unusable integrity anchor more severely — a ceiling the specification never set.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Asset Embedding section 3.1; Document Hashing section 4.3.1 item 2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d4f68c68e67a9fff2870e84432e4e7572cc3ff2a8a784522d08298317bf52a4e\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":1,\"totalSize\":62,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:cf107005b0df40f356d1f8643fa611bf27dd3a388f6950830880049a86b76295\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"id\":\"img1\",\"src\":\"assets/images/fig1.svg\",\"alt\":\"Figure 1\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Asset Index Unusable\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\"}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ASSET-INDEX-UNUSABLE",
+        "atLeast": "WARNING",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

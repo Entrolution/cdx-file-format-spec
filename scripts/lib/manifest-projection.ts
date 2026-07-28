@@ -162,8 +162,12 @@ function isFileReference(v: unknown): v is { path: string; hash: string } {
  * Collect every `{path, hash}` file reference declared anywhere in the extension
  * config slots, projected as `{path, hash}` and sorted by JCS. A path declared
  * twice with conflicting hashes is rejected — the binding would be ambiguous.
+ *
+ * Exported so the document mapper checks the presence and hash of exactly the files the
+ * PROJECTION binds, rather than maintaining a second list that could drift from it. What is
+ * hash-bound is defined here and nowhere else.
  */
-function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{ path: string; hash: string }> {
+export function collectConfigFileReferences(manifest: Record<string, unknown>): Array<{ path: string; hash: string }> {
   const byPath = new Map<string, string>();
   const visit = (v: unknown): void => {
     if (isFileReference(v)) {

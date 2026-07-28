@@ -1,0 +1,44 @@
+{
+  "description": "An asset carrying an image variant, both present and both matching their own hashes in the index (Asset Embedding §8.1 verifies the index file, the top-level asset AND each variant). The positive control for the variant arm: a reader that verified only the parent asset would still pass a swapped variant, which is what §4.3 warns about — the variant, not the parent, is what a viewer actually sees. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Asset Embedding sections 4.3, 8.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:7dad350905c46c6a780e43e6fe47d2e0473144d55dea618d5f3ac492f7a1f718\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d4f68c68e67a9fff2870e84432e4e7572cc3ff2a8a784522d08298317bf52a4e\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":1,\"totalSize\":124,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:9928d4ff89ad6f76d18df6928eb625a3a8c7793975e2fe064a0f48916133c632\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"image\",\"id\":\"img1\",\"src\":\"assets/images/fig1.svg\",\"alt\":\"Figure 1\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Variant Document\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\",\"variants\":[{\"path\":\"fig1-4.svg\",\"width\":4,\"size\":62,\"hash\":\"sha256:5b10d22019dbf0238b178c09957cac2af302655093bbe81a741d207a4e58e53a\"}]}]}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      },
+      {
+        "name": "assets/images/fig1-4.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"4\" height=\"4\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

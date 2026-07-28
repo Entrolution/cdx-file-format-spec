@@ -1,0 +1,44 @@
+{
+  "description": "Two adjacent text nodes carry the SAME `anchor` id and link to two different asset PATHS whose index entries declare the same hash. (Both copies are stored here; Asset Embedding §10.2's `aliasOf` deduplication hint is a separate case.) `normalizeMarks` resolves each href to the asset hash BEFORE `mergeAdjacentText` compares mark sets, so the resolved marks are equal, the nodes merge, and the shared anchor id is ONE id — not a collision. A reader whose raw content walk resolved hrefs to anything other than the asset hash (leaving the paths distinct) would report a spurious CDX-E-ID-COLLISION, an INTEGRITY-ERROR on a document the canonicalizer accepts. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.1 items 2-4; Asset Embedding section 10.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"sha256:ab82e1d5fa6448db1a098085603391f86c15d5e1e52245d2e264aca7756751e2\",\"state\":\"review\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:df02f5f3b985d2d974dbfa23f2356c9ab561177ffa075472b5c29af63bc7ca53\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"assets\":{\"images\":{\"count\":2,\"totalSize\":124,\"index\":\"assets/images/index.json\",\"hash\":\"sha256:a3b6abe7526ebcc7df52a3211da3e76198b6165cc2e4a48633532e5490cabc61\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig1.svg\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"},{\"type\":\"link\",\"href\":\"assets/images/fig1-copy.svg\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Aliased Assets\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "assets/images/index.json",
+        "text": "{\"version\":\"0.1\",\"assets\":[{\"id\":\"fig1\",\"path\":\"fig1.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\"},{\"id\":\"fig1copy\",\"path\":\"fig1-copy.svg\",\"type\":\"image/svg+xml\",\"size\":62,\"hash\":\"sha256:a5a035f4bdc412baf68e606049b8953e4295f276ce8e014b6e40e72c8e99bb86\"}]}"
+      },
+      {
+        "name": "assets/images/fig1.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      },
+      {
+        "name": "assets/images/fig1-copy.svg",
+        "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "description": "The `semantic.bibliography` file is present but its stored bytes do not match the declared hash. Unlike the MISSING case above, this row is not contested: the reference declares a hash, so comparing it against the stored bytes is the file-hash row on either reading of where the missing-file case belongs. The glossary file is intact, so the glossary namespace stays clean and only the bibliography finding fires.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 6.3; Security Extension section 9.7; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:0ae5597a1417d01f1a39f9ee2ba93b885058ab9de23bad2329e78ed41ee9f73c\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"semantic\":{\"bibliography\":{\"path\":\"semantic/bibliography.json\",\"hash\":\"sha256:2769581d4c19da11daed52e0e62e81e95a791adaba0eb6b6777c23c9211b2136\"},\"glossary\":{\"path\":\"semantic/glossary.json\",\"hash\":\"sha256:5f8f47e6a8e441be2e21e215fb2a10656b0dac93a5c038c189e397b8c418b67d\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"citation\",\"refs\":[\"smith2020\"]}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"glossary\",\"ref\":\"entropy\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Bibliography Hash Mismatch\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "semantic/bibliography.json",
+        "text": "{\"version\":\"0.1\",\"entries\":[{\"id\":\"smith2020\",\"type\":\"book\",\"title\":\"Another Book\"}]}"
+      },
+      {
+        "name": "semantic/glossary.json",
+        "text": "{\"version\":\"0.1\",\"terms\":[{\"id\":\"entropy\",\"term\":\"Entropy\",\"definition\":\"A measure.\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONFIG-FILE-HASH-MISMATCH",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}
