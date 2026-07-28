@@ -1,0 +1,38 @@
+{
+  "description": "The Dublin Core part parses and carries `title`, but omits `creator` — a term Metadata §3.3.2 requires to have at least one value. The part still loads, so the document ID remains computable and is verified normally; only the metadata is deficient. WARNING in draft/review.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Metadata section 3.3.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"No Creator\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-METADATA-TERM-MISSING",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

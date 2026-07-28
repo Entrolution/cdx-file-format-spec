@@ -1,0 +1,32 @@
+{
+  "description": "A paragraph carrying id `p` AND a `crdt` sync payload that itself contains a block with id `p`. Canonicalization strips `crdt` from every typed node before relabeling (Document Hashing §4.3.1 item 1 / §4.1a), so the payload's id is not in the shared namespace and there is NO collision — the document canonicalizes and its id computes. Pins that the resolver applies the canonicalizer's own erasures when walking RAW stored content: a resolver that walked raw content naively would report CDX-E-ID-COLLISION here, the harshest disposition this layer assigns, on a document every other check accepts. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.1a, 4.3.1; Anchors and References section 4; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:0c4510c6e8fcf757b95f33e5ae1854d54a26a7f0b182c366bdf30630d3e04dee\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p\",\"crdt\":{\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p\"}]},\"children\":[]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Crdt Id Not In Namespace\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

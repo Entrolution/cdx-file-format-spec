@@ -1041,6 +1041,310 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       ],
     },
   },
+
+  // ===========================================================================
+  // Document/part layer (B1b-3b-1, Tier 3 part 2): required-metadata presence, the
+  // path-only referenced-part row, and reference resolution over the content tree and
+  // the out-of-hash annotation layers. Every case is a DRAFT, so `id` is `pending` and
+  // no document-ID recompute runs — each fixture isolates exactly one row. The
+  // FROZEN/PUBLISHED INTEGRITY-ERROR escalations for the metadata and core-anchor rows
+  // are state-keyed and arrive in B3; the rows that are WARNING in every state
+  // (path-only part, extension cross-reference, out-of-hash anchor and data part) are
+  // already at their final disposition here. Each `content.hash` is the real SHA-256 of
+  // the content bytes.
+  // ===========================================================================
+
+  // --- required metadata: the Dublin Core part and its terms (§5.4.2) ---------
+  {
+    name: 'warn-metadata-unreferenced',
+    description: 'The manifest declares no `metadata` object at all, so no Dublin Core part is referenced. Dublin Core is required metadata (Metadata §3.3.1/§3.3.2), so its absence is a WARNING in draft/review. The document ID basis is still well defined — §4.3.1 projects absent metadata as empty — so the identity is not indeterminate, merely unattested by metadata. (A competing reading makes this the manifest-missing-a-required-field REJECT; the more specific metadata row is taken, and the ambiguity is recorded in errors.json.)',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Metadata sections 3.3.1, 3.3.2; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ metadata: undefined }), [{ name: 'content/document.json', text: CLEAN_CONTENT }]),
+    // Authored as an INTERVAL, not an exact WARNING. §5.4.2's "manifest ... missing or
+    // mistyping a required field" row is REJECT and `metadata` IS required, so a reader
+    // applying that row to the missing arm is equally conformant with one applying the
+    // more specific missing-metadata row. The suite must not foreclose an open reading;
+    // the sibling `reject-metadata-reference-malformed` pins the MISTYPED arm, where the
+    // row applies unambiguously.
+    expect: {
+      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-METADATA-PART-MISSING', atLeast: 'WARNING', atMost: 'REJECT' }],
+    },
+  },
+  {
+    name: 'warn-metadata-part-missing',
+    description: 'The manifest references `metadata/dublin-core.json`, but the archive carries no such entry. Distinct from the unreferenced case above: here the document claims metadata and does not ship it, so the id basis is INDETERMINATE (the id was computed over the real terms) rather than empty — WARNING in draft/review.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Metadata section 3.3; Container Format section 3.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson(), [{ name: 'content/document.json', text: CLEAN_CONTENT }]),
+    expect: warnOnly('CDX-E-METADATA-PART-MISSING'),
+  },
+  {
+    name: 'warn-metadata-part-unparseable',
+    description: 'The Dublin Core part is present but truncated mid-object, so it is not well-formed JSON. A syntax error, NOT a duplicate key — a duplicate key in any part is the state-invariant REJECT (§5.4.3), a different row. WARNING in draft/review.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Metadata section 3; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson(), [
+      { name: 'content/document.json', text: CLEAN_CONTENT },
+      { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Truncated","creator":"A. Author"' },
+    ]),
+    expect: warnOnly('CDX-E-METADATA-PART-UNPARSEABLE'),
+  },
+  {
+    name: 'warn-metadata-term-missing',
+    description: 'The Dublin Core part parses and carries `title`, but omits `creator` — a term Metadata §3.3.2 requires to have at least one value. The part still loads, so the document ID remains computable and is verified normally; only the metadata is deficient. WARNING in draft/review.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Metadata section 3.3.2; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson(), [
+      { name: 'content/document.json', text: CLEAN_CONTENT },
+      { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"No Creator"}}' },
+    ]),
+    expect: warnOnly('CDX-E-METADATA-TERM-MISSING'),
+  },
+
+  // --- a path-only manifest reference whose target is absent (§5.4.2) --------
+  {
+    name: 'warn-provenance-part-missing',
+    description: 'The manifest references a provenance record by path, and the archive does not contain it. A path-only reference carries no hash, so the target is bound by neither the document hash nor the manifest projection — its absence degrades a layer and can never signal tampering, making this a WARNING in EVERY state (not a deferred escalation).',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Security Extension section 9.8; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ provenance: 'provenance/record.json' }), cleanBody('Missing Provenance')),
+    expect: warnOnly('CDX-E-PART-MISSING-UNBOUND'),
+  },
+  {
+    name: 'warn-phantoms-part-missing',
+    description: 'The manifest declares a phantom clusters file by path and the archive omits it — the same state-invariant row as the provenance case, reached through a different manifest shape (a nested `phantoms.clusters` reference rather than a top-level string). Pins that the row is driven by the path-only reference SET, not by one hard-coded field.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Security Extension section 9.8; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ phantoms: { clusters: 'phantoms/clusters.json' } }), cleanBody('Missing Phantoms')),
+    expect: warnOnly('CDX-E-PART-MISSING-UNBOUND'),
+  },
+
+  // --- reference resolution over hashed content (§5.4.2) ---------------------
+  {
+    name: 'warn-anchor-dangling',
+    description: 'A `link` mark whose `href` is the Content Anchor URI `#nope`, which names no block or anchor id in the document. A core anchor is part of the document\'s addressing layer, so a dangling one is an internal-consistency failure of signed content — WARNING in draft/review, escalating to INTEGRITY-ERROR once frozen (Anchors & References §7.2; deferred to B3).',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 2.1, 7.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:ec454fc0d085d72cc6491e44f043199197a9bad16b0ad531d2fd956976e68b57' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#nope"}]}]}]}', 'Dangling Anchor'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-DANGLING'),
+  },
+  {
+    name: 'warn-block-reference-dangling',
+    description: 'A `semantic:ref` block whose `target` Content Anchor URI resolves to nothing. Carried under the same §5.4.2 row as a dangling core anchor but under its OWN code, because whether an extension block\'s target field is a core anchor or an extension cross-reference is contested (§5.4.2\'s carve-out names only marks; Anchors & References §11 groups these blocks with the cross-reference mechanisms). Draft/review is WARNING either way; the separate code lets B3 settle the frozen column without re-pointing a published code.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 7.2, 11; Document Hashing section 4.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:ccefa96dd9bc46e17bf8b963f4b984f3e12116318238a6c8fe4797f92b44ab17' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"semantic:ref","target":"#nope"}]}', 'Dangling Block Reference'),
+    ),
+    expect: warnOnly('CDX-E-BLOCK-REFERENCE-DANGLING'),
+  },
+  {
+    name: 'warn-cross-reference-dangling',
+    description: 'An `academic:equation-ref` mark whose `target` names no equation line. An extension cross-reference is resolved at render time to inject a label or number, so a dangling one degrades rendering only — the signed bytes remain intact and hash-verified — making this WARNING in EVERY state. The contrast with `warn-anchor-dangling` (same namespace, escalating row) is the point of the pair.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 11; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:d84f55d6447fee69cfdb60461972f8cd2e8303fb18ebe3472a64735729cefd0a' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"academic:equation-ref","target":"#nope"}]}]}]}', 'Dangling Cross Reference'),
+    ),
+    expect: warnOnly('CDX-E-CROSS-REFERENCE-DANGLING'),
+  },
+  {
+    name: 'integrity-error-id-collision',
+    description: 'Two paragraph blocks share the id `dup`. The block/anchor/equation-line/subfigure ids form ONE namespace requiring uniqueness, so a collision makes every reference to that id ambiguous — an Error in ALL states (Anchors & References §7.2), which §5.4.2 maps onto INTEGRITY-ERROR. The only INTEGRITY-ERROR this layer can assign before B2/B3, precisely because it does not vary by state. Authored [INTEGRITY-ERROR, REJECT]: INTEGRITY-ERROR is a floor with MAY-escalation to refusal (§5.4.1), so a reader that refuses the document is equally conformant.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 4, 7.2; Document Hashing section 4.3.1; State Machine sections 5.4.1, 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:a16151e8c123fea0a4e8d10c782f33d48a18dd41112bfee4a0e2061d45b7a932' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"dup","children":[]},{"type":"paragraph","id":"dup","children":[]}]}', 'Id Collision'),
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-ID-COLLISION', atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }],
+    },
+  },
+
+  // --- out-of-hash annotation layers (§5.4.2, state-invariant) ---------------
+  {
+    name: 'warn-annotation-anchor-dangling',
+    description: 'A core annotations file anchors a comment at block `gone`, which the content does not define. The annotation layer is bound by neither the document hash nor the manifest projection, so a dangling anchor cannot signal tampering with signed content — WARNING in every state. Resolved only at the anchor position the schema declares; a generic sweep would false-positive on layers that legitimately carry their own content trees.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 7.2; State Machine sections 5.4.2, 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc' } }),
+      [
+        { name: 'content/document.json', text: '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"x"}]}]}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Dangling Annotation') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":{"blockId":"gone"},"author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"stale"}]}' },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ANNOTATION-ANCHOR-DANGLING'),
+  },
+  {
+    name: 'warn-extension-data-part-unparseable',
+    description: 'A collaboration comments file is present but is not well-formed JSON. Out-of-hash extension data sits in no signature scope, so the extensions overview states directly that a missing or unparseable such part is a WARNING in all states and MUST NOT be reported as an integrity error. Restricted to the conventional out-of-hash locations: an unrecognized file elsewhere in the archive stays IGNORE.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Extensions overview (Integrity Status of Extension Data); State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson(), [
+      { name: 'content/document.json', text: CLEAN_CONTENT },
+      { name: 'metadata/dublin-core.json', text: dublinCoreJson('Bad Collaboration Data') },
+      { name: 'collaboration/comments.json', text: '{"version":"0.2","comments":[{"id":"c1"' },
+    ]),
+    expect: warnOnly('CDX-E-EXTENSION-DATA-PART-UNPARSEABLE'),
+  },
+
+  // --- positives: the resolver must not fire on a well-formed document -------
+  {
+    name: 'positive-resolved-references',
+    description: 'Every reference resolves: a `link` href to a heading block id, a second `link` href to an `anchor` MARK id, an `academic:equation-ref` to an equation LINE id, and a `semantic:ref` target to the heading. Exercises all three id-namespace members a reference can address (block, anchor mark, equation line) across all three dangling codes — a resolver that collected only block ids, or that skipped any reference field, would emit a spurious WARNING and fail this case. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 4, 2.1; Document Hashing section 4.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:c6b9a2dc816621aaca93f05c78698f483f591de620c7b3de7dccea1d01d6c0a8' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"heading","id":"intro","level":1,"children":[{"type":"text","value":"Title"}]},{"type":"academic:equation-group","id":"eqg","lines":[{"value":"a=b","id":"eq1"}]},{"type":"paragraph","children":[{"type":"text","value":"see ","marks":[{"type":"link","href":"#intro"}]},{"type":"text","value":"here","marks":[{"type":"anchor","id":"mark1"}]},{"type":"text","value":" and ","marks":[{"type":"academic:equation-ref","target":"#eq1"}]},{"type":"text","value":"back","marks":[{"type":"link","href":"#mark1"}]}]},{"type":"semantic:ref","target":"#intro"}]}', 'Resolved References'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-annotation-anchor-resolved',
+    description: 'A core annotations file whose comment anchors at a block the content does define. The positive control for the out-of-hash anchor row: a reader that resolved annotation anchors against the wrong namespace, or failed to resolve them at all in the clean direction, would emit a spurious WARNING here. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 7.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc' } }),
+      [
+        { name: 'content/document.json', text: '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"x"}]}]}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Resolved Annotation') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":{"blockId":"p1"},"author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"ok"}]}' },
+      ],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-crdt-id-not-in-namespace',
+    description: 'A paragraph carrying id `p` AND a `crdt` sync payload that itself contains a block with id `p`. Canonicalization strips `crdt` from every typed node before relabeling (Document Hashing §4.3.1 item 1 / §4.1a), so the payload\'s id is not in the shared namespace and there is NO collision — the document canonicalizes and its id computes. Pins that the resolver applies the canonicalizer\'s own erasures when walking RAW stored content: a resolver that walked raw content naively would report CDX-E-ID-COLLISION here, the harshest disposition this layer assigns, on a document every other check accepts. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.1a, 4.3.1; Anchors and References section 4; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:0c4510c6e8fcf757b95f33e5ae1854d54a26a7f0b182c366bdf30630d3e04dee' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p","crdt":{"blocks":[{"type":"paragraph","id":"p"}]},"children":[]}]}', 'Crdt Id Not In Namespace'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-adjacent-text-merge-no-collision',
+    description: 'Two ADJACENT text nodes carrying the byte-identical `anchor` mark `x`. Canonicalization merges adjacent merge-eligible text nodes with equal mark sets (Document Hashing §4.3.1 item 4) BEFORE checking id uniqueness, so the absorbed node\'s mark — and its id — cease to exist and there is exactly one `x`. The document canonicalizes and its id computes, so a resolver that walked raw content without reproducing the merge would report CDX-E-ID-COLLISION (INTEGRITY-ERROR, state-invariant, the harshest disposition this layer assigns) on a document every other check accepts. The `warn`-side controls are the separated and differing-marks cases, which do NOT merge and are genuine collisions. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1; Anchors and References sections 4, 7.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:42f6b4821a1370b11d5fd77c5d268ac1e9ec34d0bd33800e56fe226e40aa6b58' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"x"}]},{"type":"text","value":"b","marks":[{"type":"anchor","id":"x"}]}]}]}', 'Adjacent Text Merge'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-crdt-in-mark-survives',
+    description: 'A `crdt` payload carried ON a text node\'s `anchor` mark, holding a block with id `ghost`, and a `semantic:ref` targeting `#ghost`. Canonicalization strips `crdt` only where it RECURSES, and it deliberately does not recurse into a text node\'s `marks` (they are final after normalization) — so this payload SURVIVES, its id is relabelled, and the reference resolves. The mirror image of `positive-crdt-id-not-in-namespace`: there the payload sits on a block and is stripped. A resolver that erased derived fields everywhere would make the raw namespace a strict SUBSET of the canonical one and report a spurious dangling reference here. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.1a, 4.3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:fb892ccdd88d6e8af876b86b7230b19b30fc9764f3f98ba3376a7384026a4c4d' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p","children":[{"type":"text","value":"v","marks":[{"type":"anchor","id":"a","crdt":{"type":"paragraph","id":"ghost"}}]}]},{"type":"semantic:ref","id":"r","target":"#ghost"}]}', 'Crdt In Mark Survives'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-metadata-term-malformed',
+    description: 'The Dublin Core part carries a well-formed `title` and `creator` but a `subject` of the wrong type (a number). The metadata projection REJECTS a malformed term rather than dropping it (Document Hashing §4.3.1), so the metadata cannot be projected and the document-ID basis is indeterminate — reported as an unusable metadata part. Without this arm one malformed ADVISORY term would silently disable the document-ID check while the document still loaded clean: an integrity check switched off by a field that does not even enter the required set.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1; Metadata section 3.3; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson(), [
+      { name: 'content/document.json', text: CLEAN_CONTENT },
+      { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"Malformed Term","creator":"A. Author","subject":42}}' },
+    ]),
+    expect: warnOnly('CDX-E-METADATA-PART-UNPARSEABLE'),
+  },
+  {
+    name: 'reject-metadata-reference-malformed',
+    description: 'The manifest declares `metadata.dublinCore` as an OBJECT rather than a path string. `metadata` and its `dublinCore` member are both required manifest fields, so a mistyped one is §5.4.2\'s "manifest ... missing or MISTYPING a required field" — REJECT, not the missing-metadata WARNING. The distinction matters: without it, replacing the path with an object downgrades a REJECT to a WARNING and silently switches the document-ID recompute onto an empty-metadata basis.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Manifest section 4.7; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ metadata: { dublinCore: { path: 'metadata/dublin-core.json' } } }), cleanBody('Mistyped Reference')),
+    expect: rejectOnly('CDX-E-MANIFEST-REFERENCE-MALFORMED'),
+  },
+  {
+    name: 'reject-declared-part-duplicate-keys',
+    description: 'A manifest-declared out-of-hash side file (`metadata.jsonld`) at a path that does NOT end in `.json`, containing a duplicate key. §5.4.3 rejects a duplicate key in ANY part in EVERY state — the split-view substitution vector — and nothing obliges a part to be named `.json` (the relative-path form permits any name). A duplicate-key sweep keyed only on the extension would let this part load clean, so the sweep covers every manifest-declared part path as well.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(manifestJson({ metadata: { dublinCore: 'metadata/dublin-core.json', jsonld: 'metadata/doc.jsonld' } }), [
+      ...cleanBody('Declared Part Duplicate Keys'),
+      { name: 'metadata/doc.jsonld', text: '{"@context":"a","@context":"b"}' },
+    ]),
+    expect: rejectOnly('CDX-E-PART-DUPLICATE-KEYS'),
+  },
+  {
+    name: 'warn-custom-metadata-part-missing',
+    description: 'The manifest declares a custom metadata reference (`metadata.custom.notes`) whose target the archive omits. `metadata.custom` is an open map of path-only references, so its values bind nothing exactly as `provenance` and `metadata.jsonld` do — a sweep enumerating only the NAMED path-only fields would let a whole reference family escape both the missing-part row and the duplicate-key sweep. WARNING in every state.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Manifest section 4.7; Security Extension section 9.8; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ metadata: { dublinCore: 'metadata/dublin-core.json', custom: { notes: 'metadata/notes.json' } } }),
+      cleanBody('Missing Custom Metadata'),
+    ),
+    expect: warnOnly('CDX-E-PART-MISSING-UNBOUND'),
+  },
+  {
+    name: 'positive-non-annotation-part-not-anchor-resolved',
+    description: 'A provenance record — a path-only referenced part, but NOT an annotation layer — that happens to carry a top-level `changes` array whose entries look anchor-shaped. Only the layers whose schemas DECLARE a ContentAnchor position anchor into content, so this must not be read as one: resolving anchors in every path-only part would report a dangling anchor for a `changes` array that means something else entirely. The part is well-formed, so the unparseable row stays silent too. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 7.2; State Machine sections 5.4.2, 5.4.3',
+    recipe: documentArchive(manifestJson({ provenance: 'provenance/record.json' }), [
+      ...cleanBody('Non Annotation Part'),
+      { name: 'provenance/record.json', text: '{"version":"0.1","changes":[{"anchor":{"blockId":"not-a-content-id"}}]}' },
+    ]),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-provenance-part-unparseable',
+    description: 'The manifest declares a provenance record by path and the archive ships it corrupt. The same out-of-hash row as a bad collaboration file, reached through a manifest-declared path rather than a conventional directory: a path-only reference binds nothing, so a corrupt target is a WARNING in every state. Pins the symmetry — covering only a MISSING path-only part while staying silent on a CORRUPT one would report the milder defect and ignore the worse.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Extensions overview (Integrity Status of Extension Data); Security Extension section 9.8; State Machine section 5.4.2',
+    recipe: documentArchive(manifestJson({ provenance: 'provenance/record.json' }), [
+      ...cleanBody('Corrupt Provenance'),
+      { name: 'provenance/record.json', text: '{"version":"0.1","events":[' },
+    ]),
+    expect: warnOnly('CDX-E-EXTENSION-DATA-PART-UNPARSEABLE'),
+  },
 ];
 
 /** The committed case.json object for a case (key order is the on-disk order). */

@@ -1,0 +1,42 @@
+{
+  "description": "A collaboration comments file is present but is not well-formed JSON. Out-of-hash extension data sits in no signature scope, so the extensions overview states directly that a missing or unparseable such part is a WARNING in all states and MUST NOT be reported as an integrity error. Restricted to the conventional out-of-hash locations: an unrecognized file elsewhere in the archive stays IGNORE.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Extensions overview (Integrity Status of Extension Data); State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Bad Collaboration Data\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "collaboration/comments.json",
+        "text": "{\"version\":\"0.2\",\"comments\":[{\"id\":\"c1\""
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-EXTENSION-DATA-PART-UNPARSEABLE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

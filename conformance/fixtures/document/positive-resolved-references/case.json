@@ -1,0 +1,32 @@
+{
+  "description": "Every reference resolves: a `link` href to a heading block id, a second `link` href to an `anchor` MARK id, an `academic:equation-ref` to an equation LINE id, and a `semantic:ref` target to the heading. Exercises all three id-namespace members a reference can address (block, anchor mark, equation line) across all three dangling codes — a resolver that collected only block ids, or that skipped any reference field, would emit a spurious WARNING and fail this case. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 4, 2.1; Document Hashing section 4.3.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:c6b9a2dc816621aaca93f05c78698f483f591de620c7b3de7dccea1d01d6c0a8\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"heading\",\"id\":\"intro\",\"level\":1,\"children\":[{\"type\":\"text\",\"value\":\"Title\"}]},{\"type\":\"academic:equation-group\",\"id\":\"eqg\",\"lines\":[{\"value\":\"a=b\",\"id\":\"eq1\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see \",\"marks\":[{\"type\":\"link\",\"href\":\"#intro\"}]},{\"type\":\"text\",\"value\":\"here\",\"marks\":[{\"type\":\"anchor\",\"id\":\"mark1\"}]},{\"type\":\"text\",\"value\":\" and \",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#eq1\"}]},{\"type\":\"text\",\"value\":\"back\",\"marks\":[{\"type\":\"link\",\"href\":\"#mark1\"}]}]},{\"type\":\"semantic:ref\",\"target\":\"#intro\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Resolved References\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

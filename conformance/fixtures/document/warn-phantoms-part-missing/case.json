@@ -1,0 +1,38 @@
+{
+  "description": "The manifest declares a phantom clusters file by path and the archive omits it — the same state-invariant row as the provenance case, reached through a different manifest shape (a nested `phantoms.clusters` reference rather than a top-level string). Pins that the row is driven by the path-only reference SET, not by one hard-coded field.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Security Extension section 9.8; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"},\"phantoms\":{\"clusters\":\"phantoms/clusters.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Missing Phantoms\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-MISSING-UNBOUND",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

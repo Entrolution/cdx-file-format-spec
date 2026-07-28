@@ -1,0 +1,42 @@
+{
+  "description": "A core annotations file anchors a comment at block `gone`, which the content does not define. The annotation layer is bound by neither the document hash nor the manifest projection, so a dangling anchor cannot signal tampering with signed content — WARNING in every state. Resolved only at the anchor position the schema declares; a generic sweep would false-positive on layers that legitimately carry their own content trees.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References section 7.2; State Machine sections 5.4.2, 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Dangling Annotation\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "security/annotations.json",
+        "text": "{\"version\":\"0.1\",\"annotations\":[{\"id\":\"a1\",\"type\":\"comment\",\"anchor\":{\"blockId\":\"gone\"},\"author\":{\"name\":\"A\"},\"created\":\"2025-01-10T08:00:00Z\",\"content\":\"stale\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANNOTATION-ANCHOR-DANGLING",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

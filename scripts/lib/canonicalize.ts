@@ -615,6 +615,255 @@ function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
 // Alpha-renaming of block/anchor ids (§4.3.1 item 5 "Canonicalize identifiers")
 // ---------------------------------------------------------------------------
 
+export interface CollectedIds {
+  /** Every in-namespace id, UNIQUE and in first-occurrence traversal order. A
+   *  repeat occurrence lands in `duplicates`, never here — so the index of an id
+   *  in this array is its canonical relabel position. */
+  ids: string[];
+  /** Each id defined more than once, in the order the repeats were reached;
+   *  `duplicates[0]` is therefore the first collision the traversal met. */
+  duplicates: string[];
+}
+
+/** Options for `collectDefinedIds`. */
+export interface CollectOptions {
+  /**
+   * Set when walking RAW stored content rather than the output of `canon`. A consumer
+   * that resolves references against raw content must reproduce every `canon` transform
+   * that changes which ids exist, or it will disagree with `computeDocumentId` — in
+   * either direction: reporting a collision on a document the canonicalizer accepts, or
+   * missing a reference the canonicalizer resolves. Three transforms qualify:
+   *   - ADJACENT TEXT MERGING (§4.3.1 item 4): consecutive merge-eligible text nodes
+   *     with equal canonical mark sets collapse into one, so the absorbed node's marks
+   *     — and any `anchor` id they carry — cease to exist;
+   *   - MARK DEDUP (§4.3.1 item 3): marks with an identical canonical serialization
+   *     collapse WITHIN one text node's `marks` array — only a `text` node, since
+   *     `canon` normalizes `marks` under `case 'text'` alone;
+   *   - DERIVED-FIELD DELETION (§4.3.1 item 1; §4.1a): `crdt` on any typed node,
+   *     `measurement` `display`, `codeBlock` `tokens`, so an id inside an opaque `crdt`
+   *     payload is not in the namespace. This one stops at a text node's `marks`: canon
+   *     does NOT recurse into those (they are already final), so a derived field carried
+   *     on or under such a mark SURVIVES and its ids ARE relabelled.
+   * The remaining `canon` transforms — asset-reference resolution on `link` hrefs and on
+   * `image`/`svg`/`signature` sources — cannot affect the namespace: none of those nodes
+   * defines an id, and `resolveAssetRef` returns a `#`-prefixed value verbatim.
+   * Left off (the default) this is a pure traversal, so `alphaRenameIds` is unaffected.
+   */
+  rawInput?: boolean;
+}
+
+/**
+ * Collect the shared identifier namespace of §4.3.1 item 5 — the exhaustive set
+ * `definedId` defines — by a value-independent traversal (arrays in index order;
+ * object keys in sorted order; a node's own id before its descendants), so
+ * alpha-equivalent inputs yield identical results regardless of the original labels.
+ *
+ * The single definition of namespace membership, shared by `alphaRenameIds` (which
+ * relabels `ids[i]` to `b<i>` and rejects any duplicate) and by the conformance
+ * reference resolver (which resolves Content Anchors against `ids` and reports a
+ * duplicate as an id collision, Anchors & References §7.2). Collecting rather than
+ * throwing lets the resolver report every collision; `alphaRenameIds` still rejects
+ * the first, unchanged.
+ */
+export function collectDefinedIds(content: unknown, options: CollectOptions = {}): CollectedIds {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  const duplicates: string[] = [];
+
+  walkContentNodes(
+    content,
+    (node, ctx) => {
+      const id = definedId(node, ctx.inMarks, ctx.inArray, ctx.parentKey);
+      if (id === undefined) return;
+      if (seen.has(id)) duplicates.push(id);
+      else {
+        seen.add(id);
+        ids.push(id);
+      }
+    },
+    options,
+  );
+
+  return { ids, duplicates };
+}
+
+/** Where a visited node sits, which is what decides namespace membership (`definedId`). */
+export interface WalkContext {
+  /** The node was reached through a `marks` array. */
+  inMarks: boolean;
+  /** The node is an array item. */
+  inArray: boolean;
+  /** The field name the node was reached through. */
+  parentKey: string | undefined;
+}
+
+/**
+ * Visit every object node of a content tree in the canonical, value-independent order of
+ * §4.3.1 item 5 — arrays in index order, object keys sorted, a node before its descendants
+ * — calling `visit` with the positional context `definedId` keys off.
+ *
+ * The single traversal shared by `collectDefinedIds` and the conformance reference
+ * resolver, so the id namespace and the references resolved against it can never be
+ * gathered by two subtly different walks. See `CollectOptions.rawInput` for the two
+ * erasures a raw-content walk must apply.
+ */
+export function walkContentNodes(
+  content: unknown,
+  visit: (node: Record<string, unknown>, ctx: WalkContext) => void,
+  options: CollectOptions = {},
+): void {
+  const raw = options.rawInput === true;
+
+  // `inTextMarks` tracks the one subtree canon leaves alone: a text node's `marks` are
+  // normalized in place and then SKIPPED by canon's recursion, so neither the merge nor
+  // the derived-field deletion reaches inside them.
+  const walk = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined, inTextMarks: boolean): void => {
+    if (Array.isArray(value)) {
+      const items = raw && !inTextMarks ? dropAbsorbedTextNodes(value) : value;
+      for (const el of items) walk(el, inMarks, true, parentKey, inTextMarks); // items inherit the array's field name
+      return;
+    }
+    if (!isPlainObject(value)) return;
+    visit(value, { inMarks, inArray, parentKey });
+    for (const key of Object.keys(value).sort()) {
+      if (raw && !inTextMarks && isDerivedField(value, key)) continue; // canon deletes it before relabeling
+      const child = value[key];
+      if (raw && key === 'marks' && value.type === 'text') {
+        // canon's skip (`type === 'text' && key === 'marks'`) has NO array test, so the
+        // whole subtree is preserved either way — `inTextMarks` must be set even for a
+        // non-array `marks`, or derived fields inside one get erased here and kept there.
+        // `inMarks` still requires an array, matching rewriteIds' dispatch.
+        walk(Array.isArray(child) ? dedupByJcs(child) : child, Array.isArray(child), false, key, true);
+        continue;
+      }
+      // `Array.isArray` matches rewriteIds' own dispatch: a `marks` value that is not an
+      // array is not a mark collection to the canonicalizer, so treating its members as
+      // marks here would resolve references the canonicalizer never rewrites.
+      walk(child, key === 'marks' && Array.isArray(child), false, key, inTextMarks);
+    }
+  };
+  walk(content, false, false, undefined, false);
+}
+
+/**
+ * A `link` href that `resolveAssetRef` would rewrite to an asset hash — a packaged-asset
+ * path, i.e. neither an internal `#` reference nor a scheme-bearing URL.
+ */
+/**
+ * Stands in for a packaged-asset href the raw walk cannot resolve. Written as an explicit
+ * escape because it must be a value no conformant href can hold — `safeUri` and
+ * `relativePath` both exclude control characters — so two marks compare equal here only
+ * when both genuinely reference packaged assets.
+ */
+const UNRESOLVED_ASSET_HREF = '\u0000unresolved-asset';
+
+function isPackagedAssetRef(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.startsWith('#')) return false; // an internal reference, returned verbatim
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) return false; // carries a URL scheme
+  // Only an `assets/`-rooted path can hit the asset map — every key `buildAssetMap`
+  // registers is `assets/<category>/…`, and `resolveAssetRef` returns anything else
+  // verbatim. Masking a wider set would collapse hrefs canon keeps DISTINCT, merging
+  // nodes it does not and destroying a genuine id collision.
+  return value.startsWith('assets/') || normalizePath(value).startsWith('assets/');
+}
+
+/**
+ * Model one array element as `mergeAdjacentText` sees it, IN CANON'S ORDER: `canon`
+ * recurses into a child (stripping its derived fields, normalizing a text node's marks)
+ * and only then merges the array. Testing the raw node instead gets both halves wrong —
+ * a `crdt`-bearing text node is non-mergeable raw but mergeable to the canonicalizer, and
+ * an unsorted mark array keys differently from the normalized one.
+ *
+ * Returns null when the node is not merge-eligible (so it breaks the run), otherwise the
+ * key `marksEqual` compares. Note `marks` is read verbatim when it is not an array:
+ * `canon` guards `normalizeMarks` on `Array.isArray`, and `marksEqual` then compares that
+ * raw value, so collapsing it to `[]` would merge nodes the canonicalizer keeps apart.
+ *
+ * ASSET ALIASING, deliberately conservative: `normalizeMarks` resolves a `link` href to
+ * its asset hash BEFORE the comparison, so two hrefs naming distinct paths that carry the
+ * same bytes compare EQUAL and their nodes merge. Resolving that needs the asset index,
+ * which arrives with the rest of the asset handling in B1b-3b-2. Until then a packaged-
+ * asset href keys as a single placeholder, which over-merges rather than under-merges:
+ * the cost is a missed id collision on an asset-bearing document (whose id recompute is
+ * already indeterminate without an index), and the alternative would be a FALSE
+ * INTEGRITY-ERROR — the harsher error on a document the canonicalizer accepts.
+ */
+function mergeKeyOf(node: unknown): string | null {
+  if (!isPlainObject(node) || node.type !== 'text' || typeof node.value !== 'string') return null;
+  const stripped = Object.keys(node).filter((k) => !isDerivedField(node, k));
+  if (!stripped.every((k) => k === 'type' || k === 'value' || k === 'marks')) return null;
+  const marks = node.marks;
+  let normalized: unknown;
+  if (Array.isArray(marks)) {
+    normalized = sortDedupMarks(
+      marks.map((m) => (isPlainObject(m) && m.type === 'link' && isPackagedAssetRef(m.href) ? { ...m, href: UNRESOLVED_ASSET_HREF } : m)),
+    );
+  } else {
+    normalized = marks ?? [];
+  }
+  try {
+    return jcsOf(normalized);
+  } catch {
+    return null; // unserializable marks cannot be proven equal, so the node never merges
+  }
+}
+
+/**
+ * Drop each text node `mergeAdjacentText` would absorb into its predecessor (§4.3.1
+ * item 4), so a raw walk sees the same nodes — and therefore the same `anchor` ids — as
+ * the canonical form. An absorbed node contributes only its `value`, concatenated onto
+ * the previous node; its marks are discarded as equal to the survivor's, so two adjacent
+ * text nodes carrying the SAME `anchor` id are ONE id after canonicalization, not a
+ * collision. An id-bearing text node has a key outside {type, value, marks} and is never
+ * absorbed.
+ */
+function dropAbsorbedTextNodes(arr: unknown[]): unknown[] {
+  const out: unknown[] = [];
+  let prevKey: string | null = null; // merge key of the last kept node, if mergeable
+  for (const node of arr) {
+    const key = mergeKeyOf(node);
+    if (key !== null && prevKey !== null && key === prevKey) continue; // absorbed
+    prevKey = key; // null for a non-mergeable element, which breaks the run as canon's does
+    out.push(node);
+  }
+  return out;
+}
+
+/** True for a field `canon` strips from this node (§4.3.1 item 1; §4.1a). */
+function isDerivedField(node: Record<string, unknown>, key: string): boolean {
+  if (typeof node.type !== 'string') return false; // canon only strips under a typed node
+  if (key === 'crdt') return true;
+  if (key === 'display') return node.type === 'measurement';
+  if (key === 'tokens') return node.type === 'codeBlock';
+  return false;
+}
+
+/**
+ * Drop marks with an identical JCS serialization, as `normalizeMarks` does (§4.3.1
+ * item 3). Asset resolution is irrelevant to THIS use: dedup only removes a mark that is
+ * already byte-identical to another, and a `link` defines no id, so a collapse cannot
+ * change the namespace. (It is NOT irrelevant to the adjacent-text MERGE, where a link
+ * href decides whether a whole node survives — see `mergeKeyOf`.) A mark that cannot be
+ * serialized is kept, since it cannot be proven a duplicate.
+ */
+function dedupByJcs(marks: unknown[]): unknown[] {
+  const out: unknown[] = [];
+  const seen = new Set<string>();
+  for (const mark of marks) {
+    let key: string;
+    try {
+      key = jcsOf(mark);
+    } catch {
+      out.push(mark);
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(mark);
+  }
+  return out;
+}
 /**
  * Relabel author-chosen identifiers to position-based canonical names so that two
  * documents differing ONLY in their id *labels* canonicalize identically
@@ -641,35 +890,17 @@ function marksEqual(a: PlainTextNode, b: PlainTextNode): boolean {
  * verbatim. A duplicate id within the namespace is rejected.
  */
 function alphaRenameIds(content: unknown): unknown {
-  const map = new Map<string, string>();
-  let counter = 0;
+  // Canonical content: `canon` has already stripped derived fields and deduped each
+  // text node's marks, so the default (non-raw) collection is exactly pass 1 of the
+  // original in-place traversal.
+  const { ids, duplicates } = collectDefinedIds(content);
+  if (duplicates.length > 0) {
+    throw new CanonicalizationError(`duplicate id "${duplicates[0]}" in the shared identifier namespace`);
+  }
 
-  // Pass 1 — assign canonical names by a value-independent traversal (arrays in
-  // index order; object keys in sorted order; a node's own id before its
-  // descendants), so alpha-equivalent inputs build identical maps regardless of
-  // the original labels. Reject a duplicate id (Anchors & References §4 requires
-  // uniqueness across the shared namespace).
-  const collect = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined): void => {
-    if (Array.isArray(value)) {
-      for (const el of value) collect(el, inMarks, true, parentKey); // items inherit the array's field name
-      return;
-    }
-    if (!isPlainObject(value)) return;
-    const id = definedId(value, inMarks, inArray, parentKey);
-    if (id !== undefined) {
-      if (map.has(id)) {
-        throw new CanonicalizationError(`duplicate id "${id}" in the shared identifier namespace`);
-      }
-      map.set(id, `b${counter++}`);
-    }
-    for (const key of Object.keys(value).sort()) {
-      collect(value[key], key === 'marks', false, key);
-    }
-  };
-  collect(content, false, false, undefined);
+  if (ids.length === 0) return content; // no ids to canonicalize
 
-  if (map.size === 0) return content; // no ids to canonicalize
-
+  const map = new Map(ids.map((id, i) => [id, `b${i}`]));
   return rewriteIds(content, map, false, false, undefined);
 }
 

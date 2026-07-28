@@ -17,6 +17,8 @@ import {
   MAX_CANONICALIZATION_DEPTH,
   algorithmOf,
   canonicalContent,
+  collectDefinedIds,
+  walkContentNodes,
   computeDocumentId,
   parseStrictJson,
   type DocumentParts,
@@ -1093,6 +1095,190 @@ test('relabel: a duplicate id in the shared identifier namespace is rejected', (
       }),
     CanonicalizationError,
   );
+});
+
+test('relabel: identical anchor marks in a NON-text marks array still collide', () => {
+  // canon dedups a marks array only under `case 'text'`, so byte-identical anchor
+  // marks hanging off a non-text node survive into alphaRenameIds and collide. Pins
+  // the boundary of collectDefinedIds's rawInput dedup: that dedup mirrors canon and
+  // is therefore text-node-only, and it is OFF for the canonical path entirely.
+  // Applying it unconditionally would stop this input being rejected — a silent
+  // widening of what computeDocumentId accepts, which nothing else here would catch.
+  assert.throws(
+    () =>
+      canonContent({
+        content: { version: '0.1', blocks: [
+          { type: 'paragraph', marks: [{ type: 'anchor', id: 'a' }, { type: 'anchor', id: 'a' }], children: [] },
+        ] },
+      }),
+    CanonicalizationError,
+  );
+});
+
+test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () => {
+  // The property that matters is agreement, so assert it differentially rather than
+  // against hand-written expectations: for each input, the raw namespace must have a
+  // duplicate exactly when computeDocumentId rejects the document for one. A one-sided
+  // erasure (missing or over-eager) breaks one direction or the other.
+  const rejectsForDuplicateId = (content: unknown): boolean => {
+    try {
+      computeDocumentId({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' }, 'sha256');
+      return false;
+    } catch (err) {
+      return err instanceof CanonicalizationError && /duplicate id/.test(err.message);
+    }
+  };
+  const anchor = (id: string) => ({ type: 'anchor', id });
+  const cases: Array<[string, unknown]> = [
+    // merged away by §4.3.1 item 4 -> one id
+    ['adjacent identical marks', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x')] }, { type: 'text', value: 'b', marks: [anchor('x')] }] }] }],
+    // a non-text sibling breaks the run -> both survive -> collision
+    ['separated by a break', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x')] }, { type: 'break' }, { type: 'text', value: 'b', marks: [anchor('x')] }] }] }],
+    // differing mark sets are not mergeable -> collision
+    ['differing mark sets', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x')] }, { type: 'text', value: 'b', marks: [anchor('x'), 'bold'] }] }] }],
+    // an id-bearing text node is not merge-eligible -> both marks survive -> collision
+    ['id-bearing text node blocks the merge', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', id: 't', value: 'a', marks: [anchor('x')] }, { type: 'text', value: 'b', marks: [anchor('x')] }] }] }],
+    // canon strips crdt on a typed BLOCK -> interior id absent
+    ['crdt on a block', { blocks: [{ type: 'paragraph', id: 'p', crdt: { blocks: [{ type: 'paragraph', id: 'p' }] }, children: [] }] }],
+    // `display` and `tokens` are stripped ONLY from measurement / codeBlock; on any
+    // other type they are ordinary fields, so ids inside them stay in the namespace
+    ['display on a non-measurement block', { blocks: [{ type: 'paragraph', id: 'p', display: { type: 'paragraph', id: 'p' }, children: [] }] }],
+    ['display on a measurement block', { blocks: [{ type: 'measurement', id: 'm', display: { type: 'paragraph', id: 'm' } }] }],
+    ['tokens on a non-codeBlock block', { blocks: [{ type: 'paragraph', id: 'p', tokens: [{ type: 'paragraph', id: 'p' }], children: [] }] }],
+    ['tokens on a codeBlock', { blocks: [{ type: 'codeBlock', id: 'c', tokens: [{ type: 'paragraph', id: 'c' }] }] }],
+    // canon strips crdt only under a TYPED node, so an equation line (untyped, but in the
+    // namespace as a `lines` item) keeps its crdt and the id inside it collides
+    ['crdt on an untyped sub-block', { blocks: [
+      { type: 'academic:equation-group', id: 'eqg', lines: [{ value: 'a=b', id: 'L', crdt: { type: 'paragraph', id: 'L' } }] }] }],
+    // canon strips derived fields BEFORE merging, so a crdt-bearing text node is still
+    // merge-eligible — testing mergeability on the raw keys would keep both marks
+    ['crdt on the absorbed text node', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x')] },
+      { type: 'text', value: 'b', marks: [anchor('x')], crdt: { v: 1 } }] }] }],
+    ['crdt on the surviving text node', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x')], crdt: { v: 1 } },
+      { type: 'text', value: 'b', marks: [anchor('x')] }] }] }],
+    // canon's marks skip has no array test, so a non-array `marks` on a TEXT node keeps
+    // its whole subtree — including a crdt whose ids are then relabelled
+    ['non-array marks on a text node, crdt inside', { blocks: [{ type: 'paragraph', id: 'p1', children: [
+      { type: 'text', value: 'a', marks: { type: 'academic:theorem', crdt: { type: 'paragraph', id: 'p1' } } }] }] }],
+    // ... and marksEqual compares that raw value, so differing non-array marks do NOT merge
+    ['non-array marks differing', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: { type: 'anchor', id: 'x' } },
+      { type: 'text', value: 'b', marks: { type: 'anchor', id: 'x', z: 1 } }] }] }],
+    ['non-array marks identical', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: { type: 'anchor', id: 'x' } },
+      { type: 'text', value: 'b', marks: { type: 'anchor', id: 'x' } }] }] }],
+    // canon does NOT recurse into a text node's marks -> a crdt there SURVIVES
+    ['crdt on a mark', { blocks: [
+      { type: 'paragraph', id: 'p', children: [{ type: 'text', value: 'v', marks: [{ ...anchor('a'), crdt: { type: 'paragraph', id: 'p' } }] }] }] }],
+    // marks dedup within one text node -> one id
+    ['duplicate marks in one text node', { blocks: [{ type: 'paragraph', children: [
+      { type: 'text', value: 'a', marks: [anchor('x'), anchor('x')] }] }] }],
+    // ... but canon dedups marks ONLY for a text node
+    ['duplicate marks on a non-text node', { blocks: [{ type: 'paragraph', marks: [anchor('x'), anchor('x')], children: [] }] }],
+  ];
+  for (const [label, content] of cases) {
+    const { duplicates } = collectDefinedIds(content, { rawInput: true });
+    assert.equal(duplicates.length > 0, rejectsForDuplicateId(content), `raw walk disagrees with canonicalization: ${label}`);
+  }
+});
+
+test('collectDefinedIds: aliased asset links must not manufacture a collision', () => {
+  // normalizeMarks resolves a link href to its ASSET HASH before mergeAdjacentText
+  // compares mark sets, so two nodes whose links name different paths carrying the same
+  // bytes merge — and their shared anchor id is one id, not a collision. The raw walk has
+  // no asset index (that arrives in B1b-3b-2), so it keys a packaged-asset href as a
+  // placeholder: over-merging, which risks a missed collision, rather than under-merging,
+  // which would be a false INTEGRITY-ERROR on a document the canonicalizer accepts.
+  const content = { version: '0.1', blocks: [{ type: 'paragraph', children: [
+    { type: 'text', value: 'a', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: 'assets/images/a.png' }] },
+    { type: 'text', value: 'b', marks: [{ type: 'anchor', id: 'x' }, { type: 'link', href: 'assets/images/b.png' }] }] }] };
+  const hash = `sha256:${'a'.repeat(64)}`;
+  const parts: DocumentParts = {
+    manifest: '{"assets":{"images":{"index":"assets/images/index.json"}}}',
+    content: JSON.stringify(content),
+    dublinCore: '{}',
+    assetIndexes: { images: JSON.stringify({ assets: [{ id: 'a', path: 'a.png', hash }, { id: 'b', path: 'b.png', hash }] }) },
+  };
+  assert.doesNotThrow(() => computeDocumentId(parts, 'sha256'), 'the canonicalizer merges the aliased nodes');
+  assert.deepEqual(collectDefinedIds(content, { rawInput: true }).duplicates, [], 'the raw walk must agree');
+});
+
+test('collectDefinedIds: a non-array `marks` is not a mark collection', () => {
+  // rewriteIds dispatches on `key === 'marks' && Array.isArray(...)`, so to the
+  // canonicalizer an object-valued `marks` is an ordinary field and the typed object
+  // inside it is a BLOCK — it relabels the id through the block branch. The walk must
+  // classify it the same way, or a consumer keying off the walk would treat the object as
+  // a mark: a `link` there would be resolved as a mark href the canonicalizer never
+  // rewrites, reporting a dangling reference that does not exist.
+  const withAnchor = { blocks: [{ type: 'paragraph', id: 'p', marks: { type: 'anchor', id: 'a' }, children: [] }] };
+  assert.deepEqual(collectDefinedIds(withAnchor, { rawInput: true }).ids, ['p', 'a']);
+  assert.equal((canonContent({ content: withAnchor }) as any).blocks[0].marks.id, 'b1', 'relabelled through the block branch');
+  // The dispatch itself, not just its id side effect: a consumer that keys reference
+  // resolution off `inMarks` would otherwise treat this object as a mark.
+  let anchorCtx: { inMarks: boolean } | undefined;
+  walkContentNodes(withAnchor, (node, ctx) => {
+    if (node.type === 'anchor') anchorCtx = ctx;
+  }, { rawInput: true });
+  assert.equal(anchorCtx?.inMarks, false, 'an object-valued `marks` must not be walked as a mark collection');
+
+  // The reference side of the same dispatch: a `link` under an object-valued `marks` is
+  // not a mark href, so it is left verbatim rather than rewritten as a Content Anchor.
+  const withLink = { blocks: [{ type: 'paragraph', id: 'p', marks: { type: 'link', href: '#p' }, children: [] }] };
+  assert.equal((canonContent({ content: withLink }) as any).blocks[0].marks.href, '#p', 'not rewritten');
+});
+
+test('relabel: the duplicate-id error names the FIRST collision reached', () => {
+  // collectDefinedIds now completes its traversal and throws on duplicates[0]; the old
+  // in-place pass aborted at the first repeat. Identical only if duplicates[0] is that
+  // same id, and the message text is what a caller matching on it depends on.
+  assert.throws(
+    () =>
+      canonContent({ content: { version: '0.1', blocks: [
+        { type: 'paragraph', id: 'first', children: [] },
+        { type: 'paragraph', id: 'second', children: [] },
+        { type: 'paragraph', id: 'first', children: [] },
+        { type: 'paragraph', id: 'second', children: [] },
+      ] } }),
+    (err: unknown) =>
+      err instanceof CanonicalizationError &&
+      err.message === 'duplicate id "first" in the shared identifier namespace',
+  );
+});
+
+test('collectDefinedIds: rawInput erases exactly what canon erases', () => {
+  // Raw stored content, never passed through canon. Three properties at once:
+  // identical anchor marks on a TEXT node dedup to one id (canon would have);
+  // the same marks on a non-text node do NOT (canon would not); and an id inside a
+  // crdt payload is outside the namespace, since canon deletes crdt before relabeling.
+  const rawText = collectDefinedIds(
+    { blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'anchor', id: 'a' }, { type: 'anchor', id: 'a' }] }] }] },
+    { rawInput: true },
+  );
+  assert.deepEqual(rawText.ids, ['a']);
+  assert.deepEqual(rawText.duplicates, []);
+
+  const rawNonText = collectDefinedIds(
+    { blocks: [{ type: 'paragraph', marks: [{ type: 'anchor', id: 'a' }, { type: 'anchor', id: 'a' }], children: [] }] },
+    { rawInput: true },
+  );
+  assert.deepEqual(rawNonText.duplicates, ['a']);
+
+  const rawCrdt = collectDefinedIds(
+    { blocks: [{ type: 'paragraph', id: 'p', crdt: { blocks: [{ type: 'paragraph', id: 'p' }] }, children: [] }] },
+    { rawInput: true },
+  );
+  assert.deepEqual(rawCrdt.ids, ['p']);
+  assert.deepEqual(rawCrdt.duplicates, []); // the crdt-interior 'p' is not in the namespace
+
+  // Without rawInput the traversal is unfiltered — the collection alphaRenameIds does.
+  const unfiltered = collectDefinedIds({ blocks: [{ type: 'paragraph', id: 'p', crdt: { blocks: [{ type: 'paragraph', id: 'p' }] }, children: [] }] });
+  assert.deepEqual(unfiltered.duplicates, ['p']);
 });
 
 test('relabel: a sub-block id colliding with a block id is a duplicate error', () => {

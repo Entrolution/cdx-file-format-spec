@@ -1,0 +1,38 @@
+{
+  "description": "The manifest declares a custom metadata reference (`metadata.custom.notes`) whose target the archive omits. `metadata.custom` is an open map of path-only references, so its values bind nothing exactly as `provenance` and `metadata.jsonld` do — a sweep enumerating only the NAMED path-only fields would let a whole reference family escape both the missing-part row and the duplicate-key sweep. WARNING in every state.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Manifest section 4.7; Security Extension section 9.8; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\",\"custom\":{\"notes\":\"metadata/notes.json\"}}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Missing Custom Metadata\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-MISSING-UNBOUND",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

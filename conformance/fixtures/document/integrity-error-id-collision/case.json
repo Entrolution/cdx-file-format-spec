@@ -1,0 +1,38 @@
+{
+  "description": "Two paragraph blocks share the id `dup`. The block/anchor/equation-line/subfigure ids form ONE namespace requiring uniqueness, so a collision makes every reference to that id ambiguous — an Error in ALL states (Anchors & References §7.2), which §5.4.2 maps onto INTEGRITY-ERROR. The only INTEGRITY-ERROR this layer can assign before B2/B3, precisely because it does not vary by state. Authored [INTEGRITY-ERROR, REJECT]: INTEGRITY-ERROR is a floor with MAY-escalation to refusal (§5.4.1), so a reader that refuses the document is equally conformant.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 4, 7.2; Document Hashing section 4.3.1; State Machine sections 5.4.1, 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:a16151e8c123fea0a4e8d10c782f33d48a18dd41112bfee4a0e2061d45b7a932\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"dup\",\"children\":[]},{\"type\":\"paragraph\",\"id\":\"dup\",\"children\":[]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Id Collision\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "INTEGRITY-ERROR",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ID-COLLISION",
+        "atLeast": "INTEGRITY-ERROR",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

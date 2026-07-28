@@ -1,7 +1,7 @@
 {
   "normative": false,
   "$comment": "NON-NORMATIVE. This vocabulary is a conformance-suite diagnostic aid, not part of the CDX specification. The specification mandates DISPOSITIONS (State Machine section 5.4) and lineage OUTCOMES (Provenance and Lineage section 3.3) \u2014 never error identifiers. A conforming implementation is free to use its own internal errors and map them to these codes in its conformance adapter; it is never required to adopt this vocabulary. A code sharpens a failure report and is never by itself the pass criterion for a MUST \u2014 the normative assertion is the `disposition` each entry records.",
-  "version": "0.7",
+  "version": "0.8",
   "specVersion": "0.1",
   "compatibilityPolicy": {
     "summary": "Codes are append-only and permanently stable once published.",
@@ -32,7 +32,7 @@
       "clause": "Security Extension section 9.9",
       "disposition": "REJECT",
       "dispositionClause": "State Machine section 5.4.2 (manifest absent, unparseable, or missing or mistyping a required field)",
-      "note": "Distinct from CDX-E-MANIFEST-HASH-MALFORMED: the defect is the shape of the reference, not the hash value."
+      "note": "Distinct from CDX-E-MANIFEST-HASH-MALFORMED: the defect is the shape of the reference, not the hash value. ALSO emitted for a MISTYPED `metadata` object or `metadata.dublinCore` path: both are required manifest fields (Manifest section 4.7), so a present-but-wrong-typed one is State Machine section 5.4.2's \"manifest ... missing or mistyping a required field\" REJECT. That reference is a bare relative-path string rather than a `{path, hash}` object, so the summary's shape does not describe it; the defect CLASS is the same — a manifest reference that cannot be interpreted — which is why this code is reused rather than a new one minted, the append-only policy forbidding a code from being re-pointed but not from covering a further instance of its own class."
     },
     "CDX-E-MANIFEST-PATH-TRAVERSAL": {
       "summary": "A declared path is not a safe archive-relative path (escapes the archive root).",
@@ -333,6 +333,76 @@
       "disposition": "WARNING",
       "dispositionClause": "State Machine section 5.4.2 (File `hash` or document-ID mismatch — WARNING in draft/review).",
       "note": "STATE-VARYING: WARNING in DRAFT/REVIEW, escalating to INTEGRITY-ERROR on FROZEN/PUBLISHED (state-keyed per Document Hashing section 6.3; deferred to B3 via State Machine section 5.4.2 note 3, as for CDX-E-FILE-HASH-MISMATCH). Recomputed only for a document carrying a real id — a draft's id is `pending` (Document Hashing section 7.1) and has nothing to recompute. A *stale* id (one computed over earlier content or metadata) is exactly what this row detects; a review/frozen/published document carrying a `pending` id is instead a section 7.2 violation this row does not catch, since a pending id is skipped rather than recomputed."
+    },
+    "CDX-E-METADATA-PART-MISSING": {
+      "summary": "The Dublin Core metadata part is not available: either the manifest declares no `metadata.dublinCore` reference at all, or the path it declares names no archive entry.",
+      "clause": "Metadata sections 3.3.1, 3.3.2; Container Format section 3.3.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing required metadata — the Dublin Core part or a required term — WARNING in draft/review).",
+      "note": "STATE-VARYING: WARNING in DRAFT/REVIEW, escalating to INTEGRITY-ERROR on FROZEN/PUBLISHED, where the projected Dublin Core terms enter the document ID and the document asserts them fixed. The escalation is deferred to B3 via State Machine section 5.4.2 note 3, which requires a projection-covering signature before `state` can be trusted. AMBIGUITY RECORDED: `metadata.dublinCore` is a REQUIRED manifest field, so the no-reference-at-all case also reads as the section 5.4.2 'Manifest ... missing ... a required field' row, which is REJECT. This vocabulary assigns the more specific missing-metadata row and its narrower WARNING; a future clarification may move that one arm to REJECT. Per State Machine section 5.4.2 note 5, an encrypted part mapped to a stored `.enc` entry satisfies presence and MUST NOT fire this code; that mapping arrives with the security extension's part handling."
+    },
+    "CDX-E-METADATA-PART-UNPARSEABLE": {
+      "summary": "The Dublin Core metadata part cannot be used as Dublin Core: a syntax error, a resource-limit failure, a valid JSON value that is not an object, or an object the metadata projection REJECTS — a non-object `terms`, a wrong-typed `title`/`description`, or a `creator`/`subject`/`language` that is neither a string nor an array of strings.",
+      "clause": "Metadata section 3; Document Hashing section 4.3.2; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing required metadata — the Dublin Core part or a required term — WARNING in draft/review).",
+      "note": "STATE-VARYING exactly as CDX-E-METADATA-PART-MISSING: WARNING in DRAFT/REVIEW, INTEGRITY-ERROR on FROZEN/PUBLISHED, deferred to B3. An unreadable part is treated as unavailable rather than as empty metadata: the document ID projects the real terms, so recomputing over an empty projection would compare a different document's basis and manufacture a spurious CDX-E-DOCUMENT-ID-MISMATCH. The id is therefore reported as indeterminate, not mismatched. A DUPLICATE KEY in the part is not this code — it is the state-invariant REJECT CDX-E-PART-DUPLICATE-KEYS (State Machine section 5.4.3). The unprojectable-term arm is reported here rather than as a missing term because the projection THROWS on it: the metadata cannot enter the document ID at all, so the id is indeterminate. Left unreported it would silently disable the document-ID check from inside the recompute's error handling, which one malformed ADVISORY term would then be enough to switch off."
+    },
+    "CDX-E-METADATA-TERM-MISSING": {
+      "summary": "The Dublin Core part loads but omits a term the specification requires: `title` (a non-empty string) or `creator` (at least one value, in either the scalar or the array form).",
+      "clause": "Metadata sections 3.3.1, 3.3.2; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing required metadata — the Dublin Core part or a required term — WARNING in draft/review).",
+      "note": "STATE-VARYING as for the other two metadata codes: WARNING in DRAFT/REVIEW, INTEGRITY-ERROR on FROZEN/PUBLISHED, deferred to B3. The part still parses, so the document ID remains computable and is verified normally — a missing term lowers metadata quality without making the identity indeterminate. Only `title` and `creator` are required; every other Dublin Core term is optional (Metadata section 3.3)."
+    },
+    "CDX-E-PART-MISSING-UNBOUND": {
+      "summary": "A manifest reference that carries a path but NO hash names an archive entry that does not exist — the provenance record, a `metadata.jsonld` side file, a collaboration comments or changes file, or the phantom clusters file.",
+      "clause": "Security Extension section 9.8; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing a referenced part outside the document hash and manifest projection — WARNING in every state).",
+      "note": "STATE-INVARIANT: WARNING in draft, review, frozen and published alike. A path-only reference binds nothing — the target is in neither the document hash nor the manifest projection (extensions overview, Integrity Status of Extension Data) — so its absence degrades a layer and cannot signal tampering. This is deliberately NOT the hash-BOUND missing-part row (a declared presentation layer, an asset index), which escalates to INTEGRITY-ERROR when frozen and is verified in B1b-3b-2. A part that is present but unparseable is CDX-E-EXTENSION-DATA-PART-UNPARSEABLE, not this code. `security.signatures` and `security.encryption` are path-only too but are verified with B2's trust material. Per State Machine section 5.4.2 note 5, an encrypted part mapped to a stored `.enc` entry satisfies presence and MUST NOT fire this code."
+    },
+    "CDX-E-EXTENSION-DATA-PART-UNPARSEABLE": {
+      "summary": "An out-of-hash extension data part — a collaboration comments or changes file, a phantom clusters file, form data, or the core annotations file — is present but is not well-formed JSON.",
+      "clause": "Extensions overview (Integrity Status of Extension Data, Out-of-hash version skew); State Machine sections 5.4.2, 5.4.3",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Missing or unparseable out-of-hash extension data part — WARNING in every state).",
+      "note": "STATE-INVARIANT: these bytes sit in no signature scope and in no hash, so a defect in them can never signal tampering — the extensions overview states directly that a missing or unparseable out-of-hash data part is a WARNING in all states and MUST NOT be reported as an INTEGRITY-ERROR. Scoped to the conventional out-of-hash locations (`collaboration/`, `phantoms/`, `forms/`, `security/annotations.json`) plus any path the manifest declares for them; an unrecognized file elsewhere in the archive is IGNORE (State Machine section 5.4.2), never this code. A DUPLICATE KEY in such a part remains the state-invariant REJECT CDX-E-PART-DUPLICATE-KEYS (State Machine section 5.4.3): an unrejected duplicate permits a split-view substitution regardless of which layer carries it."
+    },
+    "CDX-E-ANCHOR-DANGLING": {
+      "summary": "A core anchor reference in hashed content resolves to no block or anchor id in the document: a `link` mark whose `href` begins `#` and names an identifier the content does not define.",
+      "clause": "Anchors and References sections 7.2, 2.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling core anchor reference in hashed content — WARNING in draft/review).",
+      "note": "STATE-VARYING: WARNING in DRAFT/REVIEW, escalating to INTEGRITY-ERROR on FROZEN/PUBLISHED (Anchors and References section 7.2 states this directly — content is fluid below frozen, so a target may not exist yet; above it, a broken anchor indicates corruption). The escalation is deferred to B3 via State Machine section 5.4.2 note 3. A core anchor is part of the document's addressing layer, so a dangling one is an internal-consistency failure of signed content — unlike an extension cross-reference (CDX-E-CROSS-REFERENCE-DANGLING), which only degrades rendering. A reference that does not begin `#` addresses nothing in this document and is not a defect. Offset and range validity within a resolved target (Anchors and References section 7.3) is a separate check, deferred to B1b-3c."
+    },
+    "CDX-E-BLOCK-REFERENCE-DANGLING": {
+      "summary": "A Content Anchor URI carried in an extension BLOCK field resolves to no block or anchor id: `academic:proof` `of`, an `academic:theorem` `uses[]` element, or a `semantic:ref` or `presentation:reference` `target`.",
+      "clause": "Anchors and References sections 7.2, 11; Document Hashing section 4.3.1; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling core anchor reference in hashed content — WARNING in draft/review).",
+      "note": "STATE-VARYING as CDX-E-ANCHOR-DANGLING, and deferred to B3 on the same grounds. CLASSIFICATION RECORDED AS CONTESTED, which is why these fields carry their own code rather than sharing CDX-E-ANCHOR-DANGLING. They are treated here as core anchors: Document Hashing section 4.3.1 item 5 rewrites them into the same relabelled identifier namespace as a `link` mark, and State Machine section 5.4.2's extension-cross-reference carve-out names only MARKS. Against that reading, Anchors and References section 11 groups `semantic:ref` and `presentation:reference` with the cross-reference mechanisms rather than with the core `link` mark, and section 5.4.2's preamble defines a core anchor as a `link` href, an `anchor` mark, or a STRUCTURED Content Anchor (the object form). Draft and review are WARNING under either reading, so the two differ only in the frozen column; separating the codes lets B3 settle that without re-pointing a published code, which the compatibility policy forbids."
+    },
+    "CDX-E-CROSS-REFERENCE-DANGLING": {
+      "summary": "An extension cross-reference mark resolved at render time points at nothing: an `academic:theorem-ref`, `academic:equation-ref`, or `academic:algorithm-ref` whose `target` Content Anchor URI names no defined identifier.",
+      "clause": "Anchors and References section 11; State Machine section 5.4.2",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling extension cross-reference resolved at render time — WARNING in every state).",
+      "note": "STATE-INVARIANT: WARNING in every state, and State Machine section 5.4.2's preamble gives the reason — such a mark is resolved at render time to inject a label, number, or definition, so a dangling one degrades rendering only; the signed bytes remain intact and hash-verified. This is the disposition that distinguishes these marks from the core anchors of CDX-E-ANCHOR-DANGLING, which escalate. COVERAGE IS PARTIAL: the citation, footnote and glossary marks named by the same row are NOT yet resolved. Their targets do not live in the content part — a `citation` mark's `refs` address bibliography entry ids (a `semantic:bibliography` block's `entries`, and/or `semantic/bibliography.json`), and a `glossary` mark's `ref` addresses `semantic/glossary.json`, a file Document Hashing section 4.3.1 deliberately does not relabel. Both side files are `{path, hash}` config references bound by the manifest projection, so they are resolved in B1b-3b-2. The `footnote` mark's `id` is deferred further: the corresponding `semantic:footnote` block matches by `number` or `symbol`, so `id` addresses no clearly specified namespace and the gap is recorded as a specification question rather than guessed at."
+    },
+    "CDX-E-ANNOTATION-ANCHOR-DANGLING": {
+      "summary": "An anchor originating in an out-of-hash annotation layer points at content that does not exist: a collaboration comment or change anchor, a change `position` block id, a phantom cluster anchor, or a core annotation anchor naming no defined identifier.",
+      "clause": "Anchors and References section 7.2; Extensions overview (Integrity Status of Extension Data); State Machine sections 5.4.2, 5.4.3",
+      "disposition": "WARNING",
+      "dispositionClause": "State Machine section 5.4.2 (Dangling anchor originating in an out-of-hash annotation layer — WARNING in every state).",
+      "note": "STATE-INVARIANT: the anchoring layer's bytes are bound by neither the document hash nor the manifest projection, so a dangling anchor cannot signal tampering with signed content, in any state. Resolved only at the anchor positions the extension schemas DECLARE — `annotations[].anchor`, a comment or change `anchor`, a change `position.before`/`.after` block id, and a cluster `anchor`. A generic sweep for any `blockId` or `#` string would be wrong, not merely noisy: a phantom carries a full core content tree whose internal marks address the phantom's own interior, and a collaboration change record carries verbatim before/after block snapshots that legitimately name removed content. State Machine section 5.4.3 forbids escalating a defect confined to an out-of-hash layer's internal graph at all — such a defect is a layer-validity disposition, not an entry in the integrity table."
+    },
+    "CDX-E-ID-COLLISION": {
+      "summary": "An identifier is defined more than once in the document's shared identifier namespace — block ids, `anchor` mark ids, equation-line ids and subfigure ids, which together form one namespace requiring uniqueness.",
+      "clause": "Anchors and References sections 4, 7.2; Document Hashing section 4.3.1; State Machine section 5.4.2",
+      "disposition": "INTEGRITY-ERROR",
+      "dispositionClause": "Anchors and References section 7.2 (ID collides with another ID in the shared namespace — Error in ALL states), whose severities section 7.2 maps onto the WARNING and INTEGRITY-ERROR dispositions of State Machine section 5.4.",
+      "note": "STATE-INVARIANT, and the only INTEGRITY-ERROR this layer assigns before B2/B3: because the disposition does not vary by state, it needs no projection-covering signature to be sound, unlike every deferred frozen/published escalation. Anchors and References section 7.2 makes a collision an Error in all states — a duplicate makes a reference ambiguous, so which content an anchor addresses is undecidable. The canonicalizer already refuses such a document (Document Hashing section 4.3.1 item 5 rejects a duplicate id while relabelling), which is why this is reported before the document-ID recompute rather than left to surface as an unexplained inability to compute the id. The namespace is exactly the one Document Hashing section 4.3.1 item 5 relabels, so identifiers addressing SEPARATE namespaces — a bibliography entry's citation key, a footnote or glossary mark id — do not collide with it."
     }
   }
 }

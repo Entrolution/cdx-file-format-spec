@@ -1,0 +1,32 @@
+{
+  "description": "Two ADJACENT text nodes carrying the byte-identical `anchor` mark `x`. Canonicalization merges adjacent merge-eligible text nodes with equal mark sets (Document Hashing §4.3.1 item 4) BEFORE checking id uniqueness, so the absorbed node's mark — and its id — cease to exist and there is exactly one `x`. The document canonicalizes and its id computes, so a resolver that walked raw content without reproducing the merge would report CDX-E-ID-COLLISION (INTEGRITY-ERROR, state-invariant, the harshest disposition this layer assigns) on a document every other check accepts. The `warn`-side controls are the separated and differing-marks cases, which do NOT merge and are genuine collisions. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.1; Anchors and References sections 4, 7.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:42f6b4821a1370b11d5fd77c5d268ac1e9ec34d0bd33800e56fe226e40aa6b58\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"anchor\",\"id\":\"x\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Adjacent Text Merge\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

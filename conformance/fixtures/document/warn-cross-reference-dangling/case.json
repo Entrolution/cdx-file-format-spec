@@ -1,0 +1,38 @@
+{
+  "description": "An `academic:equation-ref` mark whose `target` names no equation line. An extension cross-reference is resolved at render time to inject a label or number, so a dangling one degrades rendering only — the signed bytes remain intact and hash-verified — making this WARNING in EVERY state. The contrast with `warn-anchor-dangling` (same namespace, escalating row) is the point of the pair.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References section 11; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d84f55d6447fee69cfdb60461972f8cd2e8303fb18ebe3472a64735729cefd0a\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#nope\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Dangling Cross Reference\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CROSS-REFERENCE-DANGLING",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

@@ -215,9 +215,24 @@ def has_duplicate_key(text):
     return found[0]
 
 
+def _declared_part_paths(data, cd):
+    """Every part path the manifest names. A part is not obliged to be called `.json`
+    (the relative-path form permits any name), so an extension-only sweep would let a
+    declared part's duplicate keys escape the state-invariant REJECT."""
+    m = manifest_obj(data, cd) or {}
+    meta = m.get("metadata") if isinstance(m.get("metadata"), dict) else {}
+    collab = m.get("collaboration") if isinstance(m.get("collaboration"), dict) else {}
+    phantoms = m.get("phantoms") if isinstance(m.get("phantoms"), dict) else {}
+    custom = list(meta.get("custom").values()) if isinstance(meta.get("custom"), dict) else []
+    refs = [meta.get("dublinCore"), meta.get("jsonld"), m.get("provenance"),
+            collab.get("comments"), collab.get("changes"), phantoms.get("clusters"), *custom]
+    return {r for r in refs if isinstance(r, str)}
+
+
 def any_part_has_duplicate_key(data, cd):
+    declared = _declared_part_paths(data, cd)
     for e in cd:
-        if e["name"].endswith(".json") and e["method"] == 0:
+        if (e["name"].endswith(".json") or e["name"] in declared) and e["method"] == 0:
             text = part_text(data, {e["name"]: e}, e["name"])
             if text is not None and has_duplicate_key(text):
                 return True
@@ -354,6 +369,21 @@ def reference_malformed(data, cd):
     c = m.get("content")
     return not (isinstance(c, dict) and isinstance(c.get("path"), str) and isinstance(c.get("hash"), str))
 
+
+
+def _metadata_reference_malformed(data, cd):
+    """`metadata` present but not an object, or `metadata.dublinCore` present but not a
+    string. Both are required manifest fields, so a MISTYPED one is the section 5.4.2
+    manifest-required-field REJECT, distinct from the absent case's metadata WARNING."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return False
+    if "metadata" not in m:
+        return False
+    meta = m["metadata"]
+    if not isinstance(meta, dict):
+        return True
+    return "dublinCore" in meta and not isinstance(meta["dublinCore"], str)
 
 def hash_malformed(data, cd):
     m = manifest_obj(data, cd)
@@ -737,8 +767,422 @@ def document_id_mismatch(data, cd):
     return recomputed != declared
 
 
+# --- B1b-3b-1: required metadata, path-only parts, reference resolution --------
+# Independent (shared-nothing) confirmers. The identifier namespace and the reference
+# fields are RE-ENCODED from the specification here, never imported from the TypeScript:
+# Document Hashing §4.3.1 item 5 for the namespace, and the same section's reference
+# rewriting for which fields hold a Content Anchor URI.
+
+
+def _dublin_core_defect(dc):
+    """'malformed' | 'missing-term' | None. 'malformed' is everything the metadata
+    projection REJECTS (§4.3.1) — a non-object `terms`, a wrong-typed string term, or an
+    array term that is neither a string nor an array of strings. Kept distinct because the
+    projection THROWS on those, which would otherwise silently disable the document-ID
+    recompute; 'missing-term' is the narrower §3.3.1/§3.3.2 requirement and still projects."""
+    terms = dc.get("terms")
+    if terms is None and "terms" not in dc:
+        return "missing-term"  # projects as {}, but title/creator are absent
+    if not isinstance(terms, dict):
+        return "malformed"
+    for t in ("title", "description"):
+        if t in terms and not isinstance(terms[t], str):
+            return "malformed"
+    for t in ("creator", "subject", "language"):
+        if t not in terms or isinstance(terms[t], str):
+            continue
+        if not isinstance(terms[t], list) or not all(isinstance(e, str) for e in terms[t]):
+            return "malformed"
+    title = terms.get("title")
+    if not isinstance(title, str) or title == "":
+        return "missing-term"
+    creator = terms.get("creator")
+    if isinstance(creator, str):
+        return "missing-term" if creator == "" else None
+    if isinstance(creator, list) and any(isinstance(c, str) and c != "" for c in creator):
+        return None
+    return "missing-term"
+
+
+def _dc_state(data, cd):
+    """(state, parsed) for the Dublin Core part: one of 'unreferenced', 'absent',
+    'unparseable', 'ok'. Mirrors the four arms of the missing-metadata row without
+    reusing the reader's own resolution."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return ("unreferenced", None)
+    meta = m.get("metadata")
+    if "metadata" in m and not isinstance(meta, dict):
+        return ("mistyped", None)  # a mistyped required field is the manifest REJECT
+    ref = meta.get("dublinCore") if isinstance(meta, dict) else None
+    if ref is not None and not isinstance(ref, str):
+        return ("mistyped", None)
+    if not isinstance(ref, str):
+        return ("unreferenced", None)
+    text = part_text(data, cd_map(cd), ref)
+    if text is None:
+        return ("absent", None)
+    if has_duplicate_key(text):
+        return ("duplicate-key", None)  # the state-invariant REJECT, not this row
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return ("unparseable", None)
+    return ("ok", value) if isinstance(value, dict) else ("unparseable", None)
+
+
+def metadata_part_missing(data, cd):
+    return _dc_state(data, cd)[0] in ("unreferenced", "absent")
+
+
+def metadata_part_unparseable(data, cd):
+    state, value = _dc_state(data, cd)
+    # A loaded-but-unprojectable part counts too: the reader reports it here rather than
+    # letting the projection throw inside the id recompute's catch.
+    return state == "unparseable" or (state == "ok" and _dublin_core_defect(value) == "malformed")
+
+
+def metadata_term_missing(data, cd):
+    state, value = _dc_state(data, cd)
+    return state == "ok" and _dublin_core_defect(value) == "missing-term"
+
+
+def part_missing_unbound(data, cd):
+    """A manifest reference carrying a path but NO hash whose target is not in the
+    archive. Re-derived from the manifest schema: `provenance` and `metadata.jsonld` are
+    bare relativePath strings, as are `collaboration.comments`/`.changes` and
+    `phantoms.clusters`. A `{path, hash}` reference is a DIFFERENT row (it is bound by
+    the manifest projection) and is deliberately not collected here."""
+    m = manifest_obj(data, cd)
+    if m is None:
+        return False
+    meta = m.get("metadata") if isinstance(m.get("metadata"), dict) else {}
+    collab = m.get("collaboration") if isinstance(m.get("collaboration"), dict) else {}
+    phantoms = m.get("phantoms") if isinstance(m.get("phantoms"), dict) else {}
+    custom = list(meta.get("custom").values()) if isinstance(meta.get("custom"), dict) else []
+    refs = [m.get("provenance"), meta.get("jsonld"), collab.get("comments"),
+            collab.get("changes"), phantoms.get("clusters"), *custom]
+    names = {e["name"] for e in cd}
+    return any(isinstance(r, str) and r not in names for r in refs)
+
+
+# Field keys whose ARRAY items carry a relabelled sub-block id though they have no block
+# `type` (§4.3.1 item 5), and the key whose items address a SEPARATE namespace.
+_SUB_BLOCK_ID_ARRAYS = {"lines", "subfigures"}
+_DATA_PAYLOAD_ID_ARRAYS = {"entries"}
+
+
+def _defined_id(node, in_marks, in_array, parent_key):
+    """§4.3.1 item 5's namespace, keyed on WHERE the node sits, not merely its shape.
+    Inside `marks` only an `anchor` mark contributes. Outside it, a typed object is a
+    block unless it is a data-payload entry; an untyped object contributes only as a
+    `lines`/`subfigures` item. A `text` node's id is preserved verbatim, so it is out."""
+    if in_marks:
+        return node.get("id") if node.get("type") == "anchor" and isinstance(node.get("id"), str) else None
+    if not isinstance(node.get("id"), str):
+        return None
+    if node.get("type") == "text":
+        return None
+    named_array_item = in_array and parent_key is not None
+    if isinstance(node.get("type"), str):
+        return None if named_array_item and parent_key in _DATA_PAYLOAD_ID_ARRAYS else node["id"]
+    return node["id"] if named_array_item and parent_key in _SUB_BLOCK_ID_ARRAYS else None
+
+
+def _is_derived_field(node, key):
+    """Fields canon deletes before relabelling (§4.3.1 item 1; §4.1a), so ids inside them
+    are not in the namespace at all."""
+    if not isinstance(node.get("type"), str):
+        return False
+    if key == "crdt":
+        return True
+    if key == "display":
+        return node["type"] == "measurement"
+    if key == "tokens":
+        return node["type"] == "codeBlock"
+    return False
+
+
+def _normalize_path(p):
+    """Resolve ./.. segments, as canonicalize.ts normalizePath does."""
+    out = []
+    for seg in p.split("/"):
+        if seg in ("", "."):
+            continue
+        if seg == "..":
+            if out and out[-1] != "..":
+                out.pop()
+            else:
+                out.append("..")
+            continue
+        out.append(seg)
+    return "/".join(out)
+
+
+def _is_packaged_asset_ref(v):
+    """A link href resolveAssetRef would actually rewrite. ONLY an `assets/`-rooted path
+    can hit the asset map — every key is `assets/<category>/…` and anything else comes
+    back verbatim — so masking a wider set would merge nodes canon keeps distinct and
+    destroy a real id collision."""
+    if not isinstance(v, str) or v.startswith("#") or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", v):
+        return False
+    return v.startswith("assets/") or _normalize_path(v).startswith("assets/")
+
+
+def _merge_key(node):
+    """The key mergeAdjacentText compares, modelled IN CANON'S ORDER: canon recurses into a
+    child (deleting its derived fields, normalizing a text node's marks) and merges the
+    array only afterwards. None when the node is not merge-eligible, so it breaks the run.
+    `marks` is read verbatim when not a list — canon guards normalizeMarks on isArray and
+    marksEqual then compares that raw value. A packaged-asset link href keys as one
+    placeholder: canon resolves it to an asset hash before comparing, and without the asset
+    index (B1b-3b-2) equality is undecidable — over-merging costs a missed collision,
+    under-merging would be a FALSE INTEGRITY-ERROR on a document canon accepts."""
+    if not (isinstance(node, dict) and node.get("type") == "text" and isinstance(node.get("value"), str)):
+        return None
+    kept = [k for k in node if not _is_derived_field(node, k)]
+    if any(k not in ("type", "value", "marks") for k in kept):
+        return None
+    marks = node.get("marks")
+    if isinstance(marks, list):
+        masked = [dict(m, href=" asset") if isinstance(m, dict) and m.get("type") == "link"
+                  and _is_packaged_asset_ref(m.get("href")) else m for m in marks]
+        keyed = sorted(_jcs(m) for m in masked)
+        normalized = "[" + ",".join(k for i, k in enumerate(keyed) if i == 0 or k != keyed[i - 1]) + "]"
+    else:
+        normalized = _jcs(marks if marks is not None else [])
+    return normalized
+
+
+def _drop_absorbed_text_nodes(arr):
+    """Remove each text node mergeAdjacentText would fold into its predecessor (§4.3.1
+    item 4). The absorbed node's marks vanish with it, so two adjacent text nodes bearing
+    the SAME `anchor` id are ONE id after canonicalization, not a collision."""
+    out, prev_key = [], None
+    for node in arr:
+        key = _merge_key(node)
+        if key is not None and prev_key is not None and key == prev_key:
+            continue
+        prev_key = key
+        out.append(node)
+    return out
+
+
+def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None, in_text_marks=False):
+    """Raw-content walk reproducing every canon transform that changes which ids exist:
+    adjacent merge-eligible text nodes with equal mark sets collapse, marks identical
+    within ONE TEXT NODE's array dedup, and derived fields drop. The last two are scoped
+    like canon's: it normalizes `marks` under `case 'text'` alone (so a non-text node's
+    duplicate marks genuinely survive) and does NOT recurse into a text node's marks (so a
+    derived field carried on or under such a mark survives and its ids ARE relabelled)."""
+    if isinstance(value, list):
+        items = value if in_text_marks else _drop_absorbed_text_nodes(value)
+        for el in items:
+            _walk_content(el, visit, in_marks, True, parent_key, in_text_marks)
+        return
+    if not isinstance(value, dict):
+        return
+    visit(value, in_marks, in_array, parent_key)
+    for key in sorted(value.keys()):
+        if not in_text_marks and _is_derived_field(value, key):
+            continue
+        child = value[key]
+        if key == "marks" and value.get("type") == "text":
+            # canon's skip is `type == 'text' and key == 'marks'` with NO list test, so the
+            # subtree survives either way: in_text_marks must be set for a non-list `marks`
+            # too, or derived fields inside one are erased here and kept there. in_marks
+            # still requires a list, matching rewriteIds' dispatch.
+            if isinstance(child, list):
+                seen, deduped = set(), []
+                for mark in child:
+                    k = _jcs(mark)
+                    if k in seen:
+                        continue
+                    seen.add(k)
+                    deduped.append(mark)
+                _walk_content(deduped, visit, True, False, key, True)
+            else:
+                _walk_content(child, visit, False, False, key, True)
+            continue
+        _walk_content(child, visit, key == "marks" and isinstance(child, list), False, key, in_text_marks)
+
+
+def _collect_ids(content):
+    """(unique ids in first-occurrence order, ids defined more than once)."""
+    seen, ids, duplicates = set(), [], []
+
+    def visit(node, in_marks, in_array, parent_key):
+        i = _defined_id(node, in_marks, in_array, parent_key)
+        if i is None:
+            return
+        if i in seen:
+            duplicates.append(i)
+        else:
+            seen.add(i)
+            ids.append(i)
+
+    _walk_content(content, visit)
+    return ids, duplicates
+
+
+def _anchor_target(value):
+    """The id of a Content Anchor URI `#id[/offset[-end]]`, or None if not a `#` ref."""
+    if not isinstance(value, str) or not value.startswith("#"):
+        return None
+    slash = value.find("/")
+    return value[1:] if slash == -1 else value[1:slash]
+
+
+# The Content Anchor URI fields of §4.3.1 item 5, split by which §5.4.2 row a dangle hits.
+_MARK_REFS = {"link": ("href", "anchor"), "academic:theorem-ref": ("target", "xref"),
+              "academic:equation-ref": ("target", "xref"), "academic:algorithm-ref": ("target", "xref")}
+_BLOCK_REFS = {"academic:proof": ("of", False), "academic:theorem": ("uses", True),
+               "semantic:ref": ("target", False), "presentation:reference": ("target", False)}
+
+
+def _content_reference_findings(data, cd):
+    """{'anchor', 'block', 'xref', 'collision'} present in the content part."""
+    content = _content_value(data, cd)
+    out = set()
+    if content is None:
+        return out
+    ids, duplicates = _collect_ids(content)
+    if duplicates:
+        out.add("collision")
+    defined = set(ids)
+
+    def visit(node, in_marks, in_array, parent_key):
+        t = node.get("type")
+        if not isinstance(t, str):
+            return
+        if in_marks:
+            spec = _MARK_REFS.get(t)
+            if spec and _anchor_target(node.get(spec[0])) not in (None, *defined):
+                out.add(spec[1])
+            return
+        spec = _BLOCK_REFS.get(t)
+        if spec is None:
+            return
+        field, many = spec
+        values = node.get(field) if many and isinstance(node.get(field), list) else [node.get(field)]
+        for v in values:
+            if _anchor_target(v) not in (None, *defined):
+                out.add("block")
+
+    _walk_content(content, visit)
+    return out
+
+
+# Out-of-hash annotation parts, and the anchor positions their schemas DECLARE. A
+# generic sweep would be wrong: phantoms embed a full content tree and collaboration
+# change records carry verbatim before/after block snapshots naming removed content.
+_ANNOTATION_ANCHORS = [("annotations", "anchor", None), ("comments", "anchor", None),
+                       ("changes", "anchor", ("position", ("before", "after"))), ("clusters", "anchor", None)]
+_OUT_OF_HASH_DIRS = ("collaboration/", "phantoms/", "forms/")
+_OUT_OF_HASH_FILES = ("security/annotations.json",)
+
+
+def _out_of_hash_paths(data, cd):
+    """The conventional out-of-hash locations, plus EVERY path-only manifest reference
+    wherever it points — the same set whose absence is the unbound-part row. Covering
+    absence but not corruption would report the milder defect and miss the worse one.
+    The manifest and content parts have their own rows and are excluded."""
+    m = manifest_obj(data, cd) or {}
+    paths = {e["name"] for e in cd
+             if e["name"].endswith(".json") and (e["name"] in _OUT_OF_HASH_FILES or e["name"].startswith(_OUT_OF_HASH_DIRS))}
+    meta = m.get("metadata") if isinstance(m.get("metadata"), dict) else {}
+    collab = m.get("collaboration") if isinstance(m.get("collaboration"), dict) else {}
+    phantoms = m.get("phantoms") if isinstance(m.get("phantoms"), dict) else {}
+    custom = list(meta.get("custom").values()) if isinstance(meta.get("custom"), dict) else []
+    for ref in (m.get("provenance"), meta.get("jsonld"), collab.get("comments"),
+                collab.get("changes"), phantoms.get("clusters"), *custom):
+        if isinstance(ref, str):
+            paths.add(ref)
+    content = m.get("content")
+    paths.discard("manifest.json")
+    if isinstance(content, dict) and isinstance(content.get("path"), str):
+        paths.discard(content["path"])
+    return paths
+
+
+def extension_data_part_unparseable(data, cd):
+    """An out-of-hash extension data part present but not well-formed JSON. A duplicate
+    key is the state-invariant REJECT instead, so it is excluded here."""
+    cdm = cd_map(cd)
+    for path in sorted(_out_of_hash_paths(data, cd)):
+        text = part_text(data, cdm, path)
+        if text is None or has_duplicate_key(text):
+            continue
+        try:
+            json.loads(text)
+        except json.JSONDecodeError:
+            return True
+    return False
+
+
+def _annotation_paths(data, cd):
+    """Scoped tighter than the unparseable sweep: only an ANNOTATION layer anchors into
+    content, so an unrelated path-only part that happens to carry a `changes` array is not
+    read as one."""
+    m = manifest_obj(data, cd) or {}
+    collab = m.get("collaboration") if isinstance(m.get("collaboration"), dict) else {}
+    phantoms = m.get("phantoms") if isinstance(m.get("phantoms"), dict) else {}
+    paths = {p for p in _out_of_hash_paths(data, cd)
+             if p in _OUT_OF_HASH_FILES or p.startswith(_OUT_OF_HASH_DIRS)}
+    for ref in (collab.get("comments"), collab.get("changes"), phantoms.get("clusters")):
+        if isinstance(ref, str):
+            paths.add(ref)
+    return paths
+
+
+def annotation_anchor_dangling(data, cd):
+    content = _content_value(data, cd)
+    if content is None:
+        return False
+    defined = set(_collect_ids(content)[0])
+    cdm = cd_map(cd)
+    for path in sorted(_annotation_paths(data, cd)):
+        text = part_text(data, cdm, path)
+        if text is None:
+            continue
+        try:
+            part = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(part, dict):
+            continue
+        for array, anchor_field, block_id_spec in _ANNOTATION_ANCHORS:
+            for element in part.get(array) or []:
+                if not isinstance(element, dict):
+                    continue
+                anchor = element.get(anchor_field)
+                if isinstance(anchor, dict) and isinstance(anchor.get("blockId"), str):
+                    if anchor["blockId"] not in defined:
+                        return True
+                elif isinstance(anchor, str) and _anchor_target(anchor) not in (None, *defined):
+                    return True
+                if block_id_spec is not None:
+                    holder = element.get(block_id_spec[0])
+                    if isinstance(holder, dict):
+                        for key in block_id_spec[1]:
+                            v = holder.get(key)
+                            if isinstance(v, str) and v not in defined:
+                                return True
+    return False
+
+
 CONFIRMERS = {
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
+    "CDX-E-METADATA-PART-MISSING": metadata_part_missing,
+    "CDX-E-METADATA-PART-UNPARSEABLE": metadata_part_unparseable,
+    "CDX-E-METADATA-TERM-MISSING": metadata_term_missing,
+    "CDX-E-PART-MISSING-UNBOUND": part_missing_unbound,
+    "CDX-E-EXTENSION-DATA-PART-UNPARSEABLE": extension_data_part_unparseable,
+    "CDX-E-ANNOTATION-ANCHOR-DANGLING": annotation_anchor_dangling,
+    "CDX-E-ANCHOR-DANGLING": lambda data, cd: "anchor" in _content_reference_findings(data, cd),
+    "CDX-E-BLOCK-REFERENCE-DANGLING": lambda data, cd: "block" in _content_reference_findings(data, cd),
+    "CDX-E-CROSS-REFERENCE-DANGLING": lambda data, cd: "xref" in _content_reference_findings(data, cd),
+    "CDX-E-ID-COLLISION": lambda data, cd: "collision" in _content_reference_findings(data, cd),
     "CDX-E-BLOCK-TYPE-UNKNOWN-BARE": lambda data, cd: "block_bare" in classify_content(data, cd),
     "CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED": lambda data, cd: "block_ns" in classify_content(data, cd),
     "CDX-E-BLOCK-MALFORMED": lambda data, cd: "block_malformed" in classify_content(data, cd),
@@ -752,7 +1196,7 @@ CONFIRMERS = {
     "CDX-E-MANIFEST-UNPARSEABLE": manifest_unparseable,
     "CDX-E-MANIFEST-STATE-UNKNOWN": state_unknown,
     "CDX-E-MANIFEST-VERSION-MALFORMED": version_malformed,
-    "CDX-E-MANIFEST-REFERENCE-MALFORMED": reference_malformed,
+    "CDX-E-MANIFEST-REFERENCE-MALFORMED": lambda data, cd: reference_malformed(data, cd) or _metadata_reference_malformed(data, cd),
     "CDX-E-MANIFEST-HASH-MALFORMED": hash_malformed,
     "CDX-E-MANIFEST-PATH-TRAVERSAL": content_path_traversal,
     "CDX-E-VERSION-MAJOR-UNSUPPORTED": major_unsupported,
@@ -793,9 +1237,11 @@ def confirm_clean(name, data):
         return f"clean case content part is not valid JSON: {exc}"
     # §5.4.3: a duplicate key in ANY part REJECTs, so a genuinely clean fixture must
     # have none anywhere — not only in the manifest and content. Scan every JSON part
-    # (Dublin Core, presentation, asset-index, ...), matching the reader's sweep.
+    # AND every manifest-declared part path, matching the reader's sweep (a part need
+    # not be named `.json`).
+    declared_clean = _declared_part_paths(data, cd)
     for e in cd:
-        if e["name"].endswith(".json") and e["method"] == 0:
+        if (e["name"].endswith(".json") or e["name"] in declared_clean) and e["method"] == 0:
             text = part_text(data, {e["name"]: e}, e["name"])
             if text is not None and has_duplicate_key(text):
                 return f"clean case part {e['name']} has a duplicate key"
@@ -804,6 +1250,25 @@ def confirm_clean(name, data):
     findings = classify_content(data, cd)
     if findings:
         return f"clean case content has block/mark classifier finding(s): {sorted(findings)}"
+    # B1b-3b-1: a genuinely clean document must have required metadata, no dangling
+    # reference of any kind, no id collision, and no unreadable out-of-hash part — a
+    # reader that skipped any of these checks would otherwise pass this fixture.
+    dc_state, dc_value = _dc_state(data, cd)
+    if dc_state in ("unreferenced", "absent"):
+        return "clean case has no readable Dublin Core part"
+    if dc_state == "unparseable":
+        return "clean case Dublin Core part is not a JSON object"
+    if dc_state == "ok" and _dublin_core_defect(dc_value) is not None:
+        return "clean case Dublin Core is malformed or omits a required term (title / creator)"
+    if part_missing_unbound(data, cd):
+        return "clean case declares a path-only part reference that the archive omits"
+    if extension_data_part_unparseable(data, cd):
+        return "clean case has an unparseable out-of-hash extension data part"
+    if annotation_anchor_dangling(data, cd):
+        return "clean case has an out-of-hash annotation anchored at no content id"
+    refs = _content_reference_findings(data, cd)
+    if refs:
+        return f"clean case content has reference finding(s): {sorted(refs)}"
     # B1b-3a: a clean fixture's declared file hash must match the stored bytes, and — for
     # a document carrying a real id — the recomputed canonical document id must match it.
     # Otherwise a reader that skips hash/id verification would wrongly pass this fixture.
