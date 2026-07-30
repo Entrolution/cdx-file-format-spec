@@ -84,8 +84,23 @@ Codes are **append-only and permanently stable**. A published code is never
 re-pointed at a different defect; if a meaning must change, a new code is added
 and the old one is deprecated (`deprecated: true`, plus `supersededBy` where
 applicable) and kept forever. `version` is the vocabulary's own semantic version
-and bumps on any addition or deprecation; `specVersion` is the specification
-version the `clause` citations resolve against.
+and bumps on any addition, any deprecation, and any erratum-driven change to a
+published entry; `specVersion` is the specification version the `clause`
+citations resolve against.
+
+**What an erratum may change.** Amending the specification is the one case the
+original rules did not contemplate, so `errors.json` states it explicitly. A
+`clause` or `dispositionClause` is **re-synced** when an erratum amends the text
+it quotes — a stale quotation is a false statement about the specification, and
+re-quoting reclassifies nothing. A null `disposition` may become **concrete**
+when an erratum closes the gap that made it null; the reverse is never permitted,
+and a concrete disposition is never changed to a different concrete one. A
+`summary` may be **narrowed** when an erratum moves one of its enumerated arms to
+a new code, provided both entries record the move — never widened, never
+re-pointed. A `note` may be rewritten at any time.
+
+**Rows are cited by quoting them, never by number.** Section 5.4.2's numbering
+shifts whenever a row is inserted, so a numeric citation rots silently — one did.
 
 `check:enumeration-coverage` enforces the registry against reality: every code
 emitted by the reference implementation must be registered, every registered

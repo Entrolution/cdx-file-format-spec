@@ -562,6 +562,22 @@ Should signatures be able to bind *over* other signatures ("notarized after sign
 **Status**: Open; disclosed as a residual limitation (security extension §3.12)
 **Considerations**: The required-signer set declares which signers, never in what order; a signature-timestamp bounds when a signature existed but establishes no inter-signature order. A counter-signature scope (covering another signature's bytes) is the classic mechanism, but it breaks the current "independent, unordered set" model and its re-signing ergonomics. Relevant to the legal profile's notarization narrative (security extension §9.6).
 
+### OQ-007: Defect Classes State Machine §5.4.2 Assigns No Row
+
+Which disposition applies to a defect the §5.4.2 table does not tabulate?
+
+**Status**: Open. Recorded here rather than only inside `conformance/errors.json`, so the gaps are visible in the register. A 2026-07 erratum closed several of these by adding rows (a divergent asset-index path, an undeclared presentation file) but deliberately left the rest, because closing them requires deciding normative content rather than transcribing it.
+
+**Considerations**: Two distinct groups remain. **Manifest defects the generic row does not reach** — a duplicate `extensions[]` id, a presentation `type` outside the enum, one declared path carrying conflicting hashes, and four malformed `requiredSigners` shapes. The manifest projection fails closed on each (the projected bytes would otherwise be ambiguous), but "missing or mistyping a required field" does not describe a well-formed field carrying a bad *value*, and §5.4.2 gives the `state` enum its own row rather than relying on that generic one — evidence the generic row is not meant to absorb enum violations. These carry `disposition: null`, which the vocabulary is explicit is a gap and not permission to ignore. **A hash-bound part that is present but unusable** — an asset index that parses yet yields no assets. The table's hash-bound row now reads "missing or unparseable", which covers an index that will not parse; what it still does not cover is one that PARSES and yields no usable assets, and Asset Embedding §3.1 makes having a *usable* index a MUST — so the suite reads that row as governing and records the reading. A dedicated row would make it transcribed rather than inferred. Note the shape of the argument in both groups is the same one the erratum accepted for the two rows it added: where the specification states a MUST but the disposition table is silent, a row is the fix, not a stretched reading.
+
+### OQ-008: What a Non-Array `marks` Means for §4.3.1 Item 5
+
+`content.schema.json` requires a text node's `marks` to be an array. What should canonicalization do when it is a single object instead?
+
+**Status**: Open. The reference implementation currently sweeps an id-bearing object under a non-array `marks` into the relabelled namespace, while leaving the identical object alone inside a valid `marks` array — a difference produced by the `Array.isArray` dispatch rather than by any rule §4.3.1 states. `scripts/test-canonicalize.ts` pins the behaviour so it cannot drift silently, deliberately as a unit test rather than a `document-id` known-answer vector: that kind publishes byte-exact expectations for third parties, and a conformant implementation may legitimately reject this content at schema validation and never run it.
+
+**Considerations**: Item 5's namespace is stated as keyed on *where* an id sits, and it excludes "an identifier carried on a singular named sub-object" — which is arguably what a non-array `marks` value is, pointing at leaving the id as authored. Against that, the relabelled namespace is stated to include "the `id` of every block (including `namespace:type` extension blocks)", and the reference implementation reads a typed object outside a mark collection as one. Note the current behaviour is internally uneven: the same node is treated as a block for item 5 (its id relabels) but not for item 1 (its `crdt` is kept, correctly — a mark is neither a block nor a text node). Settling it needs an erratum plus paired changes to `walkContentNodes` and `rewriteIds`, which dispatch on `Array.isArray` independently. Related: the same question exists for any other field whose schema type is violated, so a general rule ("canonicalization is defined only over schema-valid content; a violation is a canonicalization error") may be the better fix than a per-field one.
+
 ---
 
 ## Strategic Insights

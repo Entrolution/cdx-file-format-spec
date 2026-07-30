@@ -5,7 +5,7 @@
     "container",
     "document"
   ],
-  "clause": "Manifest section 4.7; State Machine section 5.4.2",
+  "clause": "Manifest section 4.11; State Machine section 5.4.2",
   "recipe": {
     "entries": [
       {

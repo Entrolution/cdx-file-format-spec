@@ -1262,7 +1262,7 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function isValidPathSegment(seg: string): boolean {
+export function isValidPathSegment(seg: string): boolean {
   return seg.length > 0 && seg !== '.' && seg !== '..' && !seg.includes('/');
 }
 

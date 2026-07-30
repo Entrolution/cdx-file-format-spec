@@ -38,8 +38,10 @@
  * `state` needs a projection-covering signature (§5.4.2 note 3), arrives in B3.
  * SCOPE (B1b-3b-1, Tier 3 part 2): presence of required and path-only-referenced parts,
  * and reference resolution —
- *   - the Dublin Core part: unreferenced, absent, unparseable, or missing a required
- *     term (§3.3.1/§3.3.2), all WARN. Loaded once, shared with the id recompute;
+ *   - the Dublin Core part: referenced but absent, unparseable, or missing a required
+ *     term (§3.3.1/§3.3.2), all WARN. An absent `metadata`/`metadata.dublinCore` FIELD is
+ *     not here — that is a malformed manifest, REJECT. Loaded once, shared with the id
+ *     recompute;
  *   - a manifest reference carrying a path but NO hash — `provenance`, `metadata.jsonld`,
  *     the collaboration comment/change files, the phantom clusters — whose target is
  *     absent WARNs in every state: it binds nothing, so it cannot signal tampering;
@@ -120,6 +122,7 @@ export const CODE = {
   // Reused for a mistyped `metadata` / `metadata.dublinCore`: those ARE malformed manifest
   // references, and §5.4.2 rejects a mistyped required manifest field.
   MANIFEST_REFERENCE_MALFORMED: 'CDX-E-MANIFEST-REFERENCE-MALFORMED',
+  MANIFEST_FIELD_MISSING: 'CDX-E-MANIFEST-FIELD-MISSING',
   METADATA_PART_MISSING: 'CDX-E-METADATA-PART-MISSING',
   METADATA_PART_UNPARSEABLE: 'CDX-E-METADATA-PART-UNPARSEABLE',
   METADATA_TERM_MISSING: 'CDX-E-METADATA-TERM-MISSING',
@@ -324,15 +327,10 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
 
   // --- Required metadata: the Dublin Core part and its terms (§5.4.2) --------
   // Loaded HERE rather than inside the document-ID recompute below, so one load serves
-  // both the missing-metadata row and the id basis. Four ways this row fires: the
-  // manifest names no Dublin Core at all, the named part is absent, it is present but
-  // unparseable (or not an object), or it omits a required term.
-  //
-  // The "names no Dublin Core" arm has a competing reading: `metadata.dublinCore` is a
-  // REQUIRED manifest field, so §5.4.2's "Manifest ... missing ... a required field" row
-  // would make it a REJECT. This row is the more specific of the two and WARNING is the
-  // narrower change, so it is taken here; widening validateManifestCore instead would
-  // change REJECT behaviour and is left as a decision for the spec, not assumed.
+  // both the missing-metadata row and the id basis. Three ways the PART-level row fires:
+  // the named part is absent, it is present but unparseable (or not an object), or it
+  // omits a required term. A manifest that names no Dublin Core at all is NOT this row —
+  // see the absent-field arm below.
   // (§5.4.2 note 5: an ENCRYPTED part mapped to a stored `.enc` entry satisfies presence
   // and MUST NOT fire a missing-part row. No encryption support exists before B2 and no
   // fixture exercises it; the guard belongs with the security extension's part mapping.)
@@ -341,9 +339,10 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
   // MISTYPED is not the same as absent. `metadata` is a required manifest field and
   // `metadata.dublinCore` a required member of it, so a present-but-wrong-typed one is
   // unambiguously §5.4.2's "Manifest ... missing or MISTYPING a required field" REJECT —
-  // the reading below only ever applies to genuine absence. Without this, replacing
-  // `"dublinCore": "…"` with an object downgrades a REJECT to a WARNING and quietly
-  // switches the id recompute to an empty-metadata basis.
+  // the arm below only ever applies to genuine absence. Without this, replacing
+  // `"dublinCore": "…"` with an object reports the wrong code and quietly switches the id
+  // recompute to an empty-metadata basis. Since the erratum the DISPOSITION is REJECT
+  // either way, so do not read this guard as the thing carrying it.
   const metadata = manifest.metadata;
   const dcRef = isPlainObject(metadata) ? metadata.dublinCore : undefined;
   const referenceMistyped = (metadata !== undefined && !isPlainObject(metadata)) || (dcRef !== undefined && typeof dcRef !== 'string');
@@ -355,10 +354,22 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
     // block avoids for a referenced-but-unloadable part.
     dcResolvable = false;
   } else if (typeof dcRef !== 'string') {
-    // Unreferenced. `{}` IS the correct id basis (§4.3.1 projects absent metadata as
-    // empty), so the recompute still proceeds — the document is missing metadata, not
-    // indeterminate.
-    add(CODE.METADATA_PART_MISSING);
+    // ABSENT REQUIRED FIELD, not a part-level metadata defect: `metadata` is required by
+    // the manifest schema and `dublinCore` is required within it, so a manifest carrying
+    // neither is malformed exactly as one missing `content` is — §5.4.2's "Manifest ...
+    // missing ... a required field" REJECT. This arm covers both an absent `metadata` and
+    // a present `metadata` with no `dublinCore`; the spec's metadata row is explicitly
+    // PART-level and does not reach either.
+    //
+    // NO EARLY RETURN. Sibling REJECT arms above exit, but findings are push-only and the
+    // disposition resolves once at the end, so a return here would buy nothing and would
+    // silently switch off every later pass for this document — the block/mark classifier,
+    // reference resolution, verifyAssetIndexes, the duplicate-key sweep and the file-hash
+    // and document-ID recompute. The suite would not notice: the only fixture reaching
+    // this arm asserts a single finding, and a subset comparator cannot see what stopped
+    // being reported. `{}` remains the correct id basis (§4.3.1 projects absent metadata
+    // as empty), so `dcResolvable` stays true and the recompute below still runs.
+    add(CODE.MANIFEST_FIELD_MISSING);
   } else {
     const dc = load(dcRef);
     if (dc.status === 'absent') {
@@ -457,10 +468,10 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
   // or a hash conflict — both manifest-level defects the projection reports on its own
   // terms — and there the set is indeterminate, so nothing is checked here.
   //
-  // §5.4.2's row for a MISSING one is contested (see CDX-E-CONFIG-PART-MISSING): the
-  // out-of-hash row's examples name these files while its "path-only" qualifier excludes a
-  // `{path, hash}` declaration. Both readings agree on WARNING in draft/review, which is what
-  // is emitted; B3 settles the frozen column.
+  // §5.4.2's row for a MISSING or unparseable one is settled by erratum: the out-of-hash
+  // row's examples formerly named these files while its "path-only" qualifier excluded a
+  // `{path, hash}` declaration, and the examples were removed — the hash-bound row governs.
+  // WARNING in draft/review, which is what is emitted; the frozen INTEGRITY-ERROR is B3.
   let configRefs: Array<{ path: string; hash: string }> = [];
   try {
     configRefs = collectConfigFileReferences(manifest);
@@ -746,8 +757,8 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
   // archive → IGNORE" row and report a WARNING for any unrelated byte someone parked under
   // `presentation/`. What 04 §12 actually warns about is a file a renderer could MISTAKE for
   // authoritative appearance, and 04 §13.3 names exactly what makes it one: a precise layout
-  // carries `presentationType`, a reactive presentation carries a `type` from the closed
-  // four-value set. Anything else under the directory stays IGNORE.
+  // carries `presentationType`, a reactive presentation carries a `type` of
+  // `paginated`, `continuous`, or `responsive`. Anything else under the directory stays IGNORE.
   for (const entry of archive.entries) {
     if (!entry.name.startsWith(PRESENTATION_DIRECTORY) || entry.name.endsWith('/')) continue;
     if (declaredPresentation.has(entry.name)) continue;

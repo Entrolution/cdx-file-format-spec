@@ -227,14 +227,17 @@ test('an undeclared file WITH a presentation discriminator is flagged', () => {
   }
 });
 
-test('a declared index path diverging from the derived one is reported, and the derived one governs', () => {
-  // 05 §3.1 states the equality as a MUST and then resolves the conflict itself — "if an
-  // explicit `index` value disagrees with it the derived path governs". So the reader must
-  // load the DERIVED path (proved by the category resolving cleanly against an index only
-  // present there) while still surfacing the divergence, which opens a real seam: the
-  // manifest projection binds the DECLARED path's hash while the document ID uses the
-  // DERIVED path's bytes. §5.4.2 assigns it no row, so the code carries a null disposition
-  // and cannot be asserted through a fixture — this is its only coverage.
+test('a declared index path diverging from the derived one is reported, and the index is still read from the derived path', () => {
+  // 05 §3.1 states the equality as a MUST and the erratum gave it a §5.4.2 row: REJECT in
+  // both columns. §3.1 formerly resolved the conflict itself ("the derived path governs"),
+  // which left the document loadable and the defect with no disposition. REJECTING is the
+  // verdict, not a relocation of the read: the reader still loads the DERIVED path, proved
+  // here by the category resolving cleanly against an index present only there. That
+  // matters because a reader that followed the declared path would resolve the category's
+  // assets differently — the ambiguity the REJECT exists to remove.
+  //
+  // The fixture `reject-asset-index-path-divergent` now pins the disposition; this test
+  // pins what the fixture's subset comparator cannot — that nothing ELSE is reported.
   const codes = codesFor([
     {
       name: 'manifest.json',
@@ -248,7 +251,7 @@ test('a declared index path diverging from the derived one is reported, and the 
     { name: 'assets/images/fig1.svg', text: FIG1 },
   ]);
   assert.ok(codes.has('CDX-E-ASSET-INDEX-PATH-DIVERGENT'), 'the divergence is surfaced');
-  assert.ok(!codes.has('CDX-E-PART-MISSING-BOUND'), 'the DERIVED path governs, so the category resolved');
+  assert.ok(!codes.has('CDX-E-PART-MISSING-BOUND'), 'the index is read from the derived path, so the category resolved');
   assert.ok(!codes.has('CDX-E-ASSET-REFERENCE-DANGLING'), 'and its references resolve against it');
 });
 

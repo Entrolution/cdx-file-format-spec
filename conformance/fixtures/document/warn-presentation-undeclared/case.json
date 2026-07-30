@@ -1,5 +1,5 @@
 {
-  "description": "A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2's preamble expressly refuses to treat such a file as a benign out-of-hash annotation — \"an injected layout is an attempt to alter signed content\" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file's presence; the normative requirement it backs is that a renderer MUST NOT present it as the document's appearance. Authored as an INTERVAL, deliberately: §5.4.2's preamble only REMOVES this file from the out-of-hash WARNING row without supplying a replacement, and the one characterisation the specification does offer — \"an integrity concern\" — points ABOVE WARNING rather than at it. WARNING is therefore a floor, and asserting it as a ceiling would fail a conformant reader that escalates.",
+  "description": "A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2's preamble expressly refuses to treat such a file as a benign out-of-hash annotation — \"an injected layout is an attempt to alter signed content\" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file's presence; the normative requirement it backs is that a renderer MUST NOT present it as the document's appearance. Pinned EXACTLY at WARNING, and the erratum is why: the preamble formerly removed this file from the out-of-hash row without supplying a replacement, so WARNING was only a floor and a ceiling would have failed a reader that escalated. §5.4.2 now carries a dedicated row assigning WARNING in draft/review, and §5.4.1 makes escalating a WARNING non-conformant (\"The document remains valid and a warning never blocks loading\"), so the exact pin is now the correct assertion and an interval would be too loose. The frozen/published INTEGRITY-ERROR the same row assigns is exercised in B3.",
   "layer": "document",
   "requires": [
     "container",
@@ -29,13 +29,13 @@
   "expect": {
     "documentDisposition": {
       "atLeast": "WARNING",
-      "atMost": "REJECT"
+      "atMost": "WARNING"
     },
     "findings": [
       {
         "code": "CDX-E-PRESENTATION-UNDECLARED",
         "atLeast": "WARNING",
-        "atMost": "REJECT"
+        "atMost": "WARNING"
       }
     ]
   }
