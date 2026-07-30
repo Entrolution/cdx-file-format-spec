@@ -4,8 +4,9 @@ Thank you for your interest in contributing to the CDX specification.
 
 ## Prerequisites
 
-- **Node.js 22.15 or later.** The conformance suite exercises Zstandard (Container Format
-  section 3.2), which needs `zlib.zstdDecompressSync` — added in Node 22.15. On an older
+- **Node.js 22.15 or later** (`.nvmrc` pins the floor, so `nvm use` / `fnm use` picks it up).
+  The conformance suite exercises Zstandard (Container Format section 3.2), which needs
+  `zlib.zstdDecompressSync` — added in Node 22.15. On an older
   runtime `npm run check:conformance` fails with the Zstandard fixture scoped out rather than
   run, and the gate reports exactly that. CI pins Node 22.
 - **Python 3.14 or later** for full oracle coverage (`conformance/oracles/*.py`). Zstandard
