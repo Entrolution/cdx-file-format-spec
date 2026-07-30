@@ -41,7 +41,7 @@ import {
   checkAssetCategory,
   checkUniqueIds,
 } from './lib/structural-constraints.js';
-import { readArchive } from './lib/zip-reader.js';
+import { readArchive, canDecompress, METHOD_ZSTD } from './lib/zip-reader.js';
 import { archiveVerdict } from './lib/archive-verdict.js';
 import { documentVerdict } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
@@ -92,7 +92,18 @@ function nestDeep(depth: number, leaf: unknown): unknown {
  * not available here (canonicalize.ts throws "not available"), so declaring it
  * would be a false claim.
  */
-const CAPABILITIES = ['core', 'container', 'document', 'ext:security', 'provenance', 'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512'];
+/**
+ * What this adapter claims to support. `compression:zstd` is DECLARED FROM THE RUNTIME
+ * rather than hard-coded: Container Format §3.2 makes Deflate mandatory and Zstandard only
+ * RECOMMENDED, and `zlib.zstdDecompressSync` exists from Node 22.15, so an adapter honestly
+ * reports zstd only where it can actually perform it. Declaring a capability the reader
+ * cannot deliver is precisely the lie the capability model exists to prevent.
+ */
+const CAPABILITIES = [
+  'core', 'container', 'document', 'ext:security', 'provenance',
+  'hash:sha-384', 'hash:sha-512', 'hash:sha3-256', 'hash:sha3-512',
+  ...(canDecompress(METHOD_ZSTD) ? ['compression:zstd'] : []),
+];
 const CAP_SET = new Set(CAPABILITIES);
 
 /**

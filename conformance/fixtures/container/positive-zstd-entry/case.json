@@ -1,0 +1,33 @@
+{
+  "description": "An entry compressed with Zstandard (method 93), which Container Format §3.2 permits and RECOMMENDS. A reader implementing it decompresses the entry and verifies its CRC-32 normally — CLEAN. `requires: compression:zstd` scopes the case out of a Deflate-only reader rather than failing it, because §3.2 makes Zstandard RECOMMENDED, not mandatory; such a reader must instead report the entry integrity-indeterminate (§5.4.2 note 6). The positive control for the method dispatch: a reader that still treated every non-Store method as Deflate fails here.",
+  "layer": "container",
+  "requires": [
+    "container",
+    "compression:zstd"
+  ],
+  "clause": "Container Format sections 3.2, 6.1",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "method": "zstd"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

@@ -46,8 +46,17 @@ export interface ZipEntryRecipe {
   /** Entry content as UTF-8 text (default: empty). */
   text?: string;
   /** Compression method. Default `store`. `deflate` is non-deterministic across
-   *  zlib builds — use it only where the assertion is on decompressed content. */
-  method?: 'store' | 'deflate';
+   *  zlib builds — use it only where the assertion is on decompressed content.
+   *  `zstd` (method 93) is permitted by Container §3.2 and RECOMMENDED there; it needs a
+   *  runtime providing `zlib.zstdCompressSync` (Node 22.15+), so a recipe using it is only
+   *  materializable where that exists — the corresponding fixture declares the
+   *  `compression:zstd` capability. */
+  method?: 'store' | 'deflate' | 'zstd';
+  /** Override the stored compression METHOD CODE in both headers, leaving the bytes as
+   *  `method` produced them. The only way to express an entry declaring a method outside
+   *  Container §3.2's permitted set, which no real writer emits and which a reader must
+   *  reject rather than guess at. */
+  methodCodeOverride?: number;
   /** Mark as a Unix symbolic link: sets version-made-by host = Unix and the
    *  S_IFLNK external-attribute bits (Container §9.3). */
   symlink?: boolean;
@@ -56,6 +65,14 @@ export interface ZipEntryRecipe {
   declaredUncompressedSize?: number;
   /** Store a deliberately wrong CRC-32 in both headers (Container §6.1). */
   wrongCrc?: boolean;
+  /** Drop this many bytes from the END of the stored data, leaving the headers describing
+   *  the full entry. Produces a genuinely TRUNCATED compressed stream — distinct from bytes
+   *  that are merely wrong, because a truncated stream is where decoders disagree most
+   *  (Node's inflateRawSync throws; Python's decompressobj returns partial output without
+   *  raising), which is exactly the seam a reader and an independent oracle must not drift
+   *  apart on. `compressedSize` still reports the truncated length, as a real truncation
+   *  recorded by a writer that then lost bytes would. */
+  truncateStoredBytes?: number;
   /** Set the ZIP encryption flag (general-purpose bit 0). The bytes are not
    *  actually encrypted; the flag alone marks the container non-conformant
    *  (Container §3.1). */
@@ -110,6 +127,7 @@ const GP_FLAG_UTF8 = 0x0800; // bit 11: filename is UTF-8 (Container §3.1)
 const GP_FLAG_ENCRYPTED = 0x0001; // bit 0: entry is encrypted (forbidden by §3.1)
 const METHOD_STORE = 0;
 const METHOD_DEFLATE = 8;
+const METHOD_ZSTD = 93; // Container §3.2, RECOMMENDED
 const VERSION_NEEDED = 20; // 2.0
 const HOST_DOS = 0;
 const HOST_UNIX = 3;
@@ -163,10 +181,52 @@ interface Prepared {
   localOffset: number; // filled during assembly
 }
 
+/**
+ * A Zstandard frame wrapping `raw` in a single RAW (uncompressed) block.
+ *
+ * Built BY HAND rather than through `zlib.zstdCompressSync`, for three reasons that all point
+ * the same way:
+ *   - **Byte stability.** check-fixtures.ts byte-compares every committed `case.cdx` against a
+ *     fresh `buildZip(recipe)`. zstd guarantees DECODABILITY across versions, not encoder
+ *     byte-identity: output varies with libzstd version and compression level, and Node
+ *     bundles its own. This is exactly why the recipe doc refuses to commit Deflate output.
+ *   - **No runtime requirement to BUILD.** `zstdCompressSync` only exists from Node 22.15, so
+ *     calling it made `build:fixtures` and `check:fixtures` die with a raw stack trace on an
+ *     older runtime, before any check could report anything.
+ *   - **It is still a real Zstandard frame**, decodable by any conformant decoder — which is
+ *     the whole point of the fixture. A raw block is a legal encoding, not a special case.
+ *
+ * Layout (RFC 8878 §3.1): magic `28 B5 2F FD`; a frame header descriptor with
+ * Single_Segment set and no content checksum; a 1-byte Frame_Content_Size; then a 3-byte
+ * little-endian block header `(size << 3) | (Raw_Block << 1) | Last_Block`.
+ */
+function zstdRawFrame(raw: Buffer): Buffer {
+  // The 1-byte Frame_Content_Size encoding caps the payload; fixtures are tiny, and failing
+  // loudly beats silently emitting a frame with a wrong size field.
+  if (raw.length >= 256) {
+    throw new Error(`zip-writer: the hand-built Zstandard frame supports payloads under 256 bytes (got ${raw.length})`);
+  }
+  const header = Buffer.from([0x28, 0xb5, 0x2f, 0xfd, 0x20, raw.length]);
+  const blockHeader = Buffer.alloc(3);
+  blockHeader.writeUIntLE((raw.length << 3) | 0b001, 0, 3); // Raw_Block (00), Last_Block (1)
+  return Buffer.concat([header, blockHeader, raw]);
+}
+
 function prepare(e: ZipEntryRecipe): Prepared {
   const raw = entryBytes(e);
-  const method = e.method === 'deflate' ? METHOD_DEFLATE : METHOD_STORE;
-  const stored = method === METHOD_DEFLATE ? zlib.deflateRawSync(raw) : raw;
+  let method = METHOD_STORE;
+  let stored = raw;
+  if (e.method === 'deflate') {
+    method = METHOD_DEFLATE;
+    stored = zlib.deflateRawSync(raw);
+  } else if (e.method === 'zstd') {
+    method = METHOD_ZSTD;
+    stored = zstdRawFrame(raw);
+  }
+  // Applied AFTER the bytes are produced, so the entry carries real (e.g. Store) data under
+  // a method code the reader must refuse to interpret.
+  if (e.methodCodeOverride !== undefined) method = e.methodCodeOverride;
+  if (e.truncateStoredBytes !== undefined) stored = stored.subarray(0, Math.max(0, stored.length - e.truncateStoredBytes));
   const crc = e.wrongCrc ? (crc32(raw) ^ 0xffffffff) >>> 0 : crc32(raw);
 
   const host = e.symlink ? HOST_UNIX : HOST_DOS;

@@ -31,6 +31,10 @@
 
 import assert from 'assert/strict';
 import { createHash } from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
@@ -339,6 +343,50 @@ test('a PATH-ONLY side file still establishes its namespace', () => {
     { name: 'semantic/bibliography.json', text: bib },
   ]);
   assert.ok(codes.has('CDX-E-CITATION-REFERENCE-DANGLING'), 'the namespace loaded, so the bad ref is genuinely dangling');
+});
+
+test('a hash-bound part this reader cannot decode is NOT reported missing', () => {
+  // §5.4.2 note 6, mirroring note 5 for encrypted parts: such a part is PRESENT and intact,
+  // and the missing-part rows MUST NOT fire for it. Reporting it missing blames the document
+  // for the READER's capability envelope — and on a frozen document that escalates to an
+  // INTEGRITY-ERROR against an archive that is not damaged. Before the fix the container
+  // layer said "integrity-indeterminate, document unaffected" while the document layer said
+  // PART-MISSING-BOUND: two contradictory instructions for one archive.
+  //
+  // Run in a child process with `zlib.zstdDecompressSync` hidden, since the reader captures
+  // the decoder at module load and Zstandard is RECOMMENDED, not required (§3.2).
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdx-nozstd-doc-'));
+  try {
+    const preload = path.join(dir, 'hide.cjs');
+    fs.writeFileSync(preload, "const z = require('zlib'); delete z.zstdDecompressSync;\n");
+    const script = path.join(dir, 'probe.ts');
+    fs.writeFileSync(
+      script,
+      `import { buildZip } from ${JSON.stringify(path.resolve('scripts/lib/zip-writer.ts'))};\n` +
+        `import { readArchive } from ${JSON.stringify(path.resolve('scripts/lib/zip-reader.ts'))};\n` +
+        `import { documentVerdict } from ${JSON.stringify(path.resolve('scripts/lib/document-verdict.ts'))};\n` +
+        `import { deriveContentVocabulary } from ${JSON.stringify(path.resolve('scripts/lib/content-classifier.ts'))};\n` +
+        `const m = ${JSON.stringify(JSON.stringify({
+          cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z',
+          content: { path: 'content/document.json', hash: `sha256:${'0'.repeat(64)}` },
+          metadata: { dublinCore: 'metadata/dublin-core.json' },
+          presentation: [{ type: 'paginated', path: 'presentation/p.json', hash: `sha256:${'0'.repeat(64)}` }],
+        }))};\n` +
+        `const bytes = buildZip({ entries: [\n` +
+        `  { name: 'manifest.json', text: m },\n` +
+        `  { name: 'content/document.json', text: ${JSON.stringify(CONTENT_IMAGE)} },\n` +
+        `  { name: 'metadata/dublin-core.json', text: ${JSON.stringify(DC)} },\n` +
+        `  { name: 'presentation/p.json', text: '{"version":"0.1","type":"paginated","pages":[]}', method: 'zstd' },\n` +
+        `] });\n` +
+        `const v = documentVerdict(bytes, readArchive(bytes), { major: 0, minor: 1, extensions: new Set() }, deriveContentVocabulary());\n` +
+        `console.log(JSON.stringify(v.findings.map(f => f.code)));\n`,
+    );
+    const out = execFileSync('npx', ['tsx', '--require', preload, script], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const codes = JSON.parse(out.trim().split('\n').pop()!) as string[];
+    assert.ok(!codes.includes('CDX-E-PART-MISSING-BOUND'), `a present-but-undecodable part must not be reported missing, got ${JSON.stringify(codes)}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // --- a declared-but-unloadable side file suspends its namespace --------------

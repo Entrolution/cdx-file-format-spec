@@ -1,0 +1,39 @@
+{
+  "description": "A real Deflate stream with its last bytes dropped, so it decodes partially and then runs out. Distinct from the relabelled-Store case: those bytes are wrong from the first byte, whereas a truncated stream is where decoders disagree most — Node's inflateRawSync throws, while Python's decompressobj returns whatever it managed WITHOUT raising. A reader and an independent oracle that drift apart here disagree about whether the entry is undecodable or merely CRC-mismatched, so this fixture pins them together.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format sections 3.2, 6.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}{\"version\":\"0.1\",\"blocks\":[]}",
+        "method": "deflate",
+        "truncateStoredBytes": 6
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-ENTRY-UNDECODABLE",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

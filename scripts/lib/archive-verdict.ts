@@ -12,8 +12,13 @@
  * disposition — the analogue of what a third-party adapter does when it maps its
  * native reader's accept/reject decision to a disposition. The disposition VALUES
  * are authoritative in errors.json (never invented here); a code whose spec
- * disposition is null (a documented spec gap) does not contribute to the document
- * verdict, but is still surfaced as a finding.
+ * disposition is null does not contribute to the document verdict, but is still
+ * surfaced as a finding. Null now means two different things at this layer, and the
+ * distinction matters: a documented SPEC GAP (the specification assigns no row), or a
+ * DELIBERATE non-defect (CDX-E-ARCHIVE-ENTRY-INTEGRITY-INDETERMINATE — §5.4.2 note 6
+ * says an entry using a permitted method this reader has not implemented is not a
+ * document defect at all). Both are reported and neither raises the verdict; only the
+ * second is a statement about the READER rather than the archive.
  */
 
 import { resolveVerdict, type LayerVerdict, type VerdictFinding } from './verdict.js';
