@@ -1,0 +1,38 @@
+{
+  "description": "An entry declaring compression method 99, outside the complete set Container Format §3.2 permits (Store 0, Deflate 8, Zstandard 93). The bytes cannot be obtained, so neither the entry's CRC-32 nor any hash over it can be verified — the same class as the ZIP-encryption and multi-volume rows, which are likewise §3.1 violations that cannot be coherently loaded. §3.2 also forbids the failure this pins: a reader MUST NOT infer a method from the data, and in particular MUST NOT treat an unrecognized method as Deflate. A reader that did exactly that reported this archive CLEAN, its CRC silently unverified.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format sections 3.2, 6.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}",
+        "methodCodeOverride": 99
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-COMPRESSION-METHOD-FORBIDDEN",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

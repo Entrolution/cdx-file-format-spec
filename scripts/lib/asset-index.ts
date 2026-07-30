@@ -186,6 +186,15 @@ export function verifyAssetIndexes(
       unresolvable.add(category);
       continue;
     }
+    if (index.status === 'unobtainable') {
+      // The index is PRESENT and intact; this reader simply lacks the decoder for a method
+      // §3.2 permits. The container layer already reports the entry integrity-indeterminate,
+      // and §5.4.2 note 6 forbids the missing-part rows from firing — so nothing is added
+      // here. The category is still unresolvable, which suspends its asset references and
+      // the document-ID recompute rather than accusing the document of anything.
+      unresolvable.add(category);
+      continue;
+    }
     if (index.status === 'defect') {
       // A CODED defect (duplicate keys) is the part-agnostic state-invariant REJECT the
       // caller's any-part sweep reports; `code: null` is the uncoded parse or decompression
@@ -397,18 +406,19 @@ function compareStoredHash(
   try {
     stored = inflateEntry(bytes, entry);
   } catch {
-    // The bytes cannot be produced, so the hash is unverifiable — which is not a mismatch,
-    // and reporting one would accuse a document this reader simply cannot read.
+    // The bytes cannot be produced, so the asset hash is unverifiable — which is not a
+    // mismatch, and reporting one would accuse a document of tampering when the reader simply
+    // could not decode it.
     //
-    // BE CLEAR ABOUT THE GAP THIS LEAVES, because an earlier version of this comment claimed
-    // a guarantee that does not exist. The container layer does NOT catch it for us:
-    // zip-reader's CRC check wraps the identical `inflateEntry` call in its own swallowing
-    // catch, and `inflateEntry` treats every method other than Store as raw Deflate. Container
-    // Format §3 permits (and §7.2 RECOMMENDS for exactly these asset types) Zstandard, for
-    // which inflation throws — so on a Zstandard-compressed asset the CRC check and this hash
-    // check are BOTH skipped and the document reports clean. Validating the compression
-    // method belongs at the container layer, and no fixture reaches this path today because
-    // the corpus writer emits Store and Deflate only.
+    // Staying silent here is honest because every such entry already draws a container-layer
+    // finding — but NOT by the single mechanism an earlier version of this comment claimed.
+    // The CRC pass does not see them all: it `continue`s before its try for a bomb-flagged
+    // entry and for one whose local header is absent or name-mismatched. The accurate account
+    // is that the routes are plural — a forbidden method via the central-directory sweep, an
+    // undecodable or bomb entry via the CRC pass, and an absent/mismatched local header via
+    // the LFH-CD-disagreement and data-outside-CD rows. Each is REJECT, and the container and
+    // document verdicts compose MAX, so the defect reaches the document verdict without this
+    // module double-reporting it under an asset code that would misdescribe it.
     return;
   }
   const actual = hashOrNull(declared, stored);

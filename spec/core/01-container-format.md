@@ -60,6 +60,10 @@ Individual files within the archive MAY use the following compression methods:
 
 Implementations MUST support Deflate (method 8). Support for Zstandard (method 93) is RECOMMENDED.
 
+The table in this section is the **complete permitted set**. An entry declaring any other method makes the container non-conformant, and its bytes cannot be obtained — so neither its CRC-32 (section 6.1) nor any hash computed over it can be verified. A reader MUST reject such an archive (State Machine section 5.4.2) and MUST NOT infer a method from the data: in particular it MUST NOT treat an unrecognized method as Deflate, which would either fail confusingly or, worse, appear to succeed on bytes it did not actually decode.
+
+An entry using a **permitted** method the reader does not implement — Zstandard, for a reader that supports only the mandatory Deflate — is a different case and is not a defect. The reader MUST report that entry **integrity-indeterminate** rather than verified or clean (State Machine section 5.4.2, note 6).
+
 ### 3.3 Directory Structure
 
 The archive MUST contain the following structure:

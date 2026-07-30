@@ -257,6 +257,14 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
     add(CODE.MANIFEST_ABSENT);
     return resolveVerdict(codes); // no manifest => nothing further can be established
   }
+  if (m.status === 'unobtainable') {
+    // The manifest is PRESENT but compressed with a permitted method this reader has not
+    // implemented. Nothing about the document can be established, yet it is not defective —
+    // the container layer reports the entry integrity-indeterminate and §5.4.2 note 6
+    // forbids reporting it missing. Blaming the document for the reader's capability
+    // envelope is precisely what note 6 exists to prevent.
+    return resolveVerdict(codes);
+  }
   if (m.status === 'defect') {
     // A duplicate-key defect (=> PART-DUPLICATE-KEYS, state-invariant REJECT,
     // §5.4.3) is attributed to that class; a bare JSON syntax error is the
@@ -356,6 +364,11 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
     if (dc.status === 'absent') {
       add(CODE.METADATA_PART_MISSING);
       dcResolvable = false; // the id was computed over the real terms; `{}` would be a different document
+    } else if (dc.status === 'unobtainable') {
+      // Present, intact, undecodable HERE. Not a missing-metadata defect (§5.4.2 note 6),
+      // but the id basis is indeterminate, so the recompute is suspended exactly as it is
+      // for a referenced-but-unloadable DC part.
+      dcResolvable = false;
     } else if (dc.status === 'defect') {
       // A CODED defect is a part-agnostic state-invariant REJECT (duplicate keys),
       // reported once by the any-part sweep below; `code: null` is the uncoded parse or
@@ -460,6 +473,12 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
     const part = load(ref.path);
     if (part.status === 'absent') {
       add(CODE.CONFIG_PART_MISSING);
+      continue;
+    }
+    if (part.status === 'unobtainable') {
+      // Present but not decodable by this reader: §5.4.2 note 6 forbids the missing-part
+      // row here. The namespace it carries stays indeterminate (`configValues` is left
+      // unset), which suspends the citation/glossary rows rather than reporting them.
       continue;
     }
     if (part.status === 'defect') {
@@ -687,6 +706,14 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       const part = load(entry.path);
       if (part.status === 'absent') {
         add(CODE.PART_MISSING_BOUND);
+        continue;
+      }
+      if (part.status === 'unobtainable') {
+        // Present and intact; this reader lacks the decoder for a method §3.2 permits.
+        // §5.4.2 note 6 forbids the missing-part row here — reporting a hash-bound part
+        // missing because of the READER's capability envelope would, on a frozen document,
+        // become an INTEGRITY-ERROR accusing an intact archive of tampering. The container
+        // layer reports the entry integrity-indeterminate, which is the honest statement.
         continue;
       }
       if (part.status === 'defect') {

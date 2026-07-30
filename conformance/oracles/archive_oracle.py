@@ -188,26 +188,97 @@ def has_bomb(cd):
     return False
 
 
-def entry_crc_ok(data, e):
+# Container Format section 3.2's COMPLETE permitted set. Anything else makes the container
+# non-conformant; a reader must not guess a method from the data.
+METHOD_STORE, METHOD_DEFLATE, METHOD_ZSTD = 0, 8, 93
+PERMITTED_METHODS = {METHOD_STORE, METHOD_DEFLATE, METHOD_ZSTD}
+
+# Zstandard is RECOMMENDED, not required (section 3.2), and Python only gained a stdlib
+# decoder in 3.14 — so this is feature-detected exactly as the reader's is. Where it is
+# absent, a method-93 entry is integrity-indeterminate here too, and this oracle says so
+# rather than guessing.
+try:
+    from compression import zstd as _zstd  # Python 3.14+
+    def _zstd_decompress(b):
+        return _zstd.decompress(b)
+except ImportError:
+    _zstd_decompress = None
+
+
+def entry_bytes(data, e):
+    """(decoded_bytes, failure) for one entry. `failure` is None on success, else one of
+    'method-forbidden' / 'method-unsupported' / 'corrupt' — the same three-way split the
+    reader makes, because they carry OPPOSITE dispositions: a forbidden method rejects the
+    container, an unimplemented but permitted one is not a defect at all."""
     off = e["local_offset"]
+    # Method first, and BOTH method outcomes before anything structural — mirroring
+    # zip-reader.ts, which settles the method without touching the archive. Ordering these
+    # differently would make the two disagree for a method-93 entry with a bad offset, at the
+    # very seam scripts/test-container-reader.ts exists to pin.
+    if e["method"] not in PERMITTED_METHODS:
+        return None, "method-forbidden"
+    if e["method"] == METHOD_ZSTD and _zstd_decompress is None:
+        return None, "method-unsupported"
     if off < 0 or off + 30 > len(data) or struct.unpack_from("<I", data, off)[0] != SIG_LFH:
-        return True  # a structural issue (disagreement) is confirmed elsewhere
+        return None, "structural"  # a disagreement, confirmed elsewhere
     namelen = struct.unpack_from("<H", data, off + 26)[0]
     extralen = struct.unpack_from("<H", data, off + 28)[0]
     start = off + 30 + namelen + extralen
     stored = data[start: start + e["comp"]]
-    if e["method"] == 8:
-        try:
-            raw = zlib.decompressobj(-15).decompress(stored)
-        except Exception:  # noqa: BLE001
-            return False
-    else:
-        raw = stored
+    if e["method"] == METHOD_STORE:
+        return stored, None
+    try:
+        if e["method"] == METHOD_DEFLATE:
+            # `decompress()` alone does NOT raise on a TRUNCATED stream — it returns whatever
+            # it managed and leaves `eof` False. Node's inflateRawSync throws there, so
+            # without the eof test the oracle would confirm a CRC mismatch over partial bytes
+            # while the reader reports the entry undecodable: a silent divergence at exactly
+            # the seam this three-way split exists to define.
+            d = zlib.decompressobj(-15)
+            raw = d.decompress(stored) + d.flush()
+            if not d.eof:
+                return None, "corrupt"
+        else:
+            raw = _zstd_decompress(stored)
+    except Exception:  # noqa: BLE001
+        return None, "corrupt"
+    return raw, None
+
+
+def entry_crc_ok(data, e):
+    """True iff the entry's CRC-32 was CHECKED AND MATCHED, or could not be checked at all.
+
+    SAY WHAT THIS BUYS AND WHAT IT DOES NOT. A failure to obtain the bytes returns True here
+    because it is not a CRC MISMATCH — each failure kind has its own confirmer. But that means
+    a zstd-less Python (anything before 3.14, including the ubuntu-24.04 python3 CI runs)
+    DECLINES to verify a method-93 entry's checksum rather than verifying it: the clean-case
+    check for positive-zstd-entry passes there without the CRC ever being computed. That is
+    honest — the oracle cannot decode what it has no decoder for — but it is strictly less
+    confirmation than the same run gives on Python 3.14+, and it is recorded rather than left
+    to look like full coverage. The TypeScript reader verifies it wherever Node has zstd, and
+    the suite scopes the fixture by the `compression:zstd` capability."""
+    raw, failure = entry_bytes(data, e)
+    if failure is not None:
+        return True
     return (zlib.crc32(raw) & 0xFFFFFFFF) == e["crc"]
 
 
 def has_crc_mismatch(data, cd):
     return any(not entry_crc_ok(data, e) for e in cd)
+
+
+def has_forbidden_method(data, cd):
+    return any(e["method"] not in PERMITTED_METHODS for e in cd)
+
+
+def has_undecodable_entry(data, cd):
+    """An entry using a permitted method this oracle CAN perform, whose bytes still will not
+    decode. Distinct from a CRC mismatch: no checksum can be computed at all."""
+    return any(entry_bytes(data, e)[1] == "corrupt" for e in cd)
+
+
+def has_indeterminate_entry(data, cd):
+    return any(entry_bytes(data, e)[1] == "method-unsupported" for e in cd)
 
 
 def has_first_file_not_manifest(data):
@@ -246,7 +317,47 @@ CONFIRMERS = {
     "CDX-E-ARCHIVE-FIRST-FILE-NOT-MANIFEST": lambda data, cd: has_first_file_not_manifest(data),
     "CDX-E-ARCHIVE-ENCRYPTION-USED": lambda data, cd: has_encryption(cd),
     "CDX-E-ARCHIVE-MULTI-VOLUME": lambda data, cd: has_multi_volume(data),
+    "CDX-E-ARCHIVE-COMPRESSION-METHOD-FORBIDDEN": has_forbidden_method,
+    "CDX-E-ARCHIVE-ENTRY-UNDECODABLE": has_undecodable_entry,
+    "CDX-E-ARCHIVE-ENTRY-INTEGRITY-INDETERMINATE": has_indeterminate_entry,
 }
+
+
+# Returned by `confirm_clean` when the ORACLE — not the archive — is the limitation.
+UNCONFIRMABLE = "__unconfirmable__"
+
+
+def confirm_clean(data):
+    """None if this archive is independently confirmable as clean, else why not.
+
+    Extracted from `check` so the selftest can drive the REAL guard rather than its parts —
+    an earlier selftest asserted the helpers directly and therefore survived deleting the
+    guard from the clean-case path entirely.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            z.namelist()
+    except Exception as exc:  # noqa: BLE001
+        return f"expected a clean archive, zipfile could not read it: {exc}"
+    cd = parse_cd(data)
+    # A genuinely clean archive uses only permitted methods and decodes under them. Without
+    # these a reader that silently skipped an entry it could not decode would still pass
+    # every positive fixture, which is the hole these codes closed.
+    if has_forbidden_method(data, cd):
+        return "clean case uses a compression method outside section 3.2's permitted set"
+    if has_undecodable_entry(data, cd):
+        return "clean case has an entry that will not decode under its declared method"
+    if has_crc_mismatch(data, cd):
+        return "clean case has a CRC-32 mismatch"
+    # REFUSE TO BLESS WHAT THIS ORACLE CANNOT READ. Every guard above returns "no defect"
+    # when the bytes could not be obtained, so on a Python without compression.zstd a
+    # method-93 clean case passed all of them without a single payload byte being examined —
+    # zeroing its payload went undetected. Declining is a limitation; declaring it clean is a
+    # false confirmation. Signalled as UNCONFIRMABLE rather than as a defect: it is a fact
+    # about this Python, not about the archive.
+    if has_indeterminate_entry(data, cd):
+        return UNCONFIRMABLE
+    return None
 
 
 def check():
@@ -256,6 +367,7 @@ def check():
     failures = 0
     n_malformed = 0
     n_clean = 0
+    unconfirmable = []
     for name in sorted(os.listdir(FIXTURES)):
         cdir = os.path.join(FIXTURES, name)
         if not os.path.isdir(cdir):
@@ -265,13 +377,18 @@ def check():
         codes = [f["code"] for f in case.get("expect", {}).get("findings", [])]
         if not codes:
             # Clean case: confirm it is a real, readable ZIP via an independent parser.
-            try:
-                with zipfile.ZipFile(io.BytesIO(data)) as z:
-                    z.namelist()
-                n_clean += 1
-            except Exception as exc:  # noqa: BLE001
-                print(f"FAIL {name}: expected a clean archive, zipfile could not read it: {exc}")
+            err = confirm_clean(data)
+            if err == UNCONFIRMABLE:
+                # Not a pass and not a failure. Counted and named, so a green run can never
+                # be mistaken for full confirmation — the honest middle the suite already
+                # uses when a capability is absent.
+                unconfirmable.append(name)
+                continue
+            if err is not None:
+                print(f"FAIL {name}: {err}")
                 failures += 1
+                continue
+            n_clean += 1
             continue
         cd = parse_cd(data)
         for code in codes:
@@ -291,12 +408,68 @@ def check():
         print(f"{failures} defect(s) not independently confirmed.")
         return 1
     print(f"confirmed {n_malformed} injected defect(s) present; {n_clean} clean archive(s) readable.")
+    if unconfirmable:
+        print(f"  UNCONFIRMED by this Python ({len(unconfirmable)}): {', '.join(unconfirmable)}")
+        print(f"  Zstandard decoding needs Python 3.14+ (compression.zstd); this is "
+              f"{'.'.join(str(v) for v in sys.version_info[:3])}. These cases are NOT verified "
+              f"here — CI pins 3.14 so they are verified there.")
+    return 0
+
+
+def selftest():
+    """Assert the oracle REFUSES to bless a clean case whose bytes it cannot read.
+
+    This guard only fires on a Python without `compression.zstd`, so on 3.14+ the normal
+    `check` run never exercises it — and a regression that removed it would go unnoticed
+    exactly where it matters (an older Python, which is what most CI images ship). So the
+    decoder is forced off and the clean-case guards are re-run against the Zstandard fixture,
+    which must then FAIL. Verified by mutation: without the guard this returns "clean".
+    """
+    global _zstd_decompress
+    target = os.path.join(FIXTURES, "positive-zstd-entry", "case.cdx")
+    if not os.path.exists(target):
+        print("FAIL selftest: positive-zstd-entry fixture is missing")
+        return 1
+    data = open(target, "rb").read()
+    cd = parse_cd(data)
+    saved, _zstd_decompress = _zstd_decompress, None
+    try:
+        # Drive the REAL clean-case guard, not its parts.
+        if confirm_clean(data) != UNCONFIRMABLE:
+            print("FAIL selftest: with the zstd decoder forced off, the clean-case guard did "
+                  "not mark the Zstandard fixture unconfirmable — it is vacuous and would "
+                  "confirm bytes it never read")
+            return 1
+        if has_undecodable_entry(data, cd) or has_forbidden_method(data, cd) or has_crc_mismatch(data, cd):
+            print("FAIL selftest: a permitted-but-unimplemented method must not be reported "
+                  "as a defect (State Machine section 5.4.2 note 6)")
+            return 1
+    finally:
+        _zstd_decompress = saved
+
+    # The remaining clean-case guards cannot be exercised by any CLEAN fixture — a fixture
+    # carrying those defects is by definition not clean — so drive them from the malformed
+    # ones. Without this they are unmutatable: deleting either left every gate green.
+    for fixture, why in (
+        ("reject-compression-method-forbidden", "a forbidden compression method"),
+        ("reject-entry-undecodable", "an entry that will not decode"),
+        ("reject-entry-truncated-deflate", "a truncated compressed stream"),
+    ):
+        path = os.path.join(FIXTURES, fixture, "case.cdx")
+        if not os.path.exists(path):
+            print(f"FAIL selftest: fixture {fixture} is missing")
+            return 1
+        if confirm_clean(open(path, "rb").read()) is None:
+            print(f"FAIL selftest: the clean-case guard blessed {fixture}, which carries {why}")
+            return 1
+
+    print("selftest: the clean-case guards refuse every archive this oracle cannot confirm")
     return 0
 
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "check":
-        sys.exit(check())
+        sys.exit(selftest() or check())
     print("usage: archive_oracle.py check", file=sys.stderr)
     sys.exit(2)
 

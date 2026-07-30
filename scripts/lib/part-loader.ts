@@ -17,7 +17,7 @@
  * between zip-reader (detect) and archive-verdict (map) at the container layer.
  */
 
-import { inflateEntry, type ArchiveEntry } from './zip-reader.js';
+import { inflateEntry, InflateError, type ArchiveEntry } from './zip-reader.js';
 import { parseStrictJson, CanonicalizationError } from './canonicalize.js';
 
 /** Outcome of loading one part by its logical archive path. */
@@ -38,7 +38,16 @@ export type PartLoad =
    * a bare JSON syntax error or a decompression failure, which the mapper codes
    * per-part (a manifest → unparseable-manifest; a hashed part → its own row).
    */
-  | { status: 'defect'; code: string | null; detail: string };
+  | { status: 'defect'; code: string | null; detail: string }
+  /**
+   * Present and intact, but this reader cannot decode it: a compression method the
+   * specification PERMITS and this reader has not implemented (§3.2 makes Zstandard
+   * RECOMMENDED, not required). Distinct from `defect` because the document is not at
+   * fault — §5.4.2 note 6 forbids the missing-part rows from firing for it, and the
+   * container layer already reports the entry integrity-indeterminate. A caller that
+   * needs the part's CONTENT must treat the result as indeterminate, never as absent.
+   */
+  | { status: 'unobtainable'; method: number; detail: string };
 
 /**
  * The central-directory entry for an exact logical path, or undefined. Paths are
@@ -67,8 +76,20 @@ export function loadPart(bytes: Buffer, entries: readonly ArchiveEntry[], path: 
   try {
     raw = inflateEntry(bytes, entry);
   } catch (err) {
-    // A bounded-inflate overflow or a corrupt Deflate stream. The bytes exist but
-    // cannot be recovered; the mapper decides the per-part disposition.
+    // A part this READER cannot decode, because it uses a compression method the
+    // specification permits but this reader has not implemented, is NOT a missing or
+    // defective part — it is present and well-formed, and a conformant reader may simply
+    // lack the decoder (Container Format §3.2 makes Zstandard RECOMMENDED, not required).
+    // §5.4.2 note 6 requires that the missing-part rows MUST NOT fire for it, exactly as
+    // note 5 requires for an encrypted part: reporting it missing would blame the DOCUMENT
+    // for the reader's capability envelope, and on a frozen document that becomes an
+    // INTEGRITY-ERROR accusing an intact archive of tampering.
+    if (err instanceof InflateError && err.failure === 'method-unsupported') {
+      return { status: 'unobtainable', method: err.method, detail: err.message };
+    }
+    // Otherwise the bytes exist but cannot be recovered — a bounded-inflate overflow, a
+    // forbidden method, or a corrupt stream. The container layer reports each of those on
+    // its own terms; the mapper decides the per-part disposition here.
     return { status: 'defect', code: null, detail: err instanceof Error ? err.message : String(err) };
   }
   const text = raw.toString('utf8');

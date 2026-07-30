@@ -353,7 +353,20 @@ for (const c of verdict.cases.filter((c) => c.status === 'fail' || c.status === 
 }
 // The reference implementation must reproduce EVERY published vector and fixture:
 // no skips, no advisories, no extras, full pass count.
-if (verdict.skipped > 0) fail(`reference adapter skipped ${verdict.skipped} case(s); it must run them all`);
+if (verdict.skipped > 0) {
+  // Name the cases AND why they scoped out. A skip here almost always means the reference
+  // adapter did not declare a capability some published case requires — and the likeliest
+  // cause is the toolchain, not the code: `compression:zstd` is declared from the runtime
+  // (`zlib.zstdDecompressSync`, Node 22.15+), so running these gates on an older Node
+  // silently scopes the Zstandard fixture out. Without this detail the failure reads as an
+  // unexplained "it must run them all".
+  const skipped = verdict.cases.filter((c) => c.status === 'skip');
+  for (const c of skipped) fail(`${c.kind}/${c.name} — skipped${c.detail ? `: ${c.detail}` : ''}`);
+  fail(
+    `reference adapter skipped ${verdict.skipped} case(s); it must run them all. ` +
+      `If a case requires \`compression:zstd\`, check the Node version (needs 22.15+ for zlib.zstdDecompressSync); this repo's CI pins 22.`,
+  );
+}
 if (verdict.advisory > 0) fail(`reference adapter has ${verdict.advisory} advisory failure(s); it must pass them all`);
 if (verdict.extraResults.length > 0) fail(`reference adapter reported ${verdict.extraResults.length} result(s) with no matching case: ${verdict.extraResults.join(', ')}`);
 if (verdict.passed !== totalCases) fail(`reference adapter passed ${verdict.passed} of ${totalCases} cases`);

@@ -113,6 +113,9 @@ export const CODE = {
   FIRST_FILE_NOT_MANIFEST: 'CDX-E-ARCHIVE-FIRST-FILE-NOT-MANIFEST',
   ENCRYPTION_USED: 'CDX-E-ARCHIVE-ENCRYPTION-USED',
   MULTI_VOLUME: 'CDX-E-ARCHIVE-MULTI-VOLUME',
+  COMPRESSION_METHOD_FORBIDDEN: 'CDX-E-ARCHIVE-COMPRESSION-METHOD-FORBIDDEN',
+  ENTRY_INTEGRITY_INDETERMINATE: 'CDX-E-ARCHIVE-ENTRY-INTEGRITY-INDETERMINATE',
+  ENTRY_UNDECODABLE: 'CDX-E-ARCHIVE-ENTRY-UNDECODABLE',
 } as const;
 
 const GP_FLAG_ENCRYPTED = 0x0001; // general-purpose bit 0
@@ -163,6 +166,14 @@ export function readArchive(bytes: Buffer, bounds: ReaderBounds = DEFAULT_BOUNDS
     checkNameSafety(c.rawName, add);
     if (isSymlink(c)) add(CODE.SYMLINK, `symlink entry: ${safeLabel(c.rawName)}`);
     if ((c.flags & GP_FLAG_ENCRYPTED) !== 0) add(CODE.ENCRYPTION_USED, `ZIP-encrypted entry: ${safeLabel(c.rawName)}`);
+    // Checked HERE, not in the CRC pass below, because it needs only the central directory.
+    // The CRC pass skips bomb-flagged entries and entries whose local header is missing or
+    // name-mismatched, so a forbidden method co-occurring with any of those went unreported
+    // — pure diagnostic loss (each co-finding is itself REJECT), and it put the reader out
+    // of step with the Python oracle, which scans the central directory directly.
+    if (!PERMITTED_METHODS.has(c.method)) {
+      add(CODE.COMPRESSION_METHOD_FORBIDDEN, `entry ${safeLabel(c.rawName)} declares compression method ${c.method}, outside the permitted set`);
+    }
   }
 
   // Local-header cross-check: every CD entry must have a local header with the
@@ -220,8 +231,33 @@ export function readArchive(bytes: Buffer, bounds: ReaderBounds = DEFAULT_BOUNDS
       if (crc32(inflateEntry(bytes, e, bounds)) !== c.crc) {
         add(CODE.CRC_MISMATCH, `CRC-32 mismatch for ${safeLabel(c.rawName)}`);
       }
-    } catch {
-      // A structural problem already surfaced elsewhere; don't double-report.
+    } catch (err) {
+      // The three failures are NOT interchangeable, and swallowing them all — as this did
+      // until the compression-method fix — is what let an entry whose bytes were never
+      // obtained be reported CLEAN, its CRC-32 silently unverified.
+      if (!(err instanceof InflateError)) continue; // a structural problem reported elsewhere
+      if (err.failure === 'method-forbidden') {
+        // Already reported by the central-directory sweep above, which sees every entry.
+      } else if (err.failure === 'method-unsupported') {
+        // §3.2 makes Zstandard RECOMMENDED, not required, so this reader is still
+        // conformant and the DOCUMENT is not defective (§5.4.2 note 6). The entry's
+        // integrity is simply indeterminate, and saying so is the point: reporting nothing
+        // would misrepresent it as verified.
+        add(CODE.ENTRY_INTEGRITY_INDETERMINATE, `entry ${safeLabel(c.rawName)} uses permitted compression method ${err.method}, which this reader does not implement`);
+      } else if (err.failure === 'bomb') {
+        // The declared size understated the real one, so the §9.2 pre-pass passed it through
+        // and only the actual output limit caught it. That is the bomb row, under the code
+        // that already owns it — not a corruption report.
+        add(CODE.DECOMPRESSION_BOMB, `entry ${safeLabel(c.rawName)} inflated past the per-entry bound: ${err.message}`);
+      } else {
+        // 'corrupt': permitted method, this reader implements it, and the bytes still will
+        // not decode. NOTHING else owns this — the LFH/CD cross-check compares names and
+        // existence only, and the bomb bound reads DECLARED sizes — so before this arm the
+        // entry reported clean with its CRC never computed. It cannot be a CRC mismatch
+        // (no CRC was produced), and it is physical corruption of the same kind, which
+        // §6.1 rejects regardless of the entry's logical layer.
+        add(CODE.ENTRY_UNDECODABLE, `entry ${safeLabel(c.rawName)} could not be decoded under its declared method ${err.method}: ${err.message}`);
+      }
     }
   }
 
@@ -498,15 +534,110 @@ function safeLabel(rawName: Buffer): string {
   return JSON.stringify(rawName.toString('utf8'));
 }
 
-/** Decompress an entry's bytes, honouring the bound (used by callers that need
- *  content, e.g. to verify a CRC on a positive fixture). Not called during the
- *  reject path — bombs are caught by declared-size bounds before inflate. */
+/** The compression methods Container Format §3.2 permits. This is the COMPLETE set. */
+export const METHOD_STORE = 0;
+export const METHOD_DEFLATE = 8;
+export const METHOD_ZSTD = 93;
+const PERMITTED_METHODS = new Set([METHOD_STORE, METHOD_DEFLATE, METHOD_ZSTD]);
+
+/**
+ * Zstandard decompression, when this runtime provides it.
+ *
+ * §3.2 makes Deflate mandatory to implement and Zstandard only RECOMMENDED, so a reader
+ * without zstd is CONFORMANT — which is why this is feature-detected rather than assumed.
+ * Node gained `zstdDecompressSync` in 22.15 and this repo's `engines` floor is 18, so the
+ * capability genuinely varies by runtime. The conformance suite models the same distinction
+ * with the `compression:zstd` capability, and a fixture using method 93 declares it.
+ */
+const zstdDecompress: ((buf: Buffer, opts: { maxOutputLength: number }) => Buffer) | undefined =
+  typeof zlib.zstdDecompressSync === 'function' ? zlib.zstdDecompressSync : undefined;
+
+/** True iff this reader can actually decompress the given method. */
+export function canDecompress(method: number): boolean {
+  if (method === METHOD_STORE || method === METHOD_DEFLATE) return true;
+  return method === METHOD_ZSTD && zstdDecompress !== undefined;
+}
+
+/** Why an entry's bytes could not be obtained. The kinds carry DIFFERENT dispositions:
+ *  forbidden and corrupt REJECT, a bomb is its own row, and unsupported is not a defect. */
+export type InflateFailure =
+  /** A method outside §3.2's permitted set: the container is non-conformant (REJECT). */
+  | 'method-forbidden'
+  /** A permitted method this reader does not implement: indeterminate, NOT a defect. */
+  | 'method-unsupported'
+  /** Permitted, supported, but the bytes did not decode (corrupt or truncated). */
+  | 'corrupt'
+  /** Decoded output exceeded the per-entry bound — a bomb whose DECLARED size understated it. */
+  | 'bomb';
+
+/** Thrown by `inflateEntry` so a caller can tell the three failures apart. */
+export class InflateError extends Error {
+  constructor(
+    readonly failure: InflateFailure,
+    readonly method: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'InflateError';
+  }
+}
+
+/**
+ * Decompress an entry's bytes, honouring the bound.
+ *
+ * Dispatches on the ACTUAL method. It previously treated everything that was not Store as
+ * raw Deflate, which §3.2 now explicitly forbids ("MUST NOT treat an unrecognized method as
+ * Deflate"): a Zstandard entry was fed to `inflateRawSync`, threw a confusing zlib error, and
+ * — because both callers swallowed it — the archive reported CLEAN with its CRC and every
+ * hash over those bytes silently unverified.
+ *
+ * Every failure now throws a typed `InflateError` so the caller can distinguish a
+ * non-conformant container from its own capability limit. Not called during the reject path
+ * — bombs are caught by declared-size bounds before inflate.
+ */
 export function inflateEntry(bytes: Buffer, entry: ArchiveEntry, bounds: ReaderBounds = DEFAULT_BOUNDS): Buffer {
+  // The method is settled BEFORE any header byte is read, so a forbidden or unimplemented
+  // method is classified without touching the archive at all. That alone is NOT enough to
+  // guarantee a typed error — see the explicit bounds check further down, which covers the
+  // permitted methods.
+  if (!PERMITTED_METHODS.has(entry.method)) {
+    throw new InflateError('method-forbidden', entry.method, `compression method ${entry.method} is outside the set Container Format section 3.2 permits`);
+  }
+  let decompress: ((b: Buffer, o: { maxOutputLength: number }) => Buffer) | null = null;
+  if (entry.method === METHOD_DEFLATE) {
+    decompress = (b, o) => zlib.inflateRawSync(b, o);
+  } else if (entry.method === METHOD_ZSTD) {
+    if (zstdDecompress === undefined) {
+      throw new InflateError('method-unsupported', entry.method, `compression method ${entry.method} is permitted but not implemented by this reader`);
+    }
+    decompress = zstdDecompress;
+  }
+
+  // Bounds-check BEFORE the header read. Settling the method first only typed the FORBIDDEN
+  // case; for a permitted method an out-of-range `localOffset` still reached `readUInt16LE`
+  // and threw a bare RangeError — the very untyped escape this ordering was supposed to
+  // prevent, which every caller's `instanceof InflateError` guard then dropped silently. A
+  // NEGATIVE offset was worse: it threw nothing and returned wrong (short) bytes.
+  if (entry.localOffset < 0 || entry.localOffset + 30 > bytes.length) {
+    throw new InflateError('corrupt', entry.method, `local header for the entry is out of range at offset ${entry.localOffset}`);
+  }
   const dataStart = entry.localOffset + 30 + bytes.readUInt16LE(entry.localOffset + 26) + bytes.readUInt16LE(entry.localOffset + 28);
   const stored = bytes.subarray(dataStart, dataStart + entry.compressedSize);
-  if (entry.method === 0) return Buffer.from(stored);
-  const out = zlib.inflateRawSync(stored, { maxOutputLength: bounds.maxEntrySize });
-  return out;
+  if (decompress === null) return Buffer.from(stored); // Store: the bytes ARE the content
+  try {
+    return decompress(stored, { maxOutputLength: bounds.maxEntrySize });
+  } catch (err) {
+    // An output-limit failure is a BOMB, not corruption, and the two must not be conflated:
+    // the §9.2 pre-pass screens DECLARED sizes only, and those are attacker-controlled, so
+    // this limit is the defence that actually holds when the declaration lies. Reporting it
+    // as "corrupt or truncated" would describe an attack as an accident.
+    const message = (err as Error).message;
+    const isLimit = /maxOutputLength|Cannot create a Buffer|ERR_BUFFER_TOO_LARGE/i.test(message) || (err as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE';
+    if (isLimit) {
+      throw new InflateError('bomb', entry.method, `decompressed output exceeded the per-entry bound of ${bounds.maxEntrySize} bytes`);
+    }
+    throw new InflateError('corrupt', entry.method, `entry data could not be decompressed: ${message}`);
+  }
 }
 
 /** Recompute and compare an entry's CRC (Container §6.1). */

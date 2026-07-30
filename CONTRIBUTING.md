@@ -2,6 +2,21 @@
 
 Thank you for your interest in contributing to the CDX specification.
 
+## Prerequisites
+
+- **Node.js 22.15 or later.** The conformance suite exercises Zstandard (Container Format
+  section 3.2), which needs `zlib.zstdDecompressSync` — added in Node 22.15. On an older
+  runtime `npm run check:conformance` fails with the Zstandard fixture scoped out rather than
+  run, and the gate reports exactly that. CI pins Node 22.
+- **Python 3.14 or later** for full oracle coverage (`conformance/oracles/*.py`). Zstandard
+  decoding needs `compression.zstd`, added in 3.14. On an earlier Python — including the 3.9
+  macOS ships — the archive oracle still runs and still fails on every defect it *can* detect,
+  but reports the Zstandard case as **UNCONFIRMED** and names it, rather than silently
+  confirming bytes it never decoded. CI pins 3.14, so those cases are verified there.
+
+Run `npm ci`, then any gate from `package.json` (the workflow in
+`.github/workflows/validate-schemas.yml` is the authoritative list).
+
 ## How to Contribute
 
 ### Reporting Issues

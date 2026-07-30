@@ -1,0 +1,38 @@
+{
+  "description": "A Store entry relabelled as Deflate (method 8) in both headers, so its bytes are plain text that raw-inflate cannot decode at all. Distinct from a CRC mismatch, which requires bytes that DID decode and whose checksum then differed — here no checksum can be computed. Nothing else in the reader owns this: the local-header/central-directory cross-check compares names and existence only, and the decompression bound reads DECLARED sizes, so before this row the archive reported clean with its CRC never computed.",
+  "layer": "container",
+  "requires": [
+    "container"
+  ],
+  "clause": "Container Format sections 3.2, 6.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"state\":\"draft\"}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "plain text, definitely not a deflate stream",
+        "methodCodeOverride": 8
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ARCHIVE-ENTRY-UNDECODABLE",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}
