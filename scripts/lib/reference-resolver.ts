@@ -520,11 +520,17 @@ export function collectBibliographyIds(
  * report a dangling glossary reference on every document that defines its terms inline —
  * the common case for a document carrying no external glossary at all.
  *
- * A SPECIFICATION TENSION worth recording rather than papering over: §4.3.1 item 5 relabels a
+ * A SPECIFICATION TENSION, now RESOLVED BY ERRATUM: §4.3.1 item 5 formerly relabelled a
  * `semantic:term` block's `id` to `b<n>` (it is a block id in the shared namespace) while
- * leaving a `glossary` `ref` as authored, so after canonicalization the two can never match.
- * Resolution here runs over RAW stored content, where they do match, which is the only
- * reading under which §8.3 rule 2 means anything. Raised as a specification question.
+ * leaving a `glossary` `ref` as authored, so after canonicalization the two could never
+ * match, and running resolution over RAW stored content was the only reading under which
+ * §8.3 rule 2 meant anything. Item 5 now leaves such a block id as authored
+ * (`PRESERVED_ID_BLOCK_TYPES`), so the two match on the canonical form as well.
+ *
+ * This walk still runs over raw stored content — that is what the resolver is given — but it
+ * now AGREES with the canonical form rather than diverging from it. The raw walk must still
+ * mirror every `canon` transform that changes which ids exist (see `CollectOptions.rawInput`);
+ * preserving an id changes none of them.
  */
 export function collectGlossaryIds(
   content: unknown,

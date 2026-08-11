@@ -1,13 +1,13 @@
 {
   "version": "0.1",
-  "documentId": "sha256:c2fd3c181474e1925b99ccacf2a56024eaef5d0b0fc5d44262fff3dbbc5ff6e2",
+  "documentId": "sha256:99a9a3a141e5e8831bd25e02c554b5b61728f6707c85385a23e1c6b7106ccb7d",
   "signatures": [
     {
       "id": "sig-author",
       "protected": "eyJhbGciOiJFUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sInNpZ1QiOiIyMDI1LTAxLTE1VDEwOjAwOjAwWiIsIng1YyI6WyJNSUlCaXhVTlZFUklGSUVEcGxhY2Vob2xkZXJERVJjZXJ0aWZpY2F0ZUJBU0U2NEZPUklMTFVTVFJBVElPTnh3PT0iXSwieDV0I1MyNTYiOiJBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0",
       "signature": "UExBQ0VIT0xERVJfbm9uX3ZlcmlmeWluZ19hdXRob3Jfc2lnbmF0dXJl",
       "scope": {
-        "documentId": "sha256:c2fd3c181474e1925b99ccacf2a56024eaef5d0b0fc5d44262fff3dbbc5ff6e2",
+        "documentId": "sha256:99a9a3a141e5e8831bd25e02c554b5b61728f6707c85385a23e1c6b7106ccb7d",
         "manifest": {
           "cdx": "0.1",
           "state": "frozen",
