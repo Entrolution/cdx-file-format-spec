@@ -622,15 +622,15 @@
       "expectedId": "sha256:277ab31f84b3287bcf15d3367fe015d6a198baedbe3bc92c1a1e0bb236c55c60"
     },
     {
-      "name": "relabel-footnote-block-id-not-mark-id",
-      "description": "A footnote BLOCK id is relabeled, but the footnote MARK id (a separate namespace) is left verbatim, so no false duplicate arises (§4.3.1 item 5).",
+      "name": "relabel-footnote-block-id-preserved-matching-mark-id",
+      "description": "A semantic:footnote BLOCK id is left as authored (§4.3.1 item 5), so it still equals the footnote MARK id in the separate namespace — which is what makes Semantic Extension §4.5.2's id-match rule satisfiable on the canonical form. It formerly relabelled to b0 while the mark stayed fn1.",
       "parts": {
         "manifest": "{}",
         "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"footnote\",\"number\":1,\"id\":\"fn1\"}]}]},{\"type\":\"semantic:footnote\",\"number\":1,\"id\":\"fn1\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"note\"}]}]}]}",
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
       },
-      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"id\":\"fn1\",\"number\":1,\"type\":\"footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"},{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"note\"}],\"type\":\"paragraph\"}],\"id\":\"b0\",\"number\":1,\"type\":\"semantic:footnote\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
-      "expectedId": "sha256:3ec2578f77a8ff90ab6afbf4b7b8111d683d65e5778f2ecbe50c8f96eccd466f"
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"id\":\"fn1\",\"number\":1,\"type\":\"footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"},{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"note\"}],\"type\":\"paragraph\"}],\"id\":\"fn1\",\"number\":1,\"type\":\"semantic:footnote\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:a4c446300ecd2bb6c1ac0c1e773a230b0beb3ddd638588f1c71922bb54004b36"
     },
     {
       "name": "relabel-separate-namespace-mark-fields-verbatim",
@@ -763,6 +763,69 @@
       },
       "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"A\"}],\"id\":\"b0\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"type\":\"text\",\"value\":\"B\"}],\"id\":\"b1\",\"level\":1,\"type\":\"heading\"},{\"children\":[{\"marks\":[{\"href\":\"#b1\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
       "expectedId": "sha256:cb3afa4e2689810fade6bdaecc65f87f93a068e06820b1d3e69a966efc99a135"
+    },
+    {
+      "name": "relabel-term-block-id-preserved-glossary-ref-matches",
+      "description": "A semantic:term block id and the glossary `ref` naming it are BOTH left as authored, so Semantic Extension §8.3 rule 2 resolves on the canonical form and not only on the stored form (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"semantic:term\",\"id\":\"term-algorithm\",\"term\":\"Algorithm\",\"definition\":\"A finite procedure.\"},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"glossary\",\"ref\":\"term-algorithm\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"definition\":\"A finite procedure.\",\"id\":\"term-algorithm\",\"term\":\"Algorithm\",\"type\":\"semantic:term\"},{\"children\":[{\"marks\":[{\"ref\":\"term-algorithm\",\"type\":\"glossary\"}],\"type\":\"text\",\"value\":\"see\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:540e0f3c6d879db903bc25d6d519daa041322a12cc05e21855e2e9b230f60963"
+    },
+    {
+      "name": "relabel-preserved-id-consumes-no-canonical-index",
+      "description": "The b<i> sequence COMPACTS over a preserved id: a semantic:footnote precedes a paragraph, and the paragraph takes b0 rather than b1 (§4.3.1 item 5). Reserving the index instead is equally implementable and yields a different document ID, so this pins the choice.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"semantic:footnote\",\"number\":1,\"id\":\"fn1\",\"children\":[]},{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[],\"id\":\"fn1\",\"number\":1,\"type\":\"semantic:footnote\"},{\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"id\":\"b0\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:f0ef524fe40cf179698db4c2e5aa229b431f0d23768da1c8a7d02b7dada0f845"
+    },
+    {
+      "name": "relabel-anchor-sequence-unaffected-by-preserved-id",
+      "description": "A preserved semantic:term id sits in the namespace beside a relabelled `anchor` mark: the anchor still takes b0, and a `link` href naming the preserved id resolves by staying verbatim — the id did not leave the anchor namespace (§4.3.1 item 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"semantic:term\",\"id\":\"term-x\",\"term\":\"X\",\"definition\":\"D\"},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"anchor\",\"id\":\"a1\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"link\",\"href\":\"#term-x\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"definition\":\"D\",\"id\":\"term-x\",\"term\":\"X\",\"type\":\"semantic:term\"},{\"children\":[{\"marks\":[{\"id\":\"b0\",\"type\":\"anchor\"}],\"type\":\"text\",\"value\":\"a\"},{\"marks\":[{\"href\":\"#term-x\",\"type\":\"link\"}],\"type\":\"text\",\"value\":\"b\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:f497325bf224d37300dcbec8a95656d78af53f7c7288adb142a42c5f357b8c9a"
+    },
+    {
+      "name": "reject-preserved-id-spelling-canonical-name",
+      "description": "A preserved semantic:term id that spells a canonical name (`b` followed by digits) is a canonicalization error (§4.3.1 item 5). Duplicate detection compares AUTHORED ids, so this b0 does not collide with the b0 generated for the paragraph — without the prohibition both reach the canonical output under one identifier.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]},{\"type\":\"semantic:term\",\"id\":\"b0\",\"term\":\"A\",\"definition\":\"D\"}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unresolved-canonical-name-reference-with-no-defined-ids",
+      "description": "An unresolved `#b0` is a canonicalization error even when the document defines NO ids at all (§4.3.1 item 5). The relabelling pass formerly returned early on an empty namespace, so this reference was accepted while the identical one beside a real id was rejected.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#b0\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "reject-unresolved-canonical-name-reference-with-only-preserved-ids",
+      "description": "An unresolved `#b0` is rejected in a document whose ONLY defined id is a preserved one (§4.3.1 item 5). The namespace is non-empty but the rename map is empty, so an implementation that skips the rewriting pass whenever nothing needs renaming accepts this — the sibling case to the no-ids-at-all vector above.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"semantic:term\",\"id\":\"term-x\",\"term\":\"X\",\"definition\":\"D\"},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"link\",\"href\":\"#b0\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
     }
   ]
 }

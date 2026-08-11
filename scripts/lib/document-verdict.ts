@@ -681,16 +681,30 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
           //   - a `#b<n>` reference using the reserved canonical-name form — reported above
           //     as dangling (it resolves to no id), though at a disposition that understates
           //     it: the document's identity cannot be computed at all;
-          //   - content past MAX_CANONICALIZATION_DEPTH, and a stored-byte invariant
-          //     violation (non-NFC, an unpaired surrogate, an unsafe integer) — NEITHER has
-          //     a reporting row yet: §5.4.2 has no document-layer depth row (Container
-          //     Format §5.3 bounds the archive), and NFC/Unicode is B1b-3c;
+          //   - content OR Dublin Core past MAX_CANONICALIZATION_DEPTH, and a stored-byte
+          //     UNICODE violation (non-NFC, an unpaired surrogate) — NEITHER has a reporting
+          //     row yet: §5.4.2 has no document-layer depth row (Container Format §5.3
+          //     bounds the archive), and NFC/Unicode is B1b-3c. The third stored-byte arm,
+          //     an unsafe integer, is NOT silent: the pre-canonicalization scan at
+          //     `firstNonRepresentableNumber(c.value)` above fires
+          //     CDX-E-PART-NUMBER-NON-REPRESENTABLE, and it reaches every number this
+          //     throw could (canon only deletes numbers, and a Dublin Core number is
+          //     rejected by `projectMetadata` first);
           //   - a dangling asset reference — reported above, CDX-E-ASSET-REFERENCE-DANGLING;
           //   - conflicting or malformed asset hashes in an index — reported above,
           //     CDX-E-ASSET-INDEX-UNUSABLE, which also makes `assetsResolvable` false so
-          //     this recompute never runs on such a document.
-          // Only the depth and stored-byte bullets are still silent; the rest now fire
-          // before this catch.
+          //     this recompute never runs on such a document;
+          //   - a `semantic:term`/`semantic:footnote` id spelling a canonical name
+          //     (Document Hashing §4.3.1 item 5) — NOT reported anywhere. §5.4.2 assigns
+          //     no row and there is no code, so a document carrying such an id loads with
+          //     its declared `manifest.id` UNVERIFIED and nothing said. All three silent
+          //     arms suppress the id signal identically — what differs is reachability:
+          //     excess depth and a Unicode violation need structurally anomalous content,
+          //     whereas `id: "b0"` is innocuous on its face and valid under the schema's
+          //     id pattern, so an injected block carrying it suppresses the mismatch for
+          //     the whole document without looking like an attack. Tracked as OQ-007.
+          // The depth, Unicode and preserved-id bullets are silent; the rest fire before
+          // this catch.
           if (!(err instanceof CanonicalizationError)) throw err;
         }
       }
