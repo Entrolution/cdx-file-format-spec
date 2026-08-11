@@ -631,6 +631,17 @@ export interface CollectedIds {
   /** Each id defined more than once, in the order the repeats were reached;
    *  `duplicates[0]` is therefore the first collision the traversal met. */
   duplicates: string[];
+  /**
+   * The subset of `ids` carried by a block whose `type` is in
+   * `PRESERVED_ID_BLOCK_TYPES` — left as authored rather than relabeled
+   * (§4.3.1 item 5).
+   *
+   * These remain MEMBERS of `ids`: they occupy the shared uniqueness namespace and
+   * a Content Anchor URI resolves against them exactly as it did before. Only the
+   * relabeling skips them. A consumer resolving references or reporting collisions
+   * wants `ids`; only `alphaRenameIds` wants this.
+   */
+  preserved: Set<string>;
 }
 
 /** Options for `collectDefinedIds`. */
@@ -684,8 +695,9 @@ export interface CollectOptions {
  * alpha-equivalent inputs yield identical results regardless of the original labels.
  *
  * The single definition of namespace membership, shared by `alphaRenameIds` (which
- * relabels `ids[i]` to `b<i>` and rejects any duplicate) and by the conformance
- * reference resolver (which resolves Content Anchors against `ids` and reports a
+ * relabels the NON-PRESERVED members of `ids` to `b0`, `b1`, … in order — the index is
+ * the position in that subsequence, not in `ids` — and rejects any duplicate) and by the
+ * conformance reference resolver (which resolves Content Anchors against `ids` and reports a
  * duplicate as an id collision, Anchors & References §7.2). Collecting rather than
  * throwing lets the resolver report every collision; `alphaRenameIds` still rejects
  * the first, unchanged.
@@ -694,6 +706,7 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
   const seen = new Set<string>();
   const ids: string[] = [];
   const duplicates: string[] = [];
+  const preserved = new Set<string>();
 
   walkContentNodes(
     content,
@@ -704,12 +717,17 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
       else {
         seen.add(id);
         ids.push(id);
+        // Recorded on the FIRST occurrence only, alongside `ids` — a repeat is a
+        // duplicate and throws before any of this is consumed.
+        if (!ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type)) {
+          preserved.add(id);
+        }
       }
     },
     options,
   );
 
-  return { ids, duplicates };
+  return { ids, duplicates, preserved };
 }
 
 /** Where a visited node sits, which is what decides namespace membership (`definedId`). */
@@ -967,19 +985,43 @@ function dedupByJcs(marks: unknown[]): unknown[] {
  * `academic:algorithm-ref` `line` label — are NOT relabeled, and a `#`-reference
  * resolving to none of the relabeled ids (e.g. a cross-document anchor) is left
  * verbatim. A duplicate id within the namespace is rejected.
+ *
+ * A `PRESERVED_ID_BLOCK_TYPES` block's id is left as authored, and the `b<i>`
+ * sequence COMPACTS over it — the preserved occurrence consumes no index, so the
+ * next relabeled block takes the name the preserved one would have had. The
+ * alternative (reserving an index) is equally implementable and would produce a
+ * different document ID for the same content, so §4.3.1 item 5 states which.
  */
 function alphaRenameIds(content: unknown): unknown {
   // Canonical content: `canon` has already stripped derived fields and deduped each
   // text node's marks, so the default (non-raw) collection is exactly pass 1 of the
   // original in-place traversal.
-  const { ids, duplicates } = collectDefinedIds(content);
+  const { ids, duplicates, preserved } = collectDefinedIds(content);
   if (duplicates.length > 0) {
     throw new CanonicalizationError(`duplicate id "${duplicates[0]}" in the shared identifier namespace`);
   }
 
-  if (ids.length === 0) return content; // no ids to canonicalize
+  // A preserved id is left as authored, so it MUST NOT spell a generated canonical
+  // name: `collectDefinedIds` compares AUTHORED ids, so an authored `b0` here does
+  // not collide with the `b0` the sequence below generates for some other block, and
+  // both would reach the canonical output carrying the same id — with a `#b0`
+  // reference silently binding to whichever the reader met first.
+  for (const id of preserved) {
+    if (CANONICAL_NAME.test(id)) {
+      throw new CanonicalizationError(
+        `id "${id}" uses the reserved canonical-name form: the id of a block whose type is left as authored ` +
+          `(${[...PRESERVED_ID_BLOCK_TYPES].sort().join(', ')}) must not spell "b<number>"`,
+      );
+    }
+  }
 
-  const map = new Map(ids.map((id, i) => [id, `b${i}`]));
+  // NO early return, on an empty rename map OR an empty namespace. `rewriteIds` is
+  // not only the renamer: it also enforces the `#b<digits>` prohibition on
+  // references that resolve to nothing. Skipping it whenever there is nothing to
+  // rename let a dangling `#b0` through in a document with no ids at all — accepted,
+  // while the identical reference beside one real id was rejected. Both documents
+  // this PR makes common (only preserved ids, or none) take that path.
+  const map = new Map(ids.filter((id) => !preserved.has(id)).map((id, i) => [id, `b${i}`]));
   return rewriteIds(content, map, false, false, undefined);
 }
 
@@ -1002,6 +1044,33 @@ const SUB_BLOCK_ID_ARRAYS = new Set(['lines', 'subfigures']);
  * like a block; the enclosing key is what distinguishes it from one.
  */
 const DATA_PAYLOAD_ID_ARRAYS = new Set(['entries']);
+
+/**
+ * Block types whose `id` is IN the shared identifier namespace but is left as
+ * AUTHORED rather than relabeled (§4.3.1 item 5).
+ *
+ * These two blocks are the defining side of a reference that addresses a separate
+ * namespace and is itself never relabeled: a `glossary` mark's `ref` and a
+ * `semantic:term` `see` resolve against a `semantic:term` block's `id` (Semantic
+ * Extension §8.3 rule 2), and a `footnote` mark resolves against a
+ * `semantic:footnote` block (§4.5.2). Relabeling the defining side while leaving
+ * the referring side as authored made those rules unsatisfiable on the canonical
+ * form — the block became `b0` while the `ref` still said `term-algorithm`.
+ * Preserving the definition is what makes them true there.
+ *
+ * Membership is UNCHANGED: a preserved id still occupies the shared uniqueness
+ * namespace, a duplicate is still a canonicalization error, and a Content Anchor
+ * URI still resolves against it. Only the rename skips it — which is why
+ * `definedId` (the single membership test) does not consult this set, and why the
+ * `b<digits>` prohibition in `alphaRenameIds` is load-bearing: duplicate detection
+ * compares AUTHORED ids, so an authored `b0` here would not collide with a
+ * GENERATED `b0` and both would reach the canonical output.
+ *
+ * Keyed on TYPE, which departs from item 5's "membership is keyed on WHERE an id
+ * sits" principle — by necessity, since a term block's id sits directly on the
+ * block rather than in a data array. See DD-022.
+ */
+export const PRESERVED_ID_BLOCK_TYPES: ReadonlySet<string> = new Set(['semantic:term', 'semantic:footnote']);
 
 /**
  * The in-namespace id this node defines, if any — restricted to the EXHAUSTIVE
@@ -1062,13 +1131,22 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
   const obj: Record<string, unknown> = { ...value };
   const type = obj.type;
 
-  // Recurse first; a `marks` array is re-sorted+deduped after its members are
-  // rewritten, since relabeling an anchor id or link href changes a mark's JCS
-  // sort key (§4.3.1 item 3). Mark order/multiplicity is non-semantic, so the
-  // re-sort is always safe.
+  // Recurse first; a TEXT node's `marks` array is re-sorted+deduped after its members
+  // are rewritten, since relabeling an anchor id or link href changes a mark's JCS
+  // sort key (§4.3.1 item 5's closing sentence, which re-applies item 3). Mark
+  // order/multiplicity is non-semantic there, so the re-sort is safe.
+  //
+  // ONLY a text node's. Item 3 is scoped "within each text node" and `canon`
+  // normalizes marks under `case 'text'` alone, so re-sorting a `marks` array carried
+  // anywhere else — inside an open JSON-LD annotation or a CSL entry, both of which
+  // permit arbitrary members — would normalize a field the canonical form never
+  // touched, collapsing two documents that differ only in that array's order onto one
+  // document id. The traversal itself is unchanged: every member is still visited with
+  // `inMarks`, matching `walkContentNodes`, so namespace membership does not move.
   for (const key of Object.keys(obj)) {
     if (key === 'marks' && Array.isArray(obj[key])) {
-      obj[key] = sortDedupMarks((obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true, 'marks')));
+      const rewritten = (obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true, 'marks'));
+      obj[key] = type === 'text' ? sortDedupMarks(rewritten) : rewritten;
     } else {
       obj[key] = rewriteIds(obj[key], map, false, false, key);
     }
@@ -1103,7 +1181,16 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
   return obj;
 }
 
-/** Map a defined id to its canonical name (a def is always present in the map). */
+/**
+ * Map a defined id to its canonical name.
+ *
+ * The `?? id` fallback is NOT defensive: a preserved id (`PRESERVED_ID_BLOCK_TYPES`) is
+ * deliberately absent from the map, and this fallback is what leaves it as authored.
+ * Narrowing this to `map.get(id)!` would assign `undefined`, which JCS serialization then
+ * DROPS — so every `semantic:term` and `semantic:footnote` block would silently lose its
+ * `id` from the canonical form altogether, leaving the identifier namespace rather than
+ * carrying a wrong name.
+ */
 function renameId(id: string, map: Map<string, string>): string {
   return map.get(id) ?? id;
 }
@@ -1114,9 +1201,11 @@ const CANONICAL_NAME = /^b\d+$/;
 /**
  * Rewrite the id component of a Content Anchor URI (`#id[/offset[-end]]`, Anchors
  * & References §2.1) via the relabel map, preserving any `/offset` suffix. A
- * non-`#` value (e.g. an external URL) or a `#`-reference whose id is not in the
- * relabeled namespace (e.g. an equation-line id or a cross-document anchor) is
- * returned verbatim — EXCEPT that an unresolved reference must not itself spell a
+ * non-`#` value (e.g. an external URL) or a `#`-reference whose id is not in the RELABEL
+ * MAP is returned verbatim — which is not the same as "not in the namespace": a
+ * cross-document anchor is in neither, while a preserved id (`PRESERVED_ID_BLOCK_TYPES`)
+ * is in the namespace but not the map, and returning it verbatim is exactly how a
+ * `#term-x` reference keeps resolving. EXCEPT that an unresolved reference must not itself spell a
  * generated canonical name (`#b0`, `#b1`, …): left verbatim it would be
  * byte-identical to a reference that genuinely resolved to that block, collapsing
  * two distinct documents onto one id. Such a reference is rejected instead.

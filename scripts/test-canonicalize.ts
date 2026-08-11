@@ -993,7 +993,7 @@ test('relabel: a NON-ARRAY `marks` value is handled without throwing, and differ
   assert.deepEqual(asObject.blocks[1].children[0].marks.crdt, { z: 1 }, 'a mark is neither a block nor a text node, so item 1 never strips its crdt');
 });
 
-test('relabel: footnote BLOCK id is relabeled but the footnote MARK id is left verbatim (no false dup)', () => {
+test('relabel: a footnote BLOCK id and the footnote MARK id are BOTH left verbatim, so id-match survives canonicalization', () => {
   const blocks = canonContent({
     content: {
       version: '0.1',
@@ -1003,8 +1003,186 @@ test('relabel: footnote BLOCK id is relabeled but the footnote MARK id is left v
       ],
     },
   }).blocks;
-  assert.equal(blocks[0].children[0].marks[0].id, 'fn1'); // footnote MARK: separate namespace → verbatim
-  assert.equal(blocks[1].id, 'b0'); // footnote BLOCK: a block id → relabeled
+  // The mark's id addresses a separate namespace and was always verbatim. The BLOCK's
+  // id used to relabel to `b0`, which left Semantic Extension §4.5.2's id-match rule
+  // ("when both carry an id, the ids match") unsatisfiable on the canonical form: the
+  // mark said `fn1` and the block said `b0`. Preserving the definition is what makes
+  // that rule true post-canonicalization, and equality here is the assertion.
+  assert.equal(blocks[0].children[0].marks[0].id, 'fn1');
+  assert.equal(blocks[1].id, 'fn1');
+  assert.equal(blocks[0].children[0].marks[0].id, blocks[1].id, 'id-match must hold on the canonical form');
+});
+
+// ---------------------------------------------------------------------------
+// Preserved extension-block ids (§4.3.1 item 5; DD-022)
+//
+// The decision was "relabelling only": a `semantic:term` / `semantic:footnote` id
+// is left as authored but STAYS in the shared uniqueness-and-anchor namespace. The
+// rejected alternative was to remove it from the namespace entirely. The two are
+// indistinguishable if you only assert that the id survives — what separates them
+// is that anchors still resolve to it and a duplicate is still a collision, which
+// the next three tests pin.
+// ---------------------------------------------------------------------------
+
+test('preserved id: a link href resolves to a preserved term id, so it stays in the anchor namespace', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'semantic:term', id: 'term-algo', term: 'Algorithm', definition: 'A finite procedure.' },
+        { type: 'paragraph', children: [{ type: 'text', value: 'see', marks: [{ type: 'link', href: '#term-algo' }] }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'term-algo', 'the term id is left as authored');
+  // Had the id LEFT the namespace, this href would be an unresolved cross-document
+  // anchor — still `#term-algo` by pass-through, but pointing at nothing. It resolves
+  // because both sides now spell the same name.
+  assert.equal(blocks[1].children[0].marks[0].href, '#term-algo');
+});
+
+test('preserved id: a duplicate term id is STILL a collision — membership did not change', () => {
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [
+            { type: 'semantic:term', id: 'dup', term: 'A', definition: 'D1' },
+            { type: 'semantic:term', id: 'dup', term: 'B', definition: 'D2' },
+          ],
+        },
+      }),
+    /duplicate id "dup"/,
+  );
+});
+
+test('preserved id: it collides with an ordinary block id too — one namespace, not two', () => {
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [
+            { type: 'paragraph', id: 'shared', children: [{ type: 'text', value: 'x' }] },
+            { type: 'semantic:term', id: 'shared', term: 'A', definition: 'D' },
+          ],
+        },
+      }),
+    /duplicate id "shared"/,
+  );
+});
+
+test('preserved id: the b<i> sequence COMPACTS — a preserved id consumes no index', () => {
+  const blocks = canonContent({
+    content: {
+      version: '0.1',
+      blocks: [
+        { type: 'semantic:footnote', id: 'fn1', number: 1, children: [] },
+        { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'x' }] },
+      ],
+    },
+  }).blocks;
+  assert.equal(blocks[0].id, 'fn1');
+  // `b0`, NOT `b1`. Reserving the index is equally implementable and yields a
+  // different document ID for identical content, which is why §4.3.1 item 5 states
+  // which one applies rather than leaving it to the implementation.
+  assert.equal(blocks[1].id, 'b0', 'the preserved occurrence takes no name from the sequence');
+});
+
+test('preserved id: an authored id spelling b<digits> is rejected', () => {
+  // Load-bearing. Duplicate detection compares AUTHORED ids, so this authored `b0`
+  // does not collide with the `b0` generated for the paragraph — without this guard
+  // both reach the canonical output carrying `id: "b0"`, and a `#b0` reference binds
+  // to whichever the reader meets first.
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [
+            { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'x' }] },
+            { type: 'semantic:term', id: 'b0', term: 'A', definition: 'D' },
+          ],
+        },
+      }),
+    /id "b0" uses the reserved canonical-name form/,
+  );
+});
+
+test('preserved id: the b<digits> prohibition fires with no other id present', () => {
+  // The zero-relabelled-id path: nothing populates the rename map, so this is the
+  // case an early return would have skipped.
+  assert.throws(
+    () =>
+      canonContent({
+        content: { version: '0.1', blocks: [{ type: 'semantic:term', id: 'b7', term: 'A', definition: 'D' }] },
+      }),
+    /id "b7" uses the reserved canonical-name form/,
+  );
+});
+
+test('relabel: an unresolved #b<digits> is rejected when EVERY defined id is preserved', () => {
+  // The sibling of the no-ids-at-all case below, and the arm the comment in
+  // `alphaRenameIds` names second. Here the namespace is non-empty but the rename map is
+  // empty, so an early return keyed on the MAP rather than the NAMESPACE skips the
+  // rewriting pass and accepts this. That mutant passes every unit test without this one.
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [
+            { type: 'semantic:term', id: 'term-x', term: 'X', definition: 'D' },
+            { type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#b0' }] }] },
+          ],
+        },
+      }),
+    /reference "#b0" uses the reserved canonical-name form/,
+  );
+});
+
+test('relabel: a `marks` array that is NOT a text node\'s is left unsorted, so it stays content-significant', () => {
+  // §4.3.1 item 3 is scoped "within each text node" and `canon` normalizes marks under
+  // `case 'text'` alone. `rewriteIds` walks every `marks` array, so re-sorting there
+  // unconditionally would normalize a field the canonical form never touched. A JSON-LD
+  // annotation permits arbitrary members, so `attributes.semantic.marks` is a reachable
+  // vehicle — and these two documents would otherwise collapse onto one document id.
+  const mk = (marks: string[]) => ({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', attributes: { semantic: { '@type': 'X', marks } }, children: [{ type: 'text', value: 'x' }] }],
+    },
+  });
+  const a = JSON.stringify(canonContent(mk(['italic', 'bold'])));
+  const b = JSON.stringify(canonContent(mk(['bold', 'italic'])));
+  assert.notEqual(a, b, 'a non-text-node `marks` array must keep its authored order');
+  // The text-node case still normalizes, which is what item 5's closing sentence requires.
+  const t = (marks: unknown[]) => ({
+    content: { version: '0.1', blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'x', marks }] }] },
+  });
+  assert.equal(
+    JSON.stringify(canonContent(t(['italic', 'bold']))),
+    JSON.stringify(canonContent(t(['bold', 'italic']))),
+    "a TEXT node's marks are still sorted",
+  );
+});
+
+test('relabel: an unresolved #b<digits> is rejected even when the document defines NO ids', () => {
+  // Regression for a hole that predates the preserved-id work: `alphaRenameIds`
+  // early-returned when the namespace was empty, so `rewriteIds` never ran and this
+  // reference was ACCEPTED — while the identical reference beside one real id was
+  // rejected. A document carrying only preserved ids takes the same path.
+  assert.throws(
+    () =>
+      canonContent({
+        content: {
+          version: '0.1',
+          blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#b0' }] }] }],
+        },
+      }),
+    /reference "#b0" uses the reserved canonical-name form/,
+  );
 });
 
 test('relabel: separate-namespace mark fields are verbatim even when equal to a block id', () => {

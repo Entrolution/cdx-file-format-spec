@@ -2,7 +2,7 @@
   "normative": false,
   "$comment": "NON-NORMATIVE. This is the entry-point manifest for the CDX conformance suite, a testing artifact that references the specification and never extends it. The specification (spec/) and the published schemas (schemas/) are the only normative artifacts. Where anything here appears to disagree with spec/, the specification governs.",
   "suite": "cdx-conformance",
-  "suiteVersion": "0.1.0",
+  "suiteVersion": "0.2.0",
   "specVersion": "0.1",
   "title": "CDX Conformance Suite",
   "description": "An independently-runnable suite that lets a third-party implementation check itself against the CDX specification. This manifest binds a suite version to the specification version its expectations were derived against.",
@@ -10,6 +10,7 @@
     "summary": "suiteVersion is the suite's own semantic version; specVersion is the CDX specification version every expectation in the suite was derived against.",
     "rules": [
       "suiteVersion follows semantic versioning. A patch bump fixes a vector or a harness bug without changing any expectation an implementation is held to; a minor bump adds cases or capabilities; a major bump changes or removes an existing expectation.",
+      "While suiteVersion is below 1.0.0 the suite is not yet stable, and the breaking bump moves to the MINOR position: a change that would otherwise be major increments the minor and resets the patch. So 0.1.0 to 0.2.0 signals a changed or removed expectation, not merely added cases, and an implementation MUST re-run the suite across such a bump rather than reading it as additive. This is the ordinary 0.y.z reading of semantic versioning, stated here because the rule above would otherwise be read literally against a suite whose specVersion is itself a Draft.",
       "specVersion pins the specification revision the suite's clause citations and expectations resolve against. A suite release targets exactly one specVersion.",
       "An implementation claims conformance against a (suiteVersion, specVersion) pair, never against 'the suite' unqualified."
     ]
