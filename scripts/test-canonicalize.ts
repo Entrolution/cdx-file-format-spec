@@ -960,6 +960,39 @@ test('relabel: semantic:ref and presentation:reference block targets are rewritt
   assert.equal(blocks[2].target, '#b0');
 });
 
+test('relabel: a NON-ARRAY `marks` value is handled without throwing, and differs from the array form', () => {
+  // §4.3.1 item 3 and the mark-collection dispatch both assume `marks` is an array;
+  // content.schema.json requires it. This pins what happens to the schema-INVALID object
+  // form, which no document-id vector should assert: those publish byte-exact expectations
+  // a conformant implementation must reproduce, and one that rejects this at schema
+  // validation could never run it.
+  //
+  // The behaviour is recorded, NOT endorsed. The identical node is left as authored inside
+  // a valid `marks` array but relabelled inside the object form, so the difference comes
+  // from `walkContentNodes`' `Array.isArray` gate rather than from a rule §4.3.1 states —
+  // and item 5 arguably excludes it anyway, as "an identifier carried on a singular named
+  // sub-object". Recorded as an open question rather than settled here; this test exists so
+  // the answer, whichever way it goes, is a deliberate change and not silent drift.
+  const widget = '{"type":"x:widget","id":"leak","crdt":{"z":1}}';
+  const doc = (marks: string): string =>
+    `{"version":"0.1","blocks":[{"type":"heading","id":"intro","level":1,"children":[{"type":"text","value":"H"}]},` +
+    `{"type":"paragraph","children":[{"type":"text","value":"x","marks":${marks}}]}]}`;
+  const canon = (marks: string): any =>
+    canonContent({ content: JSON.parse(doc(marks)) as unknown as Record<string, unknown> });
+
+  const asArray = canon(`[${widget}]`);
+  assert.equal(asArray.blocks[1].children[0].marks[0].id, 'leak', 'inside a valid array the id is left as authored');
+
+  const asObject = canon(widget);
+  assert.equal(asObject.blocks[0].id, 'b0', 'the heading still relabels either way');
+  assert.equal(
+    asObject.blocks[1].children[0].marks.id,
+    'b1',
+    'the object form sweeps the id into the relabelled namespace — the divergence being pinned',
+  );
+  assert.deepEqual(asObject.blocks[1].children[0].marks.crdt, { z: 1 }, 'a mark is neither a block nor a text node, so item 1 never strips its crdt');
+});
+
 test('relabel: footnote BLOCK id is relabeled but the footnote MARK id is left verbatim (no false dup)', () => {
   const blocks = canonContent({
     content: {

@@ -105,7 +105,7 @@ const manifestJson = (overrides: Record<string, unknown> = {}): string =>
  * A conformant Dublin Core part. 08-metadata §3.3.1/§3.3.2 make BOTH `title` and
  * `creator` required (`title` a non-empty string, `creator` at least one value), as does
  * dublin-core.schema.json — so a DC part carrying only `title` violates the §5.4.2
- * "Missing required metadata — the Dublin Core part or a required term" row that
+ * "Missing required metadata at the PART level" row that
  * B1b-3b-1 targets.
  *
  * JSON.stringify, not template interpolation (as manifestJson above): a title bearing a
@@ -1190,26 +1190,43 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
 
   // --- required metadata: the Dublin Core part and its terms (§5.4.2) ---------
   {
-    name: 'warn-metadata-unreferenced',
-    description: 'The manifest declares no `metadata` object at all, so no Dublin Core part is referenced. Dublin Core is required metadata (Metadata §3.3.1/§3.3.2), so its absence is a WARNING in draft/review. The document ID basis is still well defined — §4.3.1 projects absent metadata as empty — so the identity is not indeterminate, merely unattested by metadata. (A competing reading makes this the manifest-missing-a-required-field REJECT; the more specific metadata row is taken, and the ambiguity is recorded in errors.json.)',
+    name: 'reject-metadata-unreferenced',
+    description: 'The manifest declares no `metadata` object at all. `metadata` is a required manifest field and `metadata.dublinCore` is required within it, so the manifest is missing a required field — §5.4.2\'s manifest row, REJECT in every state, exactly as an absent `content` would be. The erratum settled this: §5.4.2\'s metadata row is explicitly PART-level (a Dublin Core part referenced but absent or unparseable, or a missing required term) and does not reach an absent FIELD. The sibling `reject-metadata-reference-malformed` pins the MISTYPED arm and `warn-metadata-part-missing` the referenced-but-absent part, which keeps its WARNING. The content also carries a dangling `#nope` anchor, and the SECOND expected finding is the point: a REJECT must not short-circuit the passes that follow it, and a case expecting one finding could not tell whether they ran.',
     layer: 'document',
     requires: ['container', 'document'],
-    clause: 'Metadata sections 3.3.1, 3.3.2; State Machine section 5.4.2',
-    recipe: documentArchive(manifestJson({ metadata: undefined }), [{ name: 'content/document.json', text: CLEAN_CONTENT }]),
-    // Authored as an INTERVAL, not an exact WARNING. §5.4.2's "manifest ... missing or
-    // mistyping a required field" row is REJECT and `metadata` IS required, so a reader
-    // applying that row to the missing arm is equally conformant with one applying the
-    // more specific missing-metadata row. The suite must not foreclose an open reading;
-    // the sibling `reject-metadata-reference-malformed` pins the MISTYPED arm, where the
-    // row applies unambiguously.
+    clause: 'Manifest section 4.11; Metadata sections 3.3.1, 3.3.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        metadata: undefined,
+        content: { path: 'content/document.json', hash: 'sha256:ec454fc0d085d72cc6491e44f043199197a9bad16b0ad531d2fd956976e68b57' },
+      }),
+      [
+        {
+          name: 'content/document.json',
+          text: '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#nope"}]}]}]}',
+        },
+      ],
+    ),
+    // An exact pin, not an interval: the row assigns REJECT in both columns, so there is
+    // no open reading left to foreclose.
+    //
+    // THE DANGLING ANCHOR IS LOAD-BEARING, not incidental colour. A REJECT arm that
+    // early-returned would report the manifest defect and silently stop — no classifier,
+    // no reference resolution, no id recompute — and with only one expected finding the
+    // subset comparator could not see the difference. Expecting a SECOND finding from a
+    // later pass is what makes the no-early-return rule observable: mutation-tested, and
+    // an added `return` turns this case red.
     expect: {
-      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
-      findings: [{ code: 'CDX-E-METADATA-PART-MISSING', atLeast: 'WARNING', atMost: 'REJECT' }],
+      documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' },
+      findings: [
+        { code: 'CDX-E-MANIFEST-FIELD-MISSING', atLeast: 'REJECT', atMost: 'REJECT' },
+        { code: 'CDX-E-ANCHOR-DANGLING', atLeast: 'WARNING', atMost: 'WARNING' },
+      ],
     },
   },
   {
     name: 'warn-metadata-part-missing',
-    description: 'The manifest references `metadata/dublin-core.json`, but the archive carries no such entry. Distinct from the unreferenced case above: here the document claims metadata and does not ship it, so the id basis is INDETERMINATE (the id was computed over the real terms) rather than empty — WARNING in draft/review.',
+    description: 'The manifest references `metadata/dublin-core.json`, but the archive carries no such entry. Distinct from `reject-metadata-unreferenced` above, and the distinction is the whole point of the erratum that split them: here the document DECLARES metadata and does not ship it, which is a part-level defect and a WARNING in draft/review, whereas declaring none at all is a malformed manifest and a REJECT. The id basis is also different — INDETERMINATE here (the id was computed over the real terms) rather than empty.',
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'Metadata section 3.3; Container Format section 3.3.1; State Machine section 5.4.2',
@@ -1427,7 +1444,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     description: 'The manifest declares `metadata.dublinCore` as an OBJECT rather than a path string. `metadata` and its `dublinCore` member are both required manifest fields, so a mistyped one is §5.4.2\'s "manifest ... missing or MISTYPING a required field" — REJECT, not the missing-metadata WARNING. The distinction matters: without it, replacing the path with an object downgrades a REJECT to a WARNING and silently switches the document-ID recompute onto an empty-metadata basis.',
     layer: 'document',
     requires: ['container', 'document'],
-    clause: 'Manifest section 4.7; State Machine section 5.4.2',
+    clause: 'Manifest section 4.11; State Machine section 5.4.2',
     recipe: documentArchive(manifestJson({ metadata: { dublinCore: { path: 'metadata/dublin-core.json' } } }), cleanBody('Mistyped Reference')),
     expect: rejectOnly('CDX-E-MANIFEST-REFERENCE-MALFORMED'),
   },
@@ -1448,7 +1465,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     description: 'The manifest declares a custom metadata reference (`metadata.custom.notes`) whose target the archive omits. `metadata.custom` is an open map of path-only references, so its values bind nothing exactly as `provenance` and `metadata.jsonld` do — a sweep enumerating only the NAMED path-only fields would let a whole reference family escape both the missing-part row and the duplicate-key sweep. WARNING in every state.',
     layer: 'document',
     requires: ['container', 'document'],
-    clause: 'Manifest section 4.7; Security Extension section 9.8; State Machine section 5.4.2',
+    clause: 'Manifest section 4.11; Security Extension section 9.8; State Machine section 5.4.2',
     recipe: documentArchive(
       manifestJson({ metadata: { dublinCore: 'metadata/dublin-core.json', custom: { notes: 'metadata/notes.json' } } }),
       cleanBody('Missing Custom Metadata'),
@@ -1592,6 +1609,28 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       [...contentBody(CONTENT_IMAGE, 'Asset Index Missing'), { name: 'assets/images/fig1.svg', text: FIG1 }],
     ),
     expect: warnOnly('CDX-E-PART-MISSING-BOUND'),
+  },
+  {
+    name: 'reject-asset-index-path-divergent',
+    description: 'The manifest declares `assets.images.index` as `assets/images/catalog.json` while the index actually sits at the derived location `assets/images/index.json`. 05 §3.1 states the equality as a MUST, and the erratum gave it a §5.4.2 row: REJECT in both columns. Before the erratum §3.1 resolved the disagreement itself ("the derived path governs"), which left the document loadable, gave the defect no disposition, and so left this case UNTESTABLE as a fixture — a null-disposition code cannot be asserted through the comparator at all, so `test-document-verdict.ts` carried its only coverage. What the REJECT closes is a split between identity and attestation: the manifest projection binds the DECLARED path\'s hash (Security Extension §9.7) while the document ID is computed from the DERIVED path\'s bytes (§4.3.1 item 2 builds every asset path from the category key), so a signature would attest one file while identity depended on another. The index and the asset it lists are both present and intact — nothing here is missing or corrupt; the divergence alone is the defect.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Asset Embedding section 3.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({
+        content: { path: 'content/document.json', hash: CONTENT_IMAGE_HASH },
+        assets: { images: { count: 1, totalSize: 62, index: 'assets/images/catalog.json', hash: INDEX_ONE_HASH } },
+      }),
+      [
+        ...contentBody(CONTENT_IMAGE, 'Divergent Asset Index'),
+        { name: 'assets/images/index.json', text: INDEX_ONE },
+        { name: 'assets/images/fig1.svg', text: FIG1 },
+      ],
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-ASSET-INDEX-PATH-DIVERGENT', atLeast: 'REJECT', atMost: 'REJECT' }],
+    },
   },
   {
     name: 'warn-asset-index-unusable',
@@ -1800,7 +1839,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
   },
   {
     name: 'warn-presentation-undeclared',
-    description: 'A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2\'s preamble expressly refuses to treat such a file as a benign out-of-hash annotation — "an injected layout is an attempt to alter signed content" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file\'s presence; the normative requirement it backs is that a renderer MUST NOT present it as the document\'s appearance. Authored as an INTERVAL, deliberately: §5.4.2\'s preamble only REMOVES this file from the out-of-hash WARNING row without supplying a replacement, and the one characterisation the specification does offer — "an integrity concern" — points ABOVE WARNING rather than at it. WARNING is therefore a floor, and asserting it as a ceiling would fail a conformant reader that escalates.',
+    description: 'A precise-layout file sits in `presentation/layouts/` but no `manifest.presentation[]` entry declares it, so no hash binds it and no manifest-covering signature can attest it. §5.4.2\'s preamble expressly refuses to treat such a file as a benign out-of-hash annotation — "an injected layout is an attempt to alter signed content" — and Presentation Layers §12 directs that its presence be surfaced as an integrity concern. The finding reports the file\'s presence; the normative requirement it backs is that a renderer MUST NOT present it as the document\'s appearance. Pinned EXACTLY at WARNING, and the erratum is why: the preamble formerly removed this file from the out-of-hash row without supplying a replacement, so WARNING was only a floor and a ceiling would have failed a reader that escalated. §5.4.2 now carries a dedicated row assigning WARNING in draft/review, and §5.4.1 makes escalating a WARNING non-conformant ("The document remains valid and a warning never blocks loading"), so the exact pin is now the correct assertion and an interval would be too loose. The frozen/published INTEGRITY-ERROR the same row assigns is exercised in B3.',
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'Presentation Layers sections 12, 12.1; State Machine section 5.4.2',
@@ -1808,10 +1847,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       ...contentBody(CONTENT_PARAGRAPH, 'Undeclared Layout'),
       { name: 'presentation/layouts/letter.json', text: '{"version":"0.1","presentationType":"precise","targetFormat":"letter"}' },
     ]),
-    expect: {
-      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
-      findings: [{ code: 'CDX-E-PRESENTATION-UNDECLARED', atLeast: 'WARNING', atMost: 'REJECT' }],
-    },
+    expect: warnOnly('CDX-E-PRESENTATION-UNDECLARED'),
   },
 
   // --- extension config-slot side files, and the namespaces they carry -------
@@ -1869,7 +1905,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
   },
   {
     name: 'warn-config-part-missing',
-    description: 'The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs is genuinely open: the out-of-hash row covers "a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)", but semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7) — so the row\'s qualifier and its examples disagree, and a conformant declaration is never path-only. Both readings give WARNING in draft/review; the expectation is authored as an INTERVAL so neither is foreclosed and B3 can settle the frozen column. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.',
+    description: 'The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs was previously open — the out-of-hash row gave "a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)" as an example, contradicting its own qualifier, since semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7). The erratum removed those examples: the hash-bound row governs, which is WARNING in draft/review and INTEGRITY-ERROR when frozen (B3). The draft/review disposition never depended on the answer, so this case is now pinned exactly. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.',
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'State Machine section 5.4.2; Security Extension section 9.7',
@@ -1883,10 +1919,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
       }),
       [...contentBody(CONTENT_SEMANTIC, 'Bibliography Missing'), { name: 'semantic/glossary.json', text: GLOSSARY }],
     ),
-    expect: {
-      documentDisposition: { atLeast: 'WARNING', atMost: 'REJECT' },
-      findings: [{ code: 'CDX-E-CONFIG-PART-MISSING', atLeast: 'WARNING', atMost: 'REJECT' }],
-    },
+    expect: warnOnly('CDX-E-CONFIG-PART-MISSING'),
   },
   {
     name: 'warn-config-file-hash-mismatch',

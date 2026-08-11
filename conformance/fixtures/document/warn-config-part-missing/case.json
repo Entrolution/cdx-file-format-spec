@@ -1,5 +1,5 @@
 {
-  "description": "The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs is genuinely open: the out-of-hash row covers \"a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)\", but semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7) — so the row's qualifier and its examples disagree, and a conformant declaration is never path-only. Both readings give WARNING in draft/review; the expectation is authored as an INTERVAL so neither is foreclosed and B3 can settle the frozen column. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.",
+  "description": "The `semantic.bibliography` config reference names a file the archive omits, while the glossary it also declares is present and intact. WHICH §5.4.2 row governs was previously open — the out-of-hash row gave \"a PATH-ONLY semantic/academic side file (bibliography, glossary, numbering)\" as an example, contradicting its own qualifier, since semantic.schema.json declares the reference as `{path, hash}` with `additionalProperties: false` and the manifest projection binds every such pair (Security Extension §9.7). The erratum removed those examples: the hash-bound row governs, which is WARNING in draft/review and INTEGRITY-ERROR when frozen (B3). The draft/review disposition never depended on the answer, so this case is now pinned exactly. The content carries BOTH a citation and a glossary mark, which is the point: the citation namespace is INDETERMINATE (declared but unloadable) so no citation may be reported dangling, while the glossary namespace loaded and resolves — a reader that treated an unloadable side file as an EMPTY namespace would report a spurious cross-reference finding here.",
   "layer": "document",
   "requires": [
     "container",
@@ -29,13 +29,13 @@
   "expect": {
     "documentDisposition": {
       "atLeast": "WARNING",
-      "atMost": "REJECT"
+      "atMost": "WARNING"
     },
     "findings": [
       {
         "code": "CDX-E-CONFIG-PART-MISSING",
         "atLeast": "WARNING",
-        "atMost": "REJECT"
+        "atMost": "WARNING"
       }
     ]
   }

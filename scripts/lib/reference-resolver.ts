@@ -396,10 +396,12 @@ export function resolveAssetReferences(
  * `pages[].elements[].blockId` positioning as a reactive `paginated` one:
  *   - `pages[].elements[]` — a `pageElement`'s `blockId`, and a `flowElement`'s `blockIds[]`;
  *   - `sections[].blockRefs[]`.
- * 04 §13.4's prose names only `blockId` and `blockRefs`. `blockIds` on a flow element is
- * included anyway: it references content blocks in exactly the same way (04 §6.4), the
- * disposition is WARNING in every state either way, and omitting it would leave a dangling
- * reference silently unreported. The prose gap is raised as a specification question.
+ * All three are named by 04 §13.4 and by the §5.4.2 row; §13.4 additionally states they
+ * are the complete set of fields WITHIN a presentation-layer or precise-layout file that
+ * reference content blocks. The prose and the row
+ * formerly enumerated only `blockId` and `blockRefs`; this resolver covered `blockIds`
+ * anyway, and the erratum brought the specification into line with it rather than the
+ * reverse. Same disposition for all three: WARNING in every state.
  *
  * These are BARE block ids (`pattern: ^[A-Za-z0-9._-]+$`), not Content Anchor URIs, so they
  * resolve directly against `ids` with no `#` stripping.

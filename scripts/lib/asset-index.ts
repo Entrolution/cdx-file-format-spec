@@ -13,16 +13,19 @@
  *     (`DocumentParts.assetIndexes`) and the resolved path→hash map the content walk and
  *     the reference resolver need (`buildAssetMap`).
  *
- * THE DERIVED PATH GOVERNS. 05 §3.1: a category's index "MUST" live at
- * `assets/<category>/index.json`, and "if an explicit `index` value disagrees with it the
- * derived path governs — Document Hashing section 4.3.1 builds every asset archive path
- * from the category key, never from the `index` field, so a mismatched `index` value never
- * changes which bytes enter the document ID". So the index is READ from the derived path,
- * always. The divergence is still reported, because it opens a real seam: the manifest
- * projection binds the DECLARED path's hash (`collectAssetIndexReferences`,
- * Security Extension §9.7) while the document ID uses the DERIVED path's bytes, so a
- * signature attests one file while identity depends on another. §5.4.2 assigns that no row,
- * so no disposition is inferred for it (see conformance/errors.json).
+ * THE INDEX IS READ FROM THE DERIVED PATH, AND A DIVERGENCE IS A REJECT. 05 §3.1: a
+ * category's index MUST live at `assets/<category>/index.json` and the declared
+ * `manifest.assets.<category>.index` MUST equal it. §3.1 formerly resolved a disagreement
+ * leniently ("the derived path governs"), leaving the document loadable; the erratum
+ * deleted that sentence and 07 §5.4.2 now carries a REJECT row, because the divergence
+ * opens a real seam: the manifest projection binds the DECLARED path's hash
+ * (`collectAssetIndexReferences`, Security Extension §9.7) while the document ID inherits
+ * the asset hashes listed in the file at the DERIVED path (§4.3.1 item 2 substitutes each
+ * asset's own content hash; it never hashes the index file's bytes), so a signature
+ * attests one file while identity depends on another. Rejecting closes the split
+ * without changing any projected bytes: for every loadable document the two paths name the
+ * same file. The read still uses the derived path — the REJECT is the verdict, not a
+ * relocation of where the index is loaded from.
  *
  * RESOLVABILITY IS THE LOAD-BEARING OUTPUT. When a category's index cannot be loaded, every
  * asset reference into that category is INDETERMINATE, not dangling. Reporting them dangling
@@ -166,13 +169,24 @@ export function verifyAssetIndexes(
     const declared = assets[category];
     const indexPath = derivedIndexPath(category);
 
-    // 05 §3.1: the declared `index` MUST equal the derived path. It is reported, never
-    // obeyed — §4.3.1 builds asset paths from the category key alone.
-    if (isPlainObject(declared) && typeof declared.index === 'string' && declared.index !== indexPath) {
+    // 05 §3.1: the declared `index` MUST equal the derived path, and a divergence is a
+    // REJECT (07 §5.4.2). It is reported, never obeyed — §4.3.1 builds asset paths from
+    // the category key alone, so the read below stays on the derived path.
+    // Compared after normalization, as 05 §3.1 and the §5.4.2 row require: `.` and `..`
+    // segments are not a divergence, and REJECT is too severe a disposition to hang on a
+    // spelling the specification treats as equal. Case-sensitive, per the same clause.
+    // `normalizePath` also collapses EMPTY segments, which the cited rule does not mention;
+    // that is unreachable for a schema-valid declaration (`relativePath` forbids them) and
+    // errs toward not rejecting, which is the safe direction for the harshest disposition.
+    if (
+      isPlainObject(declared) &&
+      typeof declared.index === 'string' &&
+      normalizePath(declared.index) !== indexPath
+    ) {
       findings.push({
         code: ASSET_CODE.ASSET_INDEX_PATH_DIVERGENT,
         where: category,
-        detail: `manifest.assets["${category}"].index is "${declared.index}" but the derived index path is "${indexPath}", which governs`,
+        detail: `manifest.assets["${category}"].index is "${declared.index}" but 05 section 3.1 requires it to equal the derived index path "${indexPath}"`,
       });
     }
 

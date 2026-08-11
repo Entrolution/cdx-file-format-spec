@@ -199,7 +199,7 @@ Extensions MAY define additional directories under the root. Custom directories:
 
 ### 7.2 Forward Compatibility
 
-Implementations MUST ignore unrecognized files and directories. This enables:
+Implementations MUST ignore unrecognized files and directories, with one exception: a presentation or precise-layout file that the manifest does not declare is *recognized* — it carries a presentation discriminator — and is dispositioned by State Machine section 5.4.2 rather than ignored, because a renderer could mistake it for the document's authoritative appearance (Presentation Layers section 12). This enables:
 
 - Future specification extensions
 - Application-specific metadata

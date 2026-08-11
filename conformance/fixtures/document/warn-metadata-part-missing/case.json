@@ -1,5 +1,5 @@
 {
-  "description": "The manifest references `metadata/dublin-core.json`, but the archive carries no such entry. Distinct from the unreferenced case above: here the document claims metadata and does not ship it, so the id basis is INDETERMINATE (the id was computed over the real terms) rather than empty — WARNING in draft/review.",
+  "description": "The manifest references `metadata/dublin-core.json`, but the archive carries no such entry. Distinct from `reject-metadata-unreferenced` above, and the distinction is the whole point of the erratum that split them: here the document DECLARES metadata and does not ship it, which is a part-level defect and a WARNING in draft/review, whereas declaring none at all is a malformed manifest and a REJECT. The id basis is also different — INDETERMINATE here (the id was computed over the real terms) rather than empty.",
   "layer": "document",
   "requires": [
     "container",

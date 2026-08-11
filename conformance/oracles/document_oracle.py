@@ -374,7 +374,7 @@ def reference_malformed(data, cd):
 def _metadata_reference_malformed(data, cd):
     """`metadata` present but not an object, or `metadata.dublinCore` present but not a
     string. Both are required manifest fields, so a MISTYPED one is the section 5.4.2
-    manifest-required-field REJECT, distinct from the absent case's metadata WARNING."""
+    manifest-required-field REJECT, distinct from the referenced-but-absent case's metadata WARNING (an absent FIELD is itself REJECT, via manifest_field_missing)."""
     m = manifest_obj(data, cd)
     if m is None:
         return False
@@ -638,6 +638,14 @@ def _dublin_core_value(data, cd):
     if m is None:
         return {}
     meta = m.get("metadata")
+    # A MISTYPED reference is not the empty-metadata basis: the reader treats the
+    # declaration as unusable and suspends the recompute (dcResolvable = false), so
+    # projecting {} here would model a different document. _dc_state draws the same
+    # line; the two resolutions in this file must not disagree on it.
+    if ("metadata" in m and not isinstance(meta, dict)) or (
+        isinstance(meta, dict) and "dublinCore" in meta and not isinstance(meta["dublinCore"], str)
+    ):
+        raise OracleUnsupported("Dublin Core reference is mistyped; the id basis is indeterminate")
     ref = meta.get("dublinCore") if isinstance(meta, dict) else None
     if not isinstance(ref, str):
         return {}  # unreferenced → empty-metadata basis
@@ -805,18 +813,26 @@ def _dublin_core_defect(dc):
 
 
 def _dc_state(data, cd):
-    """(state, parsed) for the Dublin Core part: one of 'unreferenced', 'absent',
-    'unparseable', 'ok'. Mirrors the four arms of the missing-metadata row without
-    reusing the reader's own resolution."""
+    """(state, parsed) for the Dublin Core part: one of 'no-manifest', 'unreferenced',
+    'mistyped', 'absent', 'unparseable', 'duplicate-key', 'ok'. Mirrors the arms the reader distinguishes without
+    reusing its own resolution. 'unreferenced' and 'mistyped' are MANIFEST defects
+    (a required field absent or wrong-typed, both REJECT); only 'absent',
+    'unparseable' and a missing term are the PART-level metadata row."""
     m = manifest_obj(data, cd)
     if m is None:
-        return ("unreferenced", None)
+        # No usable manifest at all — the manifest-absent/unparseable rows, not a FIELD
+        # defect. Kept distinct so manifest_field_missing cannot rubber-stamp a fixture
+        # whose recipe simply dropped or corrupted manifest.json.
+        return ("no-manifest", None)
     meta = m.get("metadata")
     if "metadata" in m and not isinstance(meta, dict):
         return ("mistyped", None)  # a mistyped required field is the manifest REJECT
-    ref = meta.get("dublinCore") if isinstance(meta, dict) else None
-    if ref is not None and not isinstance(ref, str):
+    # `in` rather than a None test: JSON null is a PRESENT but wrong-typed value
+    # (manifest.schema.json types dublinCore as a relativePath string), so it is mistyped,
+    # not unreferenced. _metadata_reference_malformed below already models it this way.
+    if isinstance(meta, dict) and "dublinCore" in meta and not isinstance(meta["dublinCore"], str):
         return ("mistyped", None)
+    ref = meta.get("dublinCore") if isinstance(meta, dict) else None
     if not isinstance(ref, str):
         return ("unreferenced", None)
     text = part_text(data, cd_map(cd), ref)
@@ -832,7 +848,16 @@ def _dc_state(data, cd):
 
 
 def metadata_part_missing(data, cd):
-    return _dc_state(data, cd)[0] in ("unreferenced", "absent")
+    # 'unreferenced' is deliberately NOT here: an absent `metadata` or `metadata.dublinCore`
+    # field is a malformed manifest (manifest_field_missing below), not a part-level defect.
+    # Section 5.4.2's metadata row is explicitly PART-level.
+    return _dc_state(data, cd)[0] == "absent"
+
+
+def manifest_field_missing(data, cd):
+    # `metadata` is a required manifest field and `dublinCore` is required within it, so a
+    # manifest carrying neither is missing a required field — the manifest REJECT row.
+    return _dc_state(data, cd)[0] == "unreferenced"
 
 
 def metadata_part_unparseable(data, cd):
@@ -1227,8 +1252,11 @@ def _asset_categories(data, cd):
 
 
 def _asset_index(data, cd, category):
-    """The parsed index for a category, read from the DERIVED path (Asset Embedding
-    section 3.1: the derived path governs, whatever `index` says), or None."""
+    """The parsed index for a category, read from the DERIVED path, or None. Asset
+    Embedding section 3.1 requires the declared `index` to EQUAL that path and section
+    5.4.2 rejects a divergence, so for every loadable document the two name one file;
+    reading the derived path keeps this oracle on the bytes the document ID is built
+    from (section 4.3.1 item 2 derives every asset path from the category key)."""
     text = part_text(data, cd_map(cd), f"assets/{category}/index.json")
     if text is None:
         return None
@@ -1682,6 +1710,7 @@ CONFIRMERS = {
     "CDX-E-CONFIG-FILE-HASH-MISMATCH": config_file_hash_mismatch,
     "CDX-E-CITATION-REFERENCE-DANGLING": lambda data, cd: "citation" in _semantic_reference_findings(data, cd),
     "CDX-E-GLOSSARY-REFERENCE-DANGLING": lambda data, cd: "glossary" in _semantic_reference_findings(data, cd),
+    "CDX-E-MANIFEST-FIELD-MISSING": manifest_field_missing,
     "CDX-E-METADATA-PART-MISSING": metadata_part_missing,
     "CDX-E-METADATA-PART-UNPARSEABLE": metadata_part_unparseable,
     "CDX-E-METADATA-TERM-MISSING": metadata_term_missing,
@@ -1763,7 +1792,7 @@ def confirm_clean(name, data):
     # reference of any kind, no id collision, and no unreadable out-of-hash part — a
     # reader that skipped any of these checks would otherwise pass this fixture.
     dc_state, dc_value = _dc_state(data, cd)
-    if dc_state in ("unreferenced", "absent"):
+    if dc_state in ("no-manifest", "unreferenced", "mistyped", "absent"):
         return "clean case has no readable Dublin Core part"
     if dc_state == "unparseable":
         return "clean case Dublin Core part is not a JSON object"

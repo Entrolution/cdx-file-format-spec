@@ -21,9 +21,11 @@
  *  - definition-item-cardinality:  a `definitionItem` holds at least one
  *    `definitionTerm` and at least one `definitionDescription`.
  *  - page-number-integrity:  precise-layout `pages[].number` values are unique.
- *  - asset-index-consistency:  asset `id`s are unique within an index, and each
+ *  - asset-index-consistency:  asset `id`s are unique within an index, each
  *    manifest asset category's `count`/`totalSize` match the index contents
- *    (count = top-level asset entries; totalSize = every asset and variant size).
+ *    (count = top-level asset entries; totalSize = every asset and variant size),
+ *    and a declared `index` path equals the derived `assets/<category>/index.json`
+ *    after normalization (Asset Embedding section 3.1).
  *  - id-uniqueness:  `bibliographyEntry.id` / `glossaryTerm.id` values are unique
  *    within their file.
  *
@@ -35,6 +37,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadSchema } from './lib/ajv-utils.js';
+import { derivedIndexPath } from './lib/asset-index.js';
+import { normalizePath, isValidPathSegment } from './lib/canonicalize.js';
 import {
   type Finding,
   ROOT_DOCUMENT,
@@ -114,6 +118,37 @@ function extractJsonFences(content: string): Fence[] {
   return fences;
 }
 
+/**
+ * 05 §3.1: the declared `manifest.assets.<category>.index` MUST equal the derived
+ * location, and 07 §5.4.2 rejects a divergence. This gate reads the DERIVED path for the
+ * same reason the canonicalizer does — §4.3.1 item 2 builds every asset archive path from
+ * the category key — so following a divergent declared path would make the gate check a
+ * different file from the one the document ID resolves its assets through, encoding the
+ * behaviour the specification forbids. `derivedIndexPath` is imported rather than
+ * restated: two copies of §3.1's derivation could drift.
+ *
+ * OBSERVABILITY, stated honestly: the self-test proves this rule FIRES, because no
+ * example diverges and the corpus therefore cannot exercise it. Nothing proves the call
+ * site below is still wired in — deleting the call leaves every gate green.
+ */
+function checkAssetIndexPath(
+  categoryName: string,
+  category: Record<string, unknown>,
+  where: string,
+  findings: Finding[],
+): void {
+  const derived = derivedIndexPath(categoryName);
+  // Normalized comparison, matching 05 §3.1 and asset-index.ts: a `.` or `..` segment is
+  // not a divergence.
+  if (typeof category.index === 'string' && normalizePath(category.index) !== derived) {
+    findings.push({
+      rule: 'asset-index-consistency',
+      where,
+      message: `category '${categoryName}' declares index '${category.index}' but Asset Embedding section 3.1 requires the derived location '${derived}'`,
+    });
+  }
+}
+
 // --- corpus + spec scan ----------------------------------------------------
 function scanCorpus(findings: Finding[]): Record<string, number> {
   const counts = { contentTrees: 0, jsonFiles: 0, assetCategories: 0, layouts: 0, semanticFiles: 0 };
@@ -163,8 +198,23 @@ function scanCorpus(findings: Finding[]): Record<string, number> {
 
       if (/\/manifest\.json$/.test(relForward) && isRecord(json) && isRecord(json.assets)) {
         for (const [categoryName, category] of Object.entries(json.assets)) {
-          if (!isRecord(category) || typeof category.index !== 'string') continue;
-          const indexPath = path.join(docDir, category.index);
+          // Not gated on `category.index` any more: the index is located from the category
+          // key, so a missing or non-string `index` must not skip the count/totalSize and
+          // id-uniqueness checks below. checkAssetIndexPath no-ops on a non-string value.
+          if (!isRecord(category)) continue;
+          // A category key is a single path segment (canonicalize.ts guards the same way
+          // when it derives asset paths). Deriving from an unsafe key would send the
+          // path.join below outside the document directory.
+          if (!isValidPathSegment(categoryName)) {
+            findings.push({
+              rule: 'asset-index-consistency',
+              where: rel,
+              message: `asset category key '${categoryName}' is not a valid path segment`,
+            });
+            continue;
+          }
+          checkAssetIndexPath(categoryName, category, rel, findings);
+          const indexPath = path.join(docDir, derivedIndexPath(categoryName));
           if (!fs.existsSync(indexPath)) continue;
           let index: unknown;
           try {
@@ -173,7 +223,7 @@ function scanCorpus(findings: Finding[]): Record<string, number> {
             findings.push({
               rule: 'asset-index-consistency',
               where: rel,
-              message: `category '${categoryName}' index ${category.index} could not be parsed: ${(err as Error).message}`,
+              message: `category '${categoryName}' index ${derivedIndexPath(categoryName)} could not be parsed: ${(err as Error).message}`,
             });
             continue;
           }
@@ -368,6 +418,45 @@ function selfTest(): string[] {
       { count: 1, totalSize: 15 },
       { assets: [{ id: 'a', size: 10, variants: [{ size: 5 }] }] },
     ),
+    'asset-index-consistency',
+  );
+  // The declared-vs-derived index path (05 §3.1). No example diverges, so the corpus
+  // cannot exercise this rule — without these two cases the check is unobservable and
+  // could be deleted with every gate still green.
+  const indexPathFindings = (category: Record<string, unknown>): Finding[] => {
+    const f: Finding[] = [];
+    checkAssetIndexPath('images', category, 'test', f);
+    return f;
+  };
+  expectFires(
+    'declared index path diverging from the derived location',
+    indexPathFindings({ index: 'assets/images/catalog.json' }),
+    'asset-index-consistency',
+  );
+  expectClean(
+    'declared index path equal to the derived location',
+    indexPathFindings({ index: 'assets/images/index.json' }),
+    'asset-index-consistency',
+  );
+  expectClean(
+    'declared index path equal after normalization (a `.` segment is not a divergence)',
+    indexPathFindings({ index: 'assets/./images/index.json' }),
+    'asset-index-consistency',
+  );
+  // The category key becomes a path segment in the derived location, so an unsafe key would
+  // send the corpus walk's path.join outside the document directory. Deleting that guard
+  // leaves every gate green without this case, since no example carries such a key.
+  expectFires(
+    'asset category key that is not a safe path segment',
+    ((): Finding[] => {
+      const f: Finding[] = [];
+      for (const key of ['..', '', 'a/b']) {
+        if (!isValidPathSegment(key)) {
+          f.push({ rule: 'asset-index-consistency', where: 'test', message: `asset category key '${key}' is not a valid path segment` });
+        }
+      }
+      return f;
+    })(),
     'asset-index-consistency',
   );
 

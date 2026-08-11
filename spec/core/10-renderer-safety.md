@@ -204,7 +204,7 @@ interpolates into a markup context:
   `renderedText` carries pre-rendered citation markup — its purpose is to display
   a formatted reference without running a CSL processor — so a renderer that
   honours it interprets it as HTML, and it is author-controlled (an inline entry,
-  or a path-only external `bibliography.json`). A renderer MUST sanitize
+  or an external `bibliography.json`). A renderer MUST sanitize
   `renderedText` against an allowlist of inline formatting elements (emphasis,
   superscript/subscript, and equivalents), removing script, event-handler
   attributes, and any active or external-fetching content, with the same rigor it
