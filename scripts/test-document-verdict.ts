@@ -39,6 +39,7 @@ import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
+import { canonicalContent } from './lib/canonicalize.js';
 
 let passed = 0;
 let failed = 0;
@@ -545,6 +546,183 @@ test('a dangling asset href does not suppress the id-collision finding', () => {
   assert.ok(codes.has('CDX-E-ASSET-REFERENCE-DANGLING'), 'the dangling href is reported');
   assert.ok(codes.has('CDX-E-ID-COLLISION'), 'and the collision survives alongside it');
 });
+
+
+// --- footnote resolution: the properties a SUBSET check cannot express -------
+//
+// Semantic Extension §4.5.2 is mostly a rule about what a reader MUST NOT conclude, and the
+// fixture comparator asserts only that expected findings are present. Everything below is a
+// must-NOT-report property, which is why it lives here.
+//
+// NOT tested here, deliberately: §4.5.2's "resolves to the first block in document order".
+// That is a RENDERER selection, and this layer performs no selection — it reports the
+// ambiguity and stops. Asserting it at this layer would be asserting something the code
+// does not claim to do.
+
+const fnMark = (mark: Record<string, unknown>, blocks: Record<string, unknown>[]): string =>
+  JSON.stringify({
+    version: '0.1',
+    blocks: [
+      { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'a', marks: [{ type: 'footnote', ...mark }] }] },
+      ...blocks.map((b) => ({ type: 'semantic:footnote', content: 'note', ...b })),
+    ],
+  });
+
+const footnoteCodes = (content: string): Set<string> =>
+  codesFor([{ name: 'manifest.json', text: manifest({}) }, ...body(content)]);
+
+test('footnote: an id match suppresses an otherwise-ambiguous marker (id match takes precedence)', () => {
+  // Two blocks share `number: 1`, so the MARKER is ambiguous — but the mark carries an `id`
+  // that identifies one block exactly, and §4.5.2 gives id match precedence. Reporting the
+  // ambiguity here would warn about a reference the specification resolves unambiguously,
+  // and would do it on the very shape §4.5.2 tells authors to use to disambiguate.
+  const codes = footnoteCodes(fnMark({ number: 1, id: 'fn1' }, [{ id: 'fn1', number: 1 }, { number: 1 }]));
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'an id match must not report the marker ambiguity');
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'an id match must not report dangling');
+});
+
+test('footnote: an ambiguous marker reports AMBIGUOUS and not DANGLING', () => {
+  // The mark does resolve — to more than one block. Reporting it as dangling would say the
+  // target is absent, which is the opposite of the defect.
+  const codes = footnoteCodes(fnMark({ number: 1 }, [{ number: 1 }, { number: 1 }]));
+  assert.ok(codes.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'the ambiguity is reported');
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'an ambiguous marker is not a dangling one');
+});
+
+test('footnote: a dangling marker reports DANGLING and not AMBIGUOUS', () => {
+  const codes = footnoteCodes(fnMark({ number: 9 }, [{ number: 1 }]));
+  assert.ok(codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'the dangling mark is reported');
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'nothing matched, so nothing is ambiguous');
+});
+
+test('footnote: duplicate markers with NO mark referencing them report nothing', () => {
+  // §4.5.2's uniqueness MUST is violated, but its reader rule is scoped to "a reader that
+  // finds a MARKER RESOLVING to more than one block". With no mark, no marker resolves, and
+  // §5.4.2 assigns the bare uniqueness violation no row — so reporting one would be inventing
+  // a disposition. Recorded in the code's `note` rather than guessed at.
+  const content = JSON.stringify({
+    version: '0.1',
+    blocks: [
+      { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'a' }] },
+      { type: 'semantic:footnote', number: 1, content: 'x' },
+      { type: 'semantic:footnote', number: 1, content: 'y' },
+    ],
+  });
+  const codes = footnoteCodes(content);
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'no mark, no ambiguity finding');
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'no mark, no dangling finding');
+});
+
+test('footnote: a mark whose id matches nothing falls back to its marker', () => {
+  // The recorded reading (see CDX-E-FOOTNOTE-REFERENCE-DANGLING's note): the mark carries an
+  // `id` no block claims, but its `number` identifies one block exactly. This implementation
+  // resolves it; the strict reading of "by a single key" would report it dangling. Pinned so
+  // the choice cannot drift silently — not because the specification settles it.
+  const codes = footnoteCodes(fnMark({ number: 1, id: 'nosuch' }, [{ number: 1 }]));
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'the marker resolves, so nothing is reported');
+});
+
+test('footnote: a mark with NO resolution key is not reported as dangling', () => {
+  // §4.5.1 requires either `number` or `symbol`, so a mark with neither (and no `id`) is a
+  // structurally malformed mark — §5.4.2's malformed row, WARNING in draft/review and
+  // INTEGRITY-ERROR when frozen. Reporting it as a dangling cross-reference would file it
+  // under a row whose WARNING holds in every state, pre-empting an escalation
+  // CDX-E-MARK-MALFORMED's note says is only deferred. Nothing reports it today; that is the
+  // deferral, not this arm's business.
+  const codes = footnoteCodes(fnMark({}, [{ number: 1 }]));
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'a keyless mark is malformed, not dangling');
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'));
+});
+
+test('footnote: a `semantic:footnote` INSIDE a marks array is not a resolution target', () => {
+  // The collector's `!ctx.inMarks` guard. A block type appearing at a mark position is an
+  // unknown namespaced MARK (IGNORE), not a footnote block — counting it would let a mark
+  // resolve against something that is not a target. Mutation-verified: without the guard this
+  // document reports nothing.
+  const content = JSON.stringify({
+    version: '0.1',
+    blocks: [
+      {
+        type: 'paragraph',
+        id: 'p1',
+        children: [
+          { type: 'text', value: 'a', marks: [{ type: 'footnote', number: 1 }, { type: 'semantic:footnote', number: 1 }] },
+        ],
+      },
+    ],
+  });
+  assert.ok(footnoteCodes(content).has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'the mark has no real block to resolve to');
+});
+
+test('footnote: a `footnote`-typed object OUTSIDE a marks array is not a mark', () => {
+  // The resolver's `ctx.inMarks` guard on the mark walk. A `{type:"footnote"}` object sitting
+  // in a block position is not a footnote MARK, so it must not be resolved — otherwise a
+  // document with no footnote marks at all reports one dangling.
+  const content = JSON.stringify({
+    version: '0.1',
+    blocks: [
+      { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'a' }] },
+      { type: 'footnote', number: 9 },
+    ],
+  });
+  const codes = footnoteCodes(content);
+  assert.ok(!codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'a block-position object is not a mark');
+});
+
+test('footnote: the `symbol` marker resolves, is ambiguous, and dangles on its own terms', () => {
+  // §4.5.1a's six symbols are a second, independent marker: "a `symbol` mark to the block
+  // with the equal `symbol`". Every other case here uses `number`, and with no symbol case
+  // the whole branch could be deleted with all 31 gates green — mutation-verified, which is
+  // how this test came to exist.
+  const resolved = footnoteCodes(fnMark({ symbol: 'dagger' }, [{ symbol: 'dagger' }]));
+  assert.ok(!resolved.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'a matching symbol resolves');
+  assert.ok(!resolved.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'and is unambiguous');
+
+  const dangling = footnoteCodes(fnMark({ symbol: 'dagger' }, [{ symbol: 'asterisk' }]));
+  assert.ok(dangling.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'), 'a symbol matching no block dangles');
+
+  const ambiguous = footnoteCodes(fnMark({ symbol: 'dagger' }, [{ symbol: 'dagger' }, { symbol: 'dagger' }]));
+  assert.ok(ambiguous.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'a repeated symbol is ambiguous');
+
+  // §4.5.1a permits a stored symbol to repeat past the sixth note (the doubling is a display
+  // convention, and the stored value "remains one of the six enumerated names"), which is
+  // exactly why §4.5.2 tells an author who repeats a marker to disambiguate with an `id`.
+  const disambiguated = footnoteCodes(fnMark({ symbol: 'dagger', id: 'fn7' }, [{ symbol: 'dagger' }, { id: 'fn7', symbol: 'dagger' }]));
+  assert.ok(!disambiguated.has('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'), 'an id disambiguates a legitimately reused symbol');
+});
+
+test('footnote: the raw walk erases what canon erases — a crdt-nested block is not a target', () => {
+  // The resolver walks RAW stored content, so it must reproduce every `canon` transform that
+  // changes which nodes exist (canonicalize.ts `CollectOptions.rawInput`). §4.3.1 item 1
+  // strips `crdt`, so a `semantic:footnote` inside one does not exist canonically. A walk
+  // that saw it would resolve this mark against a block the canonicalizer deleted — a MISSED
+  // dangling reference, invisible to any test that only checks reported findings.
+  //
+  // Asserted DIFFERENTIALLY against the canonicalizer rather than by mutation: a wrong model
+  // of the transforms passes its own mutants, because both sides would share the error.
+  const content = JSON.stringify({
+    version: '0.1',
+    blocks: [
+      {
+        type: 'paragraph',
+        id: 'p1',
+        crdt: { ghost: { type: 'semantic:footnote', number: 7, content: 'ghost' } },
+        children: [{ type: 'text', value: 'a', marks: [{ type: 'footnote', number: 7 }] }],
+      },
+    ],
+  });
+  const canon = canonicalContent({ manifest: '{}', content, dublinCore: '{}' }) as { content: unknown };
+  assert.ok(
+    !JSON.stringify(canon.content).includes('semantic:footnote'),
+    'precondition: canon strips the crdt payload, so no footnote block survives',
+  );
+  const codes = footnoteCodes(content);
+  assert.ok(
+    codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'),
+    'the mark must be dangling: its only candidate block exists solely in stripped crdt state',
+  );
+});
+
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

@@ -2,7 +2,7 @@
   "normative": false,
   "$comment": "NON-NORMATIVE. This is the entry-point manifest for the CDX conformance suite, a testing artifact that references the specification and never extends it. The specification (spec/) and the published schemas (schemas/) are the only normative artifacts. Where anything here appears to disagree with spec/, the specification governs.",
   "suite": "cdx-conformance",
-  "suiteVersion": "0.2.0",
+  "suiteVersion": "0.2.1",
   "specVersion": "0.1",
   "title": "CDX Conformance Suite",
   "description": "An independently-runnable suite that lets a third-party implementation check itself against the CDX specification. This manifest binds a suite version to the specification version its expectations were derived against.",

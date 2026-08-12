@@ -1,0 +1,32 @@
+{
+  "description": "All three of §4.5.2's resolution keys in one document, each load-bearing. The first `footnote` mark resolves by ID MATCH — and only by it, because `fn1` and `fn2` deliberately share `number: 1`, so without id precedence that mark's marker is ambiguous. The second resolves by `number`, the third by `symbol` (§4.5.1a), so deleting either marker arm turns this fixture red. Both blocks sharing a marker carry `id`s, so §4.5.2's \"absent `id`s\" uniqueness MUST is not engaged and the document is genuinely clean. The positive control for the footnote arm of §5.4.2's extension-cross-reference row, and for the erratum that made it work: until §4.3.1 item 5 stopped relabelling a `semantic:footnote` block id, the mark kept `fn1` while the block became `b0`, so id match could never hold on the canonical form. No side file is involved — §4.5.2 gives footnotes none, so the namespace is purely in-document. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Semantic Extension section 4.5.2; Document Hashing section 4.3.1 item 5; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:93639de26f8fca596546bd9a0c2ae4983bf34515fddd27f9c9a235e60cc5fef6\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"footnote\",\"number\":1,\"id\":\"fn1\"}]},{\"type\":\"text\",\"value\":\"b\",\"marks\":[{\"type\":\"footnote\",\"number\":2}]},{\"type\":\"text\",\"value\":\"c\",\"marks\":[{\"type\":\"footnote\",\"symbol\":\"dagger\"}]}]},{\"type\":\"semantic:footnote\",\"id\":\"fn1\",\"number\":1,\"content\":\"note\"},{\"type\":\"semantic:footnote\",\"id\":\"fn2\",\"number\":1,\"content\":\"note\"},{\"type\":\"semantic:footnote\",\"number\":2,\"content\":\"note\"},{\"type\":\"semantic:footnote\",\"symbol\":\"dagger\",\"content\":\"note\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Footnotes Resolved\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}
