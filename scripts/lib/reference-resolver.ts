@@ -84,6 +84,8 @@ export const RESOLVER_CODE = {
   PRESENTATION_REFERENCE_DANGLING: 'CDX-E-PRESENTATION-REFERENCE-DANGLING',
   CITATION_REFERENCE_DANGLING: 'CDX-E-CITATION-REFERENCE-DANGLING',
   GLOSSARY_REFERENCE_DANGLING: 'CDX-E-GLOSSARY-REFERENCE-DANGLING',
+  FOOTNOTE_REFERENCE_DANGLING: 'CDX-E-FOOTNOTE-REFERENCE-DANGLING',
+  FOOTNOTE_REFERENCE_AMBIGUOUS: 'CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS',
 } as const;
 
 export interface ResolverFinding {
@@ -464,6 +466,37 @@ export function resolvePresentationReferences(part: unknown, ids: ReadonlySet<st
 export interface SemanticNamespaces {
   bibliography: ReadonlySet<string> | null;
   glossary: ReadonlySet<string> | null;
+  /**
+   * The `semantic:footnote` blocks a `footnote` mark resolves against (§4.5.2).
+   *
+   * NOT a flat string set like the two above, and never `null`. Those two resolve against a
+   * namespace that may come from a declared side file, so an unloadable file makes the
+   * namespace INDETERMINATE and nothing is reported dangling. A footnote's targets are
+   * purely in-document — §4.5.2 names no side file — so the namespace is always
+   * establishable, and there is no indeterminate case to model.
+   */
+  footnotes: FootnoteTargets;
+}
+
+/**
+ * The three keys §4.5.2 resolves a `footnote` mark by, with the MULTIPLICITY of each marker
+ * — not just its presence.
+ *
+ * Multiplicity is the point: §4.5.2 requires a marker to be unique ("and — absent `id`s —
+ * no two may share a `number` or a `symbol`") and tells a reader that finds a marker
+ * resolving to more than one block to warn and take the first in document order. A plain set
+ * would resolve such a mark silently and lose the defect.
+ *
+ * Block `id`s need no count: they share the document-wide identifier namespace, where a
+ * duplicate is already a canonicalization error (CDX-E-ID-COLLISION) reported before this
+ * runs — and §4.3.1 item 5 now leaves those ids as authored, which is what makes id-match
+ * satisfiable on the canonical form at all.
+ */
+export interface FootnoteTargets {
+  ids: ReadonlySet<string>;
+  /** marker value → how many `semantic:footnote` blocks carry it. */
+  numbers: ReadonlyMap<number, number>;
+  symbols: ReadonlyMap<string, number>;
 }
 
 /**
@@ -577,6 +610,100 @@ export function collectGlossaryIds(
  * over-merges, and a `citation` on the absorbed node is never resolved — a missed finding on
  * a document where the canonicalizer keeps the two nodes apart.
  */
+/**
+ * Collect the `semantic:footnote` blocks a `footnote` mark resolves against (§4.5.2).
+ *
+ * The walk uses `rawInput` like its siblings, and must mirror every `canon` transform that
+ * changes which nodes exist (see `CollectOptions.rawInput`) — a walk that misses one reports
+ * a dangling footnote on a document the canonicalizer resolves.
+ *
+ * A block contributes each key it carries, independently: a block with an `id` AND a
+ * `number` is reachable by either, which is exactly what §4.5.2's precedence rule needs.
+ *
+ * KNOWN DIVERGENCE, deferred to B1b-3c (OQ-010). This walk descends into an unknown
+ * NAMESPACED block's interior, which the content classifier treats as opaque — so a
+ * `semantic:footnote`-shaped object inside a `vendor:widget` payload is counted as a target.
+ * The descent is shared with `collectBibliographyIds`/`collectGlossaryIds` and with
+ * `collectDefinedIds` (where it is right: canon hashes those bytes as content). What is new
+ * here is MULTIPLICITY: for a flat id set over-collection can only SUPPRESS a finding, but a
+ * count can MANUFACTURE one, which inverts the conservative direction the rest of this
+ * codebase holds to. Pruning correctly needs the derived content vocabulary threaded into the
+ * shared walk — B1b-3c's scope, since that phase is precisely about extension-block interiors
+ * — and fixing only this arm would leave it inconsistent with its two siblings.
+ */
+export function collectFootnoteTargets(content: unknown, assetMap?: ReadonlyMap<string, string>): FootnoteTargets {
+  const ids = new Set<string>();
+  const numbers = new Map<number, number>();
+  const symbols = new Map<string, number>();
+
+  walkContentNodes(
+    content,
+    (node, ctx) => {
+      if (ctx.inMarks || node.type !== 'semantic:footnote') return;
+      if (typeof node.id === 'string') ids.add(node.id);
+      // Count every occurrence, including the first: the count IS the ambiguity test.
+      if (typeof node.number === 'number') numbers.set(node.number, (numbers.get(node.number) ?? 0) + 1);
+      if (typeof node.symbol === 'string') symbols.set(node.symbol, (symbols.get(node.symbol) ?? 0) + 1);
+    },
+    { rawInput: true, assetMap },
+  );
+
+  return { ids, numbers, symbols };
+}
+
+/**
+ * Resolve one `footnote` mark against the document's footnote blocks (§4.5.2).
+ *
+ * §4.5.2 orders the keys: "when both the mark and a block carry an `id`, the mark's `id`
+ * MUST equal the block's `id` (id match takes precedence); otherwise the mark resolves by
+ * its marker value".
+ *
+ * Where the mark carries an `id` that matches NO block, this falls back to the marker rather
+ * than reporting immediately. That is the charitable reading, taken deliberately, and the
+ * strict one ("resolves ... by a single key", so an `id` that matches nothing is itself the
+ * dangling reference) is at least as well supported — arguably better, since it is the only
+ * reading under which §4.5.2's MUST can be violated at all; the charitable reading effectively
+ * re-reads "when both ... carry an `id`" as "when both carry an `id` AND they match", which
+ * makes the MUST unfalsifiable.
+ *
+ * Two reasons to record rather than settle, neither of which is "the fallback is safer" — that
+ * argument is circular, since under the strict reading the document is NOT resolvable:
+ *   - the repo's standing rule under an unsettled reading is to prefer the non-reporting arm,
+ *     rather than invent a defect the specification does not clearly assign;
+ *   - no published fixture or vector carries the disputed shape, and the fixture comparator is
+ *     a subset check, so a third-party reader implementing the STRICT reading still passes the
+ *     corpus. The choice constrains nobody but this implementation.
+ * Note the divergence is warn-vs-silent, not WARNING-vs-WARNING: under the charitable reading
+ * nothing is reported at all.
+ */
+function resolveFootnoteMark(mark: Record<string, unknown>, targets: FootnoteTargets): 'resolved' | 'ambiguous' | 'dangling' | 'keyless' {
+  // A mark carrying NO resolution key is not a reference whose target is absent — it is a
+  // structurally malformed mark of a known type (§4.5.1 requires "either `number` or
+  // `symbol`"), which §5.4.2's malformed-block/mark row disposes of at WARNING in
+  // draft/review and INTEGRITY-ERROR when frozen. Reporting it as dangling would file it
+  // under the extension-cross-reference row instead, whose WARNING holds in EVERY state —
+  // pre-empting an escalation that CDX-E-MARK-MALFORMED's own note says is only deferred to
+  // B3. Nothing reports it today (extension-mark field validation is part of that deferral),
+  // and nothing did before this arm existed, so no verdict regresses.
+  const hasKey =
+    typeof mark.id === 'string' || typeof mark.number === 'number' || typeof mark.symbol === 'string';
+  if (!hasKey) return 'keyless';
+
+  if (typeof mark.id === 'string' && targets.ids.has(mark.id)) return 'resolved';
+
+  if (typeof mark.number === 'number') {
+    const n = targets.numbers.get(mark.number) ?? 0;
+    if (n > 1) return 'ambiguous';
+    if (n === 1) return 'resolved';
+  }
+  if (typeof mark.symbol === 'string') {
+    const n = targets.symbols.get(mark.symbol) ?? 0;
+    if (n > 1) return 'ambiguous';
+    if (n === 1) return 'resolved';
+  }
+  return 'dangling';
+}
+
 export function resolveSemanticReferences(
   content: unknown,
   namespaces: SemanticNamespaces,
@@ -605,6 +732,23 @@ export function resolveSemanticReferences(
         node.see.forEach((s, i) =>
           report(s, namespaces.glossary, RESOLVER_CODE.GLOSSARY_REFERENCE_DANGLING, 'glossary', `semantic:term.see[${i}]`),
         );
+      }
+      if (ctx.inMarks && node.type === 'footnote') {
+        const outcome = resolveFootnoteMark(node, namespaces.footnotes);
+        // 'keyless' is deliberately silent here: see resolveFootnoteMark.
+        if (outcome === 'dangling') {
+          findings.push({
+            code: RESOLVER_CODE.FOOTNOTE_REFERENCE_DANGLING,
+            where: 'footnote',
+            detail: `footnote mark resolves to no semantic:footnote block`,
+          });
+        } else if (outcome === 'ambiguous') {
+          findings.push({
+            code: RESOLVER_CODE.FOOTNOTE_REFERENCE_AMBIGUOUS,
+            where: 'footnote',
+            detail: `footnote marker resolves to more than one semantic:footnote block; the first in document order is used`,
+          });
+        }
       }
     },
     { rawInput: true, assetMap },

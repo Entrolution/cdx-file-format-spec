@@ -213,6 +213,29 @@ const CONTENT_SEMANTIC_DANGLING =
   '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"citation","refs":["nosuchkey"]}]},{"type":"text","value":"b","marks":[{"type":"glossary","ref":"nosuchterm"}]}]}]}';
 const CONTENT_SEMANTIC_DANGLING_HASH = 'sha256:bc004c0f5f81ed2229b1557e663bd2566a5206a9136d4dfdabbe19a04b79dd17';
 
+// Footnote resolution (Semantic Extension §4.5.2). The OK body exercises BOTH keys in one
+// document: the first mark carries an `id` matching a block's (id match takes precedence),
+// the second carries only a `number` and matches the block with the equal `number`.
+// Every key is LOAD-BEARING, which the first draft of this fixture got wrong: its id-matched
+// mark also carried a `number` that resolved uniquely on its own, so deleting the id-precedence
+// branch left the fixture green. Here `fn1` and `fn2` deliberately SHARE `number: 1`, so the
+// first mark resolves only via id match — without that branch its marker is ambiguous. The
+// second mark exercises `number`, the third `symbol`; deleting either arm turns this red. Both
+// blocks sharing the marker carry ids, so §4.5.2's "absent `id`s" uniqueness MUST is not
+// engaged and the document is genuinely clean.
+const CONTENT_FOOTNOTE_OK =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"footnote","number":1,"id":"fn1"}]},{"type":"text","value":"b","marks":[{"type":"footnote","number":2}]},{"type":"text","value":"c","marks":[{"type":"footnote","symbol":"dagger"}]}]},{"type":"semantic:footnote","id":"fn1","number":1,"content":"note"},{"type":"semantic:footnote","id":"fn2","number":1,"content":"note"},{"type":"semantic:footnote","number":2,"content":"note"},{"type":"semantic:footnote","symbol":"dagger","content":"note"}]}';
+const CONTENT_FOOTNOTE_OK_HASH = 'sha256:93639de26f8fca596546bd9a0c2ae4983bf34515fddd27f9c9a235e60cc5fef6';
+const CONTENT_FOOTNOTE_DANGLING =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"footnote","number":9}]}]},{"type":"semantic:footnote","number":1,"content":"note"}]}';
+const CONTENT_FOOTNOTE_DANGLING_HASH = 'sha256:f1ec6502a787a9e5b25a77a7fc4248dd017b2a0c567bfdb79750d3963b3d1fa4';
+// Two blocks share `number: 1` and neither carries an `id`, which §4.5.2 forbids ("absent
+// `id`s, no two may share a `number` or a `symbol`"). The mark resolves to the first in
+// document order and the reader warns.
+const CONTENT_FOOTNOTE_AMBIGUOUS =
+  '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a","marks":[{"type":"footnote","number":1}]}]},{"type":"semantic:footnote","number":1,"content":"note"},{"type":"semantic:footnote","number":1,"content":"note"}]}';
+const CONTENT_FOOTNOTE_AMBIGUOUS_HASH = 'sha256:256900baf4da7d822b3624c33f27a87cbb4bf3bcbd44f367a735ba91f649be17';
+
 const BIBLIOGRAPHY = '{"version":"0.1","entries":[{"id":"smith2020","type":"book","title":"A Book"}]}';
 const BIBLIOGRAPHY_HASH = 'sha256:2769581d4c19da11daed52e0e62e81e95a791adaba0eb6b6777c23c9211b2136';
 const GLOSSARY = '{"version":"0.1","terms":[{"id":"entropy","term":"Entropy","definition":"A measure."}]}';
@@ -1902,6 +1925,42 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
         { code: 'CDX-E-GLOSSARY-REFERENCE-DANGLING', atLeast: 'WARNING', atMost: 'WARNING' },
       ],
     },
+  },
+  {
+    name: 'positive-footnote-resolved',
+    description: 'All three of §4.5.2\'s resolution keys in one document, each load-bearing. The first `footnote` mark resolves by ID MATCH — and only by it, because `fn1` and `fn2` deliberately share `number: 1`, so without id precedence that mark\'s marker is ambiguous. The second resolves by `number`, the third by `symbol` (§4.5.1a), so deleting either marker arm turns this fixture red. Both blocks sharing a marker carry `id`s, so §4.5.2\'s "absent `id`s" uniqueness MUST is not engaged and the document is genuinely clean. The positive control for the footnote arm of §5.4.2\'s extension-cross-reference row, and for the erratum that made it work: until §4.3.1 item 5 stopped relabelling a `semantic:footnote` block id, the mark kept `fn1` while the block became `b0`, so id match could never hold on the canonical form. No side file is involved — §4.5.2 gives footnotes none, so the namespace is purely in-document. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Semantic Extension section 4.5.2; Document Hashing section 4.3.1 item 5; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: CONTENT_FOOTNOTE_OK_HASH } }),
+      contentBody(CONTENT_FOOTNOTE_OK, 'Footnotes Resolved'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-footnote-reference-dangling',
+    description: 'A `footnote` mark carrying `number: 9` where the document\'s only `semantic:footnote` block is numbered 1, so the mark resolves to no block by either key. §4.5.2 states the disposition for this case in its own words — "a footnote mark that resolves to no block is likewise a WARNING, never an integrity failure" — matching §5.4.2\'s extension-cross-reference row, which already names the footnote mark. A separate code from the citation and glossary arms so the three namespaces stay independently reportable.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Semantic Extension section 4.5.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: CONTENT_FOOTNOTE_DANGLING_HASH } }),
+      contentBody(CONTENT_FOOTNOTE_DANGLING, 'Dangling Footnote'),
+    ),
+    expect: warnOnly('CDX-E-FOOTNOTE-REFERENCE-DANGLING'),
+  },
+  {
+    name: 'warn-footnote-reference-ambiguous',
+    description: 'Two `semantic:footnote` blocks share `number: 1` and neither carries an `id`, which §4.5.2 forbids ("and — absent `id`s — no two may share a `number` or a `symbol`"), and a mark carries that marker. Distinct from the dangling case and given its own code: the mark DOES resolve — §4.5.2 sends the reader to the first block in document order — so the defect is the violated uniqueness MUST, not a missing target. That the FIRST block is the one chosen cannot be asserted here, the comparator being a subset check over reported findings; it is pinned in scripts/test-document-verdict.ts.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Semantic Extension section 4.5.2, section 11',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: CONTENT_FOOTNOTE_AMBIGUOUS_HASH } }),
+      contentBody(CONTENT_FOOTNOTE_AMBIGUOUS, 'Ambiguous Footnote'),
+    ),
+    expect: warnOnly('CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS'),
   },
   {
     name: 'warn-config-part-missing',

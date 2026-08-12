@@ -1,0 +1,38 @@
+{
+  "description": "Two `semantic:footnote` blocks share `number: 1` and neither carries an `id`, which §4.5.2 forbids (\"and — absent `id`s — no two may share a `number` or a `symbol`\"), and a mark carries that marker. Distinct from the dangling case and given its own code: the mark DOES resolve — §4.5.2 sends the reader to the first block in document order — so the defect is the violated uniqueness MUST, not a missing target. That the FIRST block is the one chosen cannot be asserted here, the comparator being a subset check over reported findings; it is pinned in scripts/test-document-verdict.ts.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Semantic Extension section 4.5.2, section 11",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:256900baf4da7d822b3624c33f27a87cbb4bf3bcbd44f367a735ba91f649be17\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"footnote\",\"number\":1}]}]},{\"type\":\"semantic:footnote\",\"number\":1,\"content\":\"note\"},{\"type\":\"semantic:footnote\",\"number\":1,\"content\":\"note\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Ambiguous Footnote\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

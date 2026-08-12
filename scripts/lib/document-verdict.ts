@@ -98,6 +98,7 @@ import {
   resolveSemanticReferences,
   collectBibliographyIds,
   collectGlossaryIds,
+  collectFootnoteTargets,
   type SemanticNamespaces,
 } from './reference-resolver.js';
 import { verifyAssetIndexes } from './asset-index.js';
@@ -588,7 +589,7 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
           for (const f of resolveAssetReferences(c.value, assetMap, assetResult.unresolvable)) add(f.code);
         }
 
-        // --- B1b-3b-2: citation / glossary cross-references (§5.4.2) ---------
+        // --- extension cross-references: citation / glossary / footnote (§5.4.2) ---
         // Semantic Extension §4.4 / §8.3 make each namespace a PRECEDENCE, not a union: the
         // external side file when the manifest declares one, the in-document
         // `semantic:bibliography` entries / `semantic:term` blocks otherwise. `declared` is
@@ -600,6 +601,9 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
           glossary: glossaryFile.declared && glossaryFile.value === undefined
             ? null
             : collectGlossaryIds(c.value, glossaryFile.value, glossaryFile.declared, trustedAssetMap),
+          // No precedence and no `null` arm: §4.5.2 gives footnotes no side file, so the
+          // namespace is purely in-document and always establishable.
+          footnotes: collectFootnoteTargets(c.value, trustedAssetMap),
         };
         for (const f of resolveSemanticReferences(c.value, namespaces, trustedAssetMap)) add(f.code);
       } catch (err) {

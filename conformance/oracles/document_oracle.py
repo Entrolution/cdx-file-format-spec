@@ -1694,7 +1694,127 @@ def _semantic_reference_findings(data, cd):
     return out
 
 
+def _footnote_findings(data, cd):
+    """{'dangling', 'ambiguous'} for the footnote defects present (Semantic Extension 4.5.2).
+
+    Independent of the TypeScript resolver and of `_semantic_reference_findings` above: the
+    footnote namespace is not a flat id set. A mark resolves by `id` when both sides carry
+    one, otherwise by its `number` or `symbol` marker, and a marker matching more than one
+    block is ambiguous rather than dangling. Counting the blocks per marker is what tells
+    those two apart, so a set would collapse the distinction this pair of codes exists to
+    draw. No side file is consulted: 4.5.2 gives footnotes none, so unlike the citation and
+    glossary arms there is no indeterminate case.
+    """
+    content = _content_value(data, cd)
+    if content is None:
+        return set()
+
+    ids = set()
+    numbers = {}
+    symbols = {}
+    marks = []
+
+    def marker(value):
+        """The marker key a JSON number contributes, or None.
+
+        JSON has ONE number type, so ANY number is a marker — this must not key on the
+        Python type. `json.loads` yields `int` for `1` and `float` for `1.0`, but they are
+        the same JSON value and 4.3.1's JCS renders both as `1`; Python dicts unify them
+        for free, since `1 == 1.0` and their hashes are equal. Rejecting non-integers here
+        instead (an earlier version did) makes the oracle disagree with the FORMAT rather
+        than with the implementation: a schema-invalid `1.5` is not rejected by either side,
+        so the oracle would silently fail to model a mark the reader does resolve. `True` is
+        an `int` in Python but is not a JSON number, so it is excluded explicitly.
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return value
+        return None
+
+    def is_derived_field(node, key):
+        """Mirror of `isDerivedField` (canonicalize.ts) — 4.3.1 item 1 and 4.1a.
+
+        Deliberately keyed the same way the canonicalizer keys it, not approximately: canon
+        strips only under a TYPED node, `display` only on a `measurement`, and `tokens` only
+        on a `codeBlock`. An earlier version here erased `crdt`/`tokens` unconditionally and
+        keyed `display` on the enclosing PROPERTY name, which both over- and under-erased
+        against `canonicalContent`. Over-erasure is the harmful direction: it would let the
+        oracle CONFIRM a dangling expectation the reader raised for a different reason.
+        """
+        if not isinstance(node.get("type"), str):
+            return False
+        if key == "crdt":
+            return True
+        if key == "display":
+            return node["type"] == "measurement"
+        if key == "tokens":
+            return node["type"] == "codeBlock"
+        return False
+
+    def walk(node, in_marks, in_text_marks=False):
+        if isinstance(node, list):
+            for x in node:
+                walk(x, in_marks, in_text_marks)
+            return
+        if not isinstance(node, dict):
+            return
+        t = node.get("type")
+        if not in_marks and t == "semantic:footnote":
+            if isinstance(node.get("id"), str):
+                ids.add(node["id"])
+            n = marker(node.get("number"))
+            if n is not None:
+                numbers[n] = numbers.get(n, 0) + 1
+            s = node.get("symbol")
+            if isinstance(s, str):
+                symbols[s] = symbols.get(s, 0) + 1
+        if in_marks and t == "footnote":
+            marks.append(node)
+        for key, child in node.items():
+            # 4.3.1 item 1 DELETES these before the canonical form exists, so a footnote block
+            # buried in one is not a resolution target. Modelled here because this oracle now
+            # guards clean cases: without it, a clean fixture the reference implementation
+            # correctly reports as dangling would be confirmed loadable.
+            #
+            # The erasure stops AT OR BELOW a TEXT node's `marks` — canon normalizes that
+            # subtree in place and then does not recurse into it, so a derived field carried
+            # there survives. `in_text_marks` is therefore STICKY once set, matching
+            # WalkContext.inTextMarks; an earlier version reused `in_marks`, which both reset
+            # at the next non-`marks` key and fired for a `marks` array on a non-text node.
+            if not in_text_marks and is_derived_field(node, key):
+                continue
+            child_in_marks = key == "marks" and isinstance(child, list)
+            walk(child, child_in_marks, in_text_marks or (child_in_marks and t == "text"))
+
+    walk(content, False)
+
+    out = set()
+    for mark in marks:
+        if isinstance(mark.get("id"), str) and mark["id"] in ids:
+            continue  # id match takes precedence
+        n = marker(mark.get("number"))
+        has_key = isinstance(mark.get("id"), str) or n is not None or isinstance(mark.get("symbol"), str)
+        if not has_key:
+            # No resolution key at all: a structurally malformed mark (4.5.1 requires either
+            # `number` or `symbol`), not a reference whose target is absent. Reported by
+            # neither implementation — see resolveFootnoteMark.
+            continue
+        count = None
+        if n is not None:
+            count = numbers.get(n, 0)
+        if (count is None or count == 0) and isinstance(mark.get("symbol"), str):
+            count = symbols.get(mark["symbol"], 0)
+        if count is None or count == 0:
+            out.add("dangling")
+        elif count > 1:
+            out.add("ambiguous")
+    return out
+
+
 CONFIRMERS = {
+    "CDX-E-FOOTNOTE-REFERENCE-DANGLING": lambda data, cd: "dangling" in _footnote_findings(data, cd),
+    "CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS": lambda data, cd: "ambiguous" in _footnote_findings(data, cd),
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
     "CDX-E-PART-MISSING-BOUND": part_missing_bound,
     "CDX-E-ASSET-INDEX-UNUSABLE": asset_index_unusable,
@@ -1839,6 +1959,14 @@ def confirm_clean(name, data):
     semantic = _semantic_reference_findings(data, cd)
     if semantic:
         return f"clean case has dangling cross-reference(s): {sorted(semantic)}"
+    # Without this arm the positive footnote fixture had NO independent confirmation: the
+    # footnote confirmer was wired into CONFIRMERS (which only ever checks that an EXPECTED
+    # defect is present) but not here, so a clean fixture whose footnotes silently stopped
+    # resolving would still be reported loadable — the one check that would catch a shared
+    # error between the two implementations.
+    footnotes = _footnote_findings(data, cd)
+    if footnotes:
+        return f"clean case has footnote resolution defect(s): {sorted(footnotes)}"
     # B1b-3a: a clean fixture's declared file hash must match the stored bytes, and — for
     # a document carrying a real id — the recomputed canonical document id must match it.
     # Otherwise a reader that skips hash/id verification would wrongly pass this fixture.

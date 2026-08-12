@@ -1,0 +1,38 @@
+{
+  "description": "A `footnote` mark carrying `number: 9` where the document's only `semantic:footnote` block is numbered 1, so the mark resolves to no block by either key. §4.5.2 states the disposition for this case in its own words — \"a footnote mark that resolves to no block is likewise a WARNING, never an integrity failure\" — matching §5.4.2's extension-cross-reference row, which already names the footnote mark. A separate code from the citation and glossary arms so the three namespaces stay independently reportable.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Semantic Extension section 4.5.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:f1ec6502a787a9e5b25a77a7fc4248dd017b2a0c567bfdb79750d3963b3d1fa4\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\",\"marks\":[{\"type\":\"footnote\",\"number\":9}]}]},{\"type\":\"semantic:footnote\",\"number\":1,\"content\":\"note\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Dangling Footnote\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-FOOTNOTE-REFERENCE-DANGLING",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}
