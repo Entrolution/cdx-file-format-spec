@@ -1704,6 +1704,14 @@ def _footnote_findings(data, cd):
     those two apart, so a set would collapse the distinction this pair of codes exists to
     draw. No side file is consulted: 4.5.2 gives footnotes none, so unlike the citation and
     glossary arms there is no indeterminate case.
+
+    MODELLING LIMIT, stated so it is not mistaken for agreement. Of the three canon transforms
+    that change which nodes exist (CollectOptions.rawInput in canonicalize.ts), this walk
+    models only DERIVED-FIELD DELETION. It does not model adjacent-text merging or mark dedup,
+    so a `semantic:footnote` carried on the marks of a text node canon ABSORBS into its
+    predecessor is counted here and not by the reader. Narrow, and no fixture reaches it, but
+    the direction is the harmful one: an over-collecting oracle can CONFIRM a clean case the
+    reader would report. Closing it means porting `mergeKeyOf`, which needs the asset map.
     """
     content = _content_value(data, cd)
     if content is None:
