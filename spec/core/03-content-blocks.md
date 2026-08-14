@@ -1076,10 +1076,12 @@ The `writingMode` attribute indicates the semantic writing mode of the content. 
 
 All text content MUST be valid Unicode (UTF-8 encoded in JSON). Implementations MUST support:
 
-- Text in any Unicode normalization form on input (hashed content is *stored* in Normalization Form C — Document Hashing, section 4.3.2 — so a producer normalizes on the way in rather than at hash time, and a reader rejects stored content that is not already NFC)
+- Text in any Unicode normalization form on input
 - Bidirectional text
 - Combining characters
 - Emoji
+
+Input tolerance is not storage tolerance: hashed content is *stored* in Normalization Form C (Document Hashing, section 4.3.2), so a producer normalizes on the way in rather than at hash time, and a reader rejects stored content that is not already NFC.
 
 ## 7. Validation
 
