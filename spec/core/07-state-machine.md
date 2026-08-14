@@ -268,7 +268,7 @@ When loading a frozen/published document:
 
 ### 5.4 Failure Dispositions
 
-Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.1, 3.5, 4.2, 6.1, 9.1 and 9.3, Content Blocks sections 2.2, 7.1 and 8.1, Document Hashing sections 4.3.2 and 6.3, Anchors and References sections 3 and 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
+Validation can fail in many ways. This section defines, normatively and in one place, what a conformant reader does for each failure class, keyed by document state. It is the canonical reconciliation of the per-class rules stated throughout the specification (Container Format sections 3.1, 3.5, 4.2, 6.1, 9.1 and 9.3, Content Blocks sections 2.2, 5, 5.1, 7.1 and 8.1, Document Hashing sections 4.3.2 and 6.3, Anchors and References sections 3 and 7.2, Asset Embedding section 8, Provenance and Lineage sections 3.3 and 6.7, and the Security Extension sections 3.7 and 3.12); where a referenced section describes the *mechanism* of a check it remains authoritative for that mechanism, while the *disposition* — what the reader does when the check fails — is defined here.
 
 #### 5.4.1 Disposition Vocabulary
 
