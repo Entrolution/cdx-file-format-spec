@@ -1,0 +1,38 @@
+{
+  "description": "A `link` mark href `#p1/20-25` whose target block holds 13 code points of text, so the range runs off the end of the text it addresses. Anchors and References section 7.3 makes a position exceeding the target text a defect, and section 7.2 tabulates it at the same severities as a dangling anchor. The reference RESOLVES — this is not the dangling row — so a reader that checked only target existence reports nothing here.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:fa5bd8826995c7fdb8a04c652b9e2d9a6920fbf1ce9e3906b3da580ccc936921\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"Hello, world!\"}]},{\"type\":\"paragraph\",\"id\":\"p2\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#p1/20-25\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor Out Of Range\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

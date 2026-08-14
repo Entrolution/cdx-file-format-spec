@@ -1,0 +1,38 @@
+{
+  "description": "A `semantic:ref` block whose `target` `#p1/20-25` resolves to a block holding 13 code points, so the range runs off the end of the text it addresses. The same defect as `warn-anchor-position-out-of-range` in a DIFFERENT §5.4.2 row, and therefore under a different code: an out-of-range position is disposed of by the row of the FIELD carrying it, exactly as a dangling target in that field is (`warn-block-reference-dangling`). A reader emitting one out-of-range code across every reference field passes the core-anchor case and fails here — which matters because the rows diverge in the frozen column, contested for these fields on the reasoning CDX-E-BLOCK-REFERENCE-DANGLING records.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.2, 7.3, 11; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:9ba8fa85b8abb2d3e63ba8bcdf4e3314cd0d456051f9c40c1533f459c879445c\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"Hello, world!\"}]},{\"type\":\"semantic:ref\",\"target\":\"#p1/20-25\"}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Block Reference Out Of Range\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

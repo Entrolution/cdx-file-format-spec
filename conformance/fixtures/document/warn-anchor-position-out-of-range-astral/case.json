@@ -1,0 +1,38 @@
+{
+  "description": "The same defect where the unit of measurement is the whole question: the target block holds `a`, U+1F600, `b` — THREE code points but FOUR UTF-16 code units — and the anchor addresses `#p1/0-4`. Anchors and References section 3 fixes the unit as the Unicode scalar value, so this range exceeds the text; an implementation measuring `String.length` computes 4, finds the range in bounds, and reports nothing. That is the defect the anchor-offset vectors exist to catch, here at the document layer.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:2f2f2d8c1f9a2bd8207c502e3e7e5f01db820e1686cef0c4c86dc5d234531578\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\\ud83d\\ude00b\"}]},{\"type\":\"paragraph\",\"id\":\"p2\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#p1/0-4\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor Astral Out Of Range\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

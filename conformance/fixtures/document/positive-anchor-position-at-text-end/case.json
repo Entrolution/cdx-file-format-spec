@@ -1,0 +1,32 @@
+{
+  "description": "A range ending EXACTLY at the target block's text length (`#p1/0-3` over three code points), which selects through the final character. Anchors and References section 7.3 says a position MUST NOT EXCEED the length, so equality is valid — a reader using `>=` rather than `>` reports a spurious finding here. It shares its target block with the astral out-of-range case above, so the two together pin both the unit and the boundary. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5e5e9ffb229921762466a88f651f95b21ab87989911b3046e03c7ae27cd7ecc1\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"a\\ud83d\\ude00b\"}]},{\"type\":\"paragraph\",\"id\":\"p2\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#p1/0-3\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor At Text End\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

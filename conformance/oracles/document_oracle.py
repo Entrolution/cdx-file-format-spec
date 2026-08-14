@@ -592,6 +592,144 @@ def classify_content(data, cd):
     return out
 
 
+def _text_violation(s):
+    """The section 4.3.2 item-2 violation class of one string: "ill-formed" (an unpaired
+    surrogate) or "non-nfc", else None. Independently re-derived; shares no code with
+    canonicalize.ts storedTextViolation.
+
+    Well-formedness is tested first, and by a genuinely different mechanism than the
+    reference: CPython detects a lone surrogate by refusing to UTF-8 encode it, where the
+    reference scans code units. NFC is the one predicate the two implementations cannot
+    derive independently — both ask their runtime's Unicode tables — so the independence
+    here is that CPython's and V8's tables AGREE, not that the logic differs. A Unicode
+    version skew between them would surface as a fixture disagreement.
+    """
+    try:
+        s.encode("utf-8")
+    except UnicodeEncodeError:
+        return "ill-formed"
+    if unicodedata.normalize("NFC", s) != s:
+        return "non-nfc"
+    return None
+
+
+def _walk_text_violations(value, out, in_derived=False, in_text_marks=False):
+    """Record every section 4.3.2 item-2 violation class present in the HASHED material.
+
+    Scans object KEYS as well as string values, and each maximal run of two or more
+    adjacent text nodes as a CONCATENATION — a combining sequence split across a
+    text-node boundary leaves each node's own value in NFC while the run is not.
+
+    Scope is what canonicalization HASHES: section 5.4.2's rows and both codes bind a
+    "hashed object key or string value", and a field canon deletes (crdt, a measurement
+    display, a codeBlock tokens) is not hashed. Suppression stops at a TEXT NODE's marks,
+    which canon does not recurse into, so a derived field carried under such a mark
+    survives canonicalization and IS reported.
+    """
+    if isinstance(value, str):
+        if in_derived:
+            return
+        v = _text_violation(value)
+        if v:
+            out.add(v)
+    elif isinstance(value, list):
+        run, run_nodes = "", 0
+        for el in value:
+            if isinstance(el, dict) and el.get("type") == "text" and isinstance(el.get("value"), str):
+                run += el["value"]
+                run_nodes += 1
+            else:
+                if not in_derived and run_nodes >= 2 and unicodedata.normalize("NFC", run) != run:
+                    out.add("non-nfc")
+                run, run_nodes = "", 0
+            _walk_text_violations(el, out, in_derived, in_text_marks)
+        if not in_derived and run_nodes >= 2 and unicodedata.normalize("NFC", run) != run:
+            out.add("non-nfc")
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            if not in_derived:
+                kv = _text_violation(k)
+                if kv:
+                    out.add(kv)
+            _walk_text_violations(
+                v,
+                out,
+                in_derived or (not in_text_marks and _is_derived_field(value, k)),
+                in_text_marks or (k == "marks" and value.get("type") == "text"),
+            )
+
+
+def stored_text_violations(data, cd):
+    """The set of section 4.3.2 item-2 violation classes in the document's HASHED basis:
+    the whole content part, plus the five PROJECTED Dublin Core terms only.
+
+    Scoping the metadata half to the projected terms is deliberate — section 4.3.1 keeps
+    only title/description/creator/subject/language, so a non-NFC `terms.rights` never
+    enters the document id and must not reject the document.
+    """
+    out = set()
+    val = _content_value(data, cd)
+    if val is not None:
+        _walk_text_violations(val, out)
+    m = manifest_obj(data, cd)
+    meta = m.get("metadata") if isinstance(m, dict) else None
+    dc_path = meta.get("dublinCore") if isinstance(meta, dict) else None
+    if isinstance(dc_path, str):
+        text = part_text(data, cd_map(cd), dc_path)
+        if text is not None:
+            try:
+                dc = json.loads(text)
+            except json.JSONDecodeError:
+                dc = None
+            terms = dc.get("terms") if isinstance(dc, dict) else None
+            if isinstance(terms, dict):
+                for t in ("title", "description", "creator", "subject", "language"):
+                    if t in terms:
+                        _walk_text_violations(terms[t], out)
+    return out
+
+
+def content_root_malformed(data, cd):
+    """The content part parses but violates its root envelope (Content Blocks 2.2, 7.1):
+    not an object, or `version`/`blocks` absent or of the wrong JSON type.
+
+    Independently re-derived, sharing no code with content-classifier.ts checkContentRoot.
+    Note the guard in classify_content above is the reason this defect class matters: that
+    walk (and the reference implementation's, independently) descends only when `blocks` IS
+    a list, so a non-list `blocks` withdraws every content-level defect class at once.
+
+    The root is OPEN — an unrecognized extra member is NOT this defect — and the `version`
+    VALUE is not checked, only its type; a value-invalid version has no section 5.4.2 row.
+    Returns False when the part is absent or will not parse: those are other codes.
+
+    Parseability is re-derived here rather than read off _content_value, which returns None
+    for "absent", "unparseable" AND a content part of literal `null` — three states the
+    shared helper's callers do not need to tell apart but this one does, since a `null`
+    root IS this defect (the reference reports it; a None-means-absent reading would not).
+    """
+    m = manifest_obj(data, cd)
+    if m is None:
+        return False
+    c = m.get("content")
+    path = c.get("path") if isinstance(c, dict) else None
+    if not isinstance(path, str):
+        return False
+    text = part_text(data, cd_map(cd), path)
+    if text is None:
+        return False  # absent: CDX-E-CONTENT-PART-MISSING
+    try:
+        val = json.loads(text)
+    except json.JSONDecodeError:
+        return False  # CDX-E-CONTENT-PART-UNPARSEABLE
+    if not isinstance(val, dict):
+        return True
+    if not isinstance(val.get("version"), str):
+        return True
+    if not isinstance(val.get("blocks"), list):
+        return True
+    return False
+
+
 # --- B1b-3a "declared vs computed": file-hash + document-id recompute ----------
 # Independent (shared-nothing) confirmers for the §5.4.2 "File `hash` or document-ID
 # mismatch" row. The file-hash check re-hashes the stored content bytes with `hashlib`
@@ -1125,6 +1263,181 @@ def _content_reference_findings(data, cd):
     return out
 
 
+# --- B1b-3c-1a: anchor POSITION validity (03a sections 2.2, 3, 7.3) ------------
+# Independently re-derived. One genuine independence property worth naming: Python's
+# len() on a str counts CODE POINTS natively, where the reference must opt in with
+# Array.from — so the two implementations reach the same unit by different mechanisms,
+# and an implementation that silently reverted to UTF-16 units would disagree here.
+
+# ASCII digits and fullmatch, both deliberate — Python's regex defaults differ from the
+# ECMA-262 semantics the schema's `contentAnchorUri` pattern is written in, and each default
+# makes this oracle ACCEPT a suffix the reference rejects:
+#   * `\d` on a str matches every Unicode decimal digit, so `#p1/0-٥` parses here (int('٥')
+#     is 5) while JS `\d` and the schema's literal [0-9] reject it;
+#   * `$` matches before a trailing newline, so `#p1/0-99\n` parses here and not there.
+# Either way the oracle would "independently confirm" an out-of-range finding on a document
+# the reference reports as structurally invalid — the shared-nothing check confirming a
+# defect that is not there. `re.fullmatch` and an explicit [0-9] remove both.
+_URI_POINT = re.compile(r"([0-9]+)")
+_URI_RANGE = re.compile(r"([0-9]+)-([0-9]+)")
+
+
+def _uri_position(value):
+    """The position component of a Content Anchor URI: None, ('point', n), ('range', a, b),
+    or ('bad', raw) for a suffix the URI grammar does not admit."""
+    if not isinstance(value, str) or "/" not in value:
+        return None
+    raw = value.split("/", 1)[1]
+    m = _URI_POINT.fullmatch(raw)
+    if m:
+        return ("point", int(m.group(1)))
+    m = _URI_RANGE.fullmatch(raw)
+    if m:
+        return ("range", int(m.group(1)), int(m.group(2)))
+    return ("bad", raw)
+
+
+def _object_position(anchor):
+    """The position a ContentAnchor OBJECT expresses (03a section 2.2's combination rule)."""
+    has = lambda k: anchor.get(k) is not None or k in anchor  # noqa: E731
+    ho, hs, he = has("offset"), has("start"), has("end")
+    if not (ho or hs or he):
+        return None
+    if ho and (hs or he):
+        return ("bad", "offset alongside start/end")
+    if hs != he:
+        return ("bad", "half range")
+    # A JSON Schema "integer" accepts 1.0 and 1e0, which Python's json parses as float while
+    # the reference's Number.isInteger accepts. Rejecting a float outright made this oracle
+    # stricter than both the schema and the reference, so it refused a conformant anchor —
+    # invisible to the obvious probe, since JSON.stringify writes 1.0 back out as 1 and only
+    # hand-written bytes reach the case.
+    def ok_int(v):
+        if isinstance(v, bool):
+            return False
+        if isinstance(v, int):
+            return v >= 0
+        return isinstance(v, float) and v.is_integer() and v >= 0
+    if ho:
+        return ("point", anchor["offset"]) if ok_int(anchor.get("offset")) else ("bad", "offset")
+    if ok_int(anchor.get("start")) and ok_int(anchor.get("end")):
+        return ("range", anchor["start"], anchor["end"])
+    return ("bad", "start/end")
+
+
+# SYNC: transcribed from content.schema.json's block dispatch — the block types whose
+# `children.items` are textNode. The reference derives this from the schema; the oracle
+# re-encodes it by hand, as it does BLOCK_TYPES and KNOWN_MARKS, for the same
+# shared-nothing reason. Matches 03a section 3's own enumeration: "paragraph, heading,
+# figcaption, definitionTerm, and codeBlock".
+#
+# `codeBlock` reaches textNode through an allOf that narrows it (section 4: exactly one
+# marks-free text node), not through a direct $ref. Both implementations dropped it at first
+# — the reference by matching only a direct $ref, this file by copying that result rather
+# than section 3 — which reported a conformant anchor into a code block as targeting a
+# non-text-bearing block. Transcribe from the SPECIFICATION here, never from the reference's
+# output, or the shared-nothing check confirms the reference's own mistake.
+TEXT_BEARING_TYPES = {"codeBlock", "definitionTerm", "figcaption", "heading", "paragraph"}
+
+
+def _anchor_targets(content):
+    """id -> ('anchor-mark', 0) | ('text-bearing', code_point_length) | ('other', 0).
+
+    Mirrors 03a section 3: a block's text content is the concatenation of its text-node
+    children, and only a block whose children ARE text nodes has text content of its own.
+    """
+    targets = {}
+
+    def visit(node, in_marks, in_array, parent_key):
+        nid = _defined_id(node, in_marks, in_array, parent_key)
+        if nid is None or nid in targets:
+            return
+        if in_marks:
+            targets[nid] = ("anchor-mark", 0)
+            return
+        kids = node.get("children")
+        # Text-bearing is decided by BOTH type and child shape. Shape alone cannot
+        # separate an empty paragraph from an empty blockquote — they are structurally
+        # identical and differ only in `type` — so a purely structural test would call an
+        # empty container text-bearing and accept a position against it (03a section 3).
+        if node.get("type") in TEXT_BEARING_TYPES and isinstance(kids, list) and all(
+            isinstance(k, dict) and k.get("type") == "text" and isinstance(k.get("value"), str) for k in kids
+        ):
+            targets[nid] = ("text-bearing", len("".join(k["value"] for k in kids)))
+        else:
+            targets[nid] = ("other", 0)
+
+    _walk_content(content, visit)
+    return targets
+
+
+def _position_verdict(pos, target):
+    """'invalid' | 'out-of-range' | None for one position against its target."""
+    if pos is None:
+        return None
+    if pos[0] == "bad":
+        return "invalid"
+    if pos[0] == "range" and not pos[1] < pos[2]:
+        return "invalid"
+    if target is None:
+        return None  # unresolved: the dangling row owns it
+    kind, length = target
+    if kind in ("anchor-mark", "other"):
+        return "invalid"
+    largest = pos[1] if pos[0] == "point" else pos[2]
+    return "out-of-range" if largest > length else None
+
+
+def _anchor_position_findings(data, cd):
+    """Anchor-position findings in the HASHED content, TAGGED BY 5.4.2 ROW.
+
+    Yields 'invalid' and/or 'out-of-range:<row>' for row in {anchor, block, xref} — the
+    same three rows the dangling arm above splits across, and derived here from the same
+    two tables, because a position defect takes the row of the FIELD carrying it. The
+    out-of-range rows disagree on the frozen/published column (the core-anchor row
+    escalates; the cross-reference row is WARNING in every state), so an oracle returning
+    one undifferentiated 'out-of-range' would confirm any of the three codes for any of
+    the fields and could not catch a reader that routed them to the wrong row.
+
+    The STRUCTURAL arm stays untagged, matching the single CDX-E-ANCHOR-POSITION-INVALID:
+    its disposition is null in every row, so no row distinction is expressible.
+    """
+    content = _content_value(data, cd)
+    out = set()
+    if content is None:
+        return out
+    targets = _anchor_targets(content)
+
+    def check(value, row):
+        if not isinstance(value, str) or not value.startswith("#"):
+            return
+        v = _position_verdict(_uri_position(value), targets.get(_anchor_target(value)))
+        if v == "out-of-range":
+            out.add(f"out-of-range:{row}")
+        elif v:
+            out.add(v)
+
+    def visit(node, in_marks, in_array, parent_key):
+        t = node.get("type")
+        if not isinstance(t, str):
+            return
+        if in_marks:
+            spec = _MARK_REFS.get(t)
+            if spec:
+                check(node.get(spec[0]), spec[1])
+            return
+        spec = _BLOCK_REFS.get(t)
+        if spec is None:
+            return
+        field, many = spec
+        values = node.get(field) if many and isinstance(node.get(field), list) else [node.get(field)]
+        for v in values:
+            check(v, "block")
+
+    _walk_content(content, visit)
+    return out
+
+
 # Out-of-hash annotation parts, and the anchor positions their schemas DECLARE. A
 # generic sweep would be wrong: phantoms embed a full content tree and collaboration
 # change records carry verbatim before/after block snapshots naming removed content.
@@ -1185,6 +1498,40 @@ def _annotation_paths(data, cd):
         if isinstance(ref, str):
             paths.add(ref)
     return paths
+
+
+def annotation_anchor_position_invalid(data, cd):
+    """An out-of-hash annotation anchor carries a defective position — structurally
+    invalid OR out of bounds. ONE class out of hash, where hashed content splits the two:
+    both take the same section 5.4.2 row in both columns, so the split would record a
+    distinction the specification does not make."""
+    content = _content_value(data, cd)
+    if content is None:
+        return False
+    targets = _anchor_targets(content)
+    cdm = cd_map(cd)
+    for path in sorted(_annotation_paths(data, cd)):
+        text = part_text(data, cdm, path)
+        if text is None:
+            continue
+        try:
+            part = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(part, dict):
+            continue
+        for array, anchor_field, _block_id_spec in _ANNOTATION_ANCHORS:
+            for element in part.get(array) or []:
+                if not isinstance(element, dict):
+                    continue
+                anchor = element.get(anchor_field)
+                if isinstance(anchor, dict) and isinstance(anchor.get("blockId"), str):
+                    if _position_verdict(_object_position(anchor), targets.get(anchor["blockId"])):
+                        return True
+                elif isinstance(anchor, str) and anchor.startswith("#"):
+                    if _position_verdict(_uri_position(anchor), targets.get(_anchor_target(anchor))):
+                        return True
+    return False
 
 
 def annotation_anchor_dangling(data, cd):
@@ -1823,6 +2170,9 @@ def _footnote_findings(data, cd):
 CONFIRMERS = {
     "CDX-E-FOOTNOTE-REFERENCE-DANGLING": lambda data, cd: "dangling" in _footnote_findings(data, cd),
     "CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS": lambda data, cd: "ambiguous" in _footnote_findings(data, cd),
+    "CDX-E-CONTENT-ROOT-MALFORMED": content_root_malformed,
+    "CDX-E-PART-STRING-NOT-NFC": lambda data, cd: "non-nfc" in stored_text_violations(data, cd),
+    "CDX-E-PART-STRING-ILL-FORMED": lambda data, cd: "ill-formed" in stored_text_violations(data, cd),
     "CDX-E-PART-DUPLICATE-KEYS": any_part_has_duplicate_key,
     "CDX-E-PART-MISSING-BOUND": part_missing_bound,
     "CDX-E-ASSET-INDEX-UNUSABLE": asset_index_unusable,
@@ -1849,6 +2199,10 @@ CONFIRMERS = {
     "CDX-E-BLOCK-REFERENCE-DANGLING": lambda data, cd: "block" in _content_reference_findings(data, cd),
     "CDX-E-CROSS-REFERENCE-DANGLING": lambda data, cd: "xref" in _content_reference_findings(data, cd),
     "CDX-E-ID-COLLISION": lambda data, cd: "collision" in _content_reference_findings(data, cd),
+    "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE": lambda data, cd: "out-of-range:anchor" in _anchor_position_findings(data, cd),
+    "CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE": lambda data, cd: "out-of-range:block" in _anchor_position_findings(data, cd),
+    "CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE": lambda data, cd: "out-of-range:xref" in _anchor_position_findings(data, cd),
+    "CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID": annotation_anchor_position_invalid,
     "CDX-E-BLOCK-TYPE-UNKNOWN-BARE": lambda data, cd: "block_bare" in classify_content(data, cd),
     "CDX-E-BLOCK-TYPE-UNKNOWN-NAMESPACED": lambda data, cd: "block_ns" in classify_content(data, cd),
     "CDX-E-BLOCK-MALFORMED": lambda data, cd: "block_malformed" in classify_content(data, cd),
@@ -1911,6 +2265,30 @@ def confirm_clean(name, data):
             text = part_text(data, {e["name"]: e}, e["name"])
             if text is not None and has_duplicate_key(text):
                 return f"clean case part {e['name']} has a duplicate key"
+    # B1b-3c-1a: a genuinely clean fixture's content root must satisfy its envelope.
+    # This arm is not optional and is checked BEFORE the classifier below: classify_content
+    # descends only when `blocks` is a list, so a clean fixture whose envelope silently
+    # broke would report no classifier findings and be confirmed loadable — the walk going
+    # quiet is indistinguishable from the walk finding nothing.
+    if content_root_malformed(data, cd):
+        return "clean case content root violates its envelope (not an object, or version/blocks absent or mistyped)"
+    # B1b-3c-1a: a genuinely clean fixture's hashed basis must satisfy section 4.3.2's
+    # stored-byte TEXT invariants in every state, so a clean case carrying one is not
+    # clean. Without this arm the astral positive control would have NO independent
+    # confirmation: it exists to prove a well-formed surrogate PAIR is accepted, and a
+    # reader that silently stopped checking well-formedness would still pass it.
+    text_violations = stored_text_violations(data, cd)
+    if text_violations:
+        return f"clean case hashed basis violates the stored-byte text invariants: {sorted(text_violations)}"
+    # B1b-3c-1a: a clean fixture's anchor positions must be valid and in bounds. Without
+    # this arm the two positive controls (an in-bounds range, and one ending exactly at
+    # the text length) would have NO independent confirmation — both exist to prove a
+    # check does NOT fire, which a reader that stopped checking entirely also satisfies.
+    position_findings = _anchor_position_findings(data, cd)
+    if position_findings:
+        return f"clean case content has anchor-position finding(s): {sorted(position_findings)}"
+    if annotation_anchor_position_invalid(data, cd):
+        return "clean case out-of-hash annotation anchor carries a defective position"
     # B1b-2: a genuinely clean fixture's content tree must carry no unknown/malformed
     # block or mark — otherwise it would not be CLEAN. Independently re-derive.
     findings = classify_content(data, cd)

@@ -1,0 +1,36 @@
+{
+  "description": "A CLEAN out-of-hash annotation whose `offset` is written `1.0` in the stored bytes. JSON Schema `integer` accepts an integral float and `contentAnchor` declares these fields that way, so this is a conformant anchor at offset 1 into a five-code-point block. The control for an over-strict integrality test: an implementation rejecting any non-`int` runtime type reports a defect here on a conformant document. It is invisible to an obvious probe, since a JSON serializer writes `1.0` back out as `1` — only hand-written bytes reach the case, which is why it needs a fixture rather than a generated one. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References section 2.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:3e33d6d0dae9648aaf1598d3bef37281c04197096743f973ce2194d54e5c6111\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"short\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Annotation Anchor Integral Float\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "security/annotations.json",
+        "text": "{\"version\":\"0.1\",\"annotations\":[{\"id\":\"a1\",\"type\":\"comment\",\"anchor\":{\"blockId\":\"p1\",\"offset\":1.0},\"author\":{\"name\":\"A\"},\"created\":\"2025-01-10T08:00:00Z\",\"content\":\"ok\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

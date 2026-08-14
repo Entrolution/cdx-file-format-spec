@@ -1,0 +1,38 @@
+{
+  "description": "The only target in the corpus whose text spans MORE THAN ONE text node: `p1` holds `abc` and `def`, so Anchors & References section 3's concatenation gives six code points and the range `#p1/0-7` runs off the end. Section 3 defines a block's text content as the concatenation of its text-node children, with nothing inserted between them — an implementation joining on a separator computes seven, finds the range in bounds, and reports nothing. Every other positional fixture has a single-text-node target, where concatenation is unobservable, so this case is what makes the model testable at all.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:80f9cc25ef359e5fbfc86771a24196b7d898342393843b2e69b427991e09ac63\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"abc\"},{\"type\":\"text\",\"value\":\"def\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#p1/0-7\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor Multi Text Node Target\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

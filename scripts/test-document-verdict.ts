@@ -39,7 +39,7 @@ import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
-import { canonicalContent } from './lib/canonicalize.js';
+import { canonicalContent, collectStoredTextViolations } from './lib/canonicalize.js';
 
 let passed = 0;
 let failed = 0;
@@ -720,6 +720,395 @@ test('footnote: the raw walk erases what canon erases — a crdt-nested block is
   assert.ok(
     codes.has('CDX-E-FOOTNOTE-REFERENCE-DANGLING'),
     'the mark must be dangling: its only candidate block exists solely in stripped crdt state',
+  );
+});
+
+
+// --- B1b-3c-1a: anchor POSITION validity ------------------------------------
+//
+// These live here rather than in the fixture corpus because the comparator cannot
+// express them. CDX-E-ANCHOR-POSITION-INVALID carries `disposition: null` (§5.4.2
+// assigns it no row), and `compareFixtureVerdict` requires every expected finding to
+// carry a disposition interval — no fixture in the published corpus asserts any of the
+// null-disposition codes. The must-NOT-report properties below are unassertable there
+// for the separate reason that the findings check is a SUBSET check.
+
+/** A one-block-plus-reference document whose content is `blocks`. */
+function anchorDoc(blocks: unknown[]): ZipEntryRecipe[] {
+  const content = JSON.stringify({ version: '0.1', blocks });
+  const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+  return [
+    { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+    { name: 'content/document.json', text: content },
+    { name: 'metadata/dublin-core.json', text: DC },
+  ];
+}
+
+const para = (id: string | undefined, text: string, marks?: unknown[]): unknown => ({
+  type: 'paragraph',
+  ...(id ? { id } : {}),
+  children: [{ type: 'text', value: text, ...(marks ? { marks } : {}) }],
+});
+const linkPara = (href: string): unknown => para(undefined, 'see', [{ type: 'link', href }]);
+
+test('an inverted range reports POSITION-INVALID', () => {
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#p1/10-5')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'start not less than end is a structural defect');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'an inverted range is invalid, not out of range');
+});
+
+test('a URI suffix that is neither an offset nor a range reports POSITION-INVALID', () => {
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#p1/x')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'the URI grammar admits only #id, #id/n and #id/n-m');
+});
+
+test('a position on a named-anchor target reports POSITION-INVALID', () => {
+  // 03a §2.2: a named anchor already denotes a position, so it MUST NOT carry one.
+  const anchored = { type: 'paragraph', children: [{ type: 'text', value: 'key', marks: [{ type: 'anchor', id: 'a1' }] }] };
+  const codes = codesFor(anchorDoc([anchored, linkPara('#a1/0-2')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'a position on an anchor mark is invalid');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'an anchor mark has no text, so nothing is OUT of range');
+});
+
+test('a position on a non-text-bearing block reports POSITION-INVALID, not out-of-range', () => {
+  // 03a §3: a character-offset anchor MUST target a text-bearing block. A container has
+  // no text content of its own, so this is a different defect from exceeding a length —
+  // and offset 0, which no length bound would reject, is still invalid.
+  const list = { type: 'list', id: 'l1', ordered: false, children: [{ type: 'listItem', children: [para(undefined, 'x')] }] };
+  const codes = codesFor(anchorDoc([list, linkPara('#l1/0')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'a container block has no text content to address');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'a container must not be reported as a zero-length text block');
+});
+
+test('a dangling target with a malformed position reports BOTH, and not out-of-range', () => {
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#gone/10-5')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-DANGLING'), 'the target resolves to nothing');
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'the position is malformed whether or not the target exists');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'with no target there is no length to exceed');
+});
+
+test('a dangling target with a well-formed position reports only the dangle', () => {
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#gone/0-2')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-DANGLING'), 'the target resolves to nothing');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'a well-formed position on an absent target is not itself a defect');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'nothing to bound-check against');
+});
+
+test('a block-level anchor with no position is never a position defect', () => {
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#p1')]));
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'no position, no position defect');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'no position, no position defect');
+});
+
+test('an empty text-bearing block is length 0, not "no text content"', () => {
+  // A paragraph with `children: []` is text-bearing and legitimately empty, so offset 0
+  // is in bounds while offset 1 exceeds it. A model that treated it as non-text-bearing
+  // would report the first as invalid.
+  const empty = { type: 'paragraph', id: 'e1', children: [] };
+  const ok = codesFor(anchorDoc([empty, linkPara('#e1/0')]));
+  assert.ok(!ok.has('CDX-E-ANCHOR-POSITION-INVALID') && !ok.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'offset 0 into an empty block is in bounds');
+  const over = codesFor(anchorDoc([empty, linkPara('#e1/1')]));
+  assert.ok(over.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'offset 1 exceeds a zero-length block');
+});
+
+// --- B1b-3c-1a: exact range bounds, and §3's concatenation model -------------
+
+test('a range whose bounds exceed 2^53 is ordered exactly, not by double', () => {
+  // Two DISTINCT integers that round to the same double. Deciding `start < end` after
+  // conversion finds them equal and takes the structural arm, reporting a null-disposition
+  // finding in place of the WARNING §7.2 tabulates. Pinned here as well as by the fixture
+  // because only a unit test can assert the INVALID code is absent.
+  const codes = codesFor(anchorDoc([para('p1', 'short'), linkPara('#p1/9007199254740992-9007199254740993')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'the range is well-ordered and exceeds a 5-code-point block');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'start IS less than end; a double comparison is what makes them look equal');
+});
+
+test('a genuinely inverted range above 2^53 is still INVALID', () => {
+  // The mirror case, so the fix cannot be "never report inverted above 2^53".
+  const codes = codesFor(anchorDoc([para('p1', 'short'), linkPara('#p1/9007199254740993-9007199254740992')]));
+  assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'start greater than end is inverted at any magnitude');
+});
+
+test('leading zeros compare by magnitude, not by digit count', () => {
+  // `[0-9]+` admits `007`, so a length-first comparison of the raw digit strings calls this
+  // inverted and reports a conformant anchor. `Number()` got this case right, and the
+  // exact-comparison fix must not regress it.
+  const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), linkPara('#p1/007-10')]));
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-INVALID'), '007 is 7, which is less than 10');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), '7 to 10 is inside a 13-code-point block');
+});
+
+test('an in-bounds anchor into a codeBlock is clean', () => {
+  // The positive control the corpus fixture cannot express: it pins that the out-of-bounds
+  // case WARNs, and a subset check cannot also assert that the in-bounds case reports
+  // nothing. Both halves are needed — an implementation that dropped `codeBlock` from the
+  // text-bearing set failed them in opposite directions, reporting a defect here and the
+  // WRONG code there.
+  const code = { type: 'codeBlock', id: 'code1', children: [{ type: 'text', value: 'const x = 1;' }] };
+  const codes = codesFor(anchorDoc([code, linkPara('#code1/0-5')]));
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'a codeBlock is text-bearing (§3), so it has text to address');
+  assert.ok(!codes.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), '0-5 is inside 12 code points');
+});
+
+test("a block's text content is its text nodes concatenated with nothing between them", () => {
+  // §3. The corpus fixture pins the out-of-range side; this pins the exact length from both
+  // directions, which is what rules out every separator AND any off-by-one: `abc` + `def` is
+  // six code points, so 0-6 is in bounds and 0-7 is not. With a single-text-node target —
+  // every other positional case — the concatenation model is unobservable.
+  const target = { type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 'abc' }, { type: 'text', value: 'def' }] };
+  const atEnd = codesFor(anchorDoc([target, linkPara('#p1/0-6')]));
+  assert.ok(!atEnd.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'six code points, so a range ending at 6 is in bounds');
+  const over = codesFor(anchorDoc([target, linkPara('#p1/0-7')]));
+  assert.ok(over.has('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'), 'a separator between the nodes would make this fit');
+});
+
+// --- B1b-3c-1a: which §5.4.2 row an out-of-range position takes --------------
+//
+// An out-of-range position is disposed of by the row of the FIELD carrying it, so the
+// arm has three codes — and the three rows disagree about the frozen/published column,
+// which an append-only vocabulary cannot separate after publication. Every reference
+// field is asserted, not a sample: the defect this guards against is one field routed
+// to the wrong row, which is invisible in any test that checks only the fields it
+// happens to name. Two fixtures cover the `link` and `semantic:ref` cases end to end;
+// these cover all eight, including `academic:theorem` `uses[]`, the only `many` path.
+//
+// Each case asserts the OTHER two codes are absent as well. A reader emitting all three
+// would satisfy a presence-only assertion while publishing three dispositions for one
+// defect — and the fixture comparator, a subset check, cannot catch that either.
+
+const OUT_OF_RANGE_ROWS: { label: string; node: unknown; code: string }[] = [
+  { label: 'link href', node: linkPara('#p1/20-25'), code: 'CDX-E-ANCHOR-POSITION-OUT-OF-RANGE' },
+  { label: 'academic:theorem-ref target', node: para(undefined, 'see', [{ type: 'academic:theorem-ref', target: '#p1/20-25' }]), code: 'CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'academic:equation-ref target', node: para(undefined, 'see', [{ type: 'academic:equation-ref', target: '#p1/20-25' }]), code: 'CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'academic:algorithm-ref target', node: para(undefined, 'see', [{ type: 'academic:algorithm-ref', target: '#p1/20-25' }]), code: 'CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'academic:proof of', node: { type: 'academic:proof', of: '#p1/20-25' }, code: 'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'academic:theorem uses[]', node: { type: 'academic:theorem', uses: ['#p1/20-25'] }, code: 'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'semantic:ref target', node: { type: 'semantic:ref', target: '#p1/20-25' }, code: 'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE' },
+  { label: 'presentation:reference target', node: { type: 'presentation:reference', target: '#p1/20-25' }, code: 'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE' },
+];
+
+const ALL_OUT_OF_RANGE_CODES = [
+  'CDX-E-ANCHOR-POSITION-OUT-OF-RANGE',
+  'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE',
+  'CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE',
+];
+
+for (const row of OUT_OF_RANGE_ROWS) {
+  test(`an out-of-range position on ${row.label} takes its own §5.4.2 row`, () => {
+    const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), row.node]));
+    assert.ok(codes.has(row.code), `${row.label} should report ${row.code}`);
+    for (const other of ALL_OUT_OF_RANGE_CODES) {
+      if (other === row.code) continue;
+      assert.ok(!codes.has(other), `${row.label} must not also report ${other} — one defect, one row`);
+    }
+  });
+}
+
+test('the STRUCTURAL position arm does not split by row', () => {
+  // CDX-E-ANCHOR-POSITION-INVALID's disposition is null in every row, so there is no
+  // frozen-column divergence to keep separable and nothing for a split to record. This
+  // pins the asymmetry with the out-of-range arm above: a future reader "completing" the
+  // split would publish three codes for one absence of a rule.
+  for (const field of [
+    { type: 'semantic:ref', target: '#p1/10-5' },
+    para(undefined, 'see', [{ type: 'academic:theorem-ref', target: '#p1/10-5' }]),
+  ]) {
+    const codes = codesFor(anchorDoc([para('p1', 'Hello, world!'), field]));
+    assert.ok(codes.has('CDX-E-ANCHOR-POSITION-INVALID'), 'every row shares the structural code');
+    for (const other of ALL_OUT_OF_RANGE_CODES) {
+      assert.ok(!codes.has(other), `an inverted range is invalid, not out of range (${other})`);
+    }
+  }
+});
+
+// --- B1b-3c-1a: stored-byte text scope --------------------------------------
+
+test('a non-NFC NON-projected Dublin Core term is not reported', () => {
+  // §4.3.1 projects only title/description/creator/subject/language, so `rights` never
+  // enters the document ID. Reporting it would reject a document over bytes the identity
+  // does not depend on.
+  const dc = JSON.stringify({ version: '1.1', terms: { title: 'T', creator: 'A. Author', rights: 'cafe\u0301' } });
+  const content = '{"version":"0.1","blocks":[]}';
+  const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+  const codes = codesFor([
+    { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+    { name: 'content/document.json', text: content },
+    { name: 'metadata/dublin-core.json', text: dc },
+  ]);
+  assert.ok(!codes.has('CDX-E-PART-STRING-NOT-NFC'), 'a non-projected term is not part of the hashed basis');
+});
+
+test('a non-NFC PROJECTED Dublin Core term IS reported', () => {
+  const dc = JSON.stringify({ version: '1.1', terms: { title: 'cafe\u0301', creator: 'A. Author' } });
+  const content = '{"version":"0.1","blocks":[]}';
+  const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+  const codes = codesFor([
+    { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+    { name: 'content/document.json', text: content },
+    { name: 'metadata/dublin-core.json', text: dc },
+  ]);
+  assert.ok(codes.has('CDX-E-PART-STRING-NOT-NFC'), '`title` projects into the document ID');
+});
+
+// The three absence/presence properties the fixture comparator cannot express: it is a
+// SUBSET check, so "this document reports NOTHING" is unassertable there. Each pairs the
+// scan against `canonicalContent`, because the scan's scope claim is a claim ABOUT canon —
+// asserting only the scan would pass under a wrong model of what canon deletes.
+
+test('a split run inside a `crdt` on a BLOCK is silent, and canon accepts it', () => {
+  // §4.3.1 item 1 deletes `crdt`, so the run is not hashed and the split-view harm cannot
+  // reach it. Both directions asserted: a scan that reported it would REJECT a document the
+  // canonicalizer accepts, which is a false reject in every state on real collaborative
+  // content.
+  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","crdt":{"kids":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}]},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(doc)), null, 'a deleted field is not hashed material');
+  assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon deletes it before validating');
+});
+
+test("a split run inside a `crdt` under a TEXT NODE's `marks` IS reported", () => {
+  // The carve-out, and the case that kills a gate keyed on the field NAME alone: canon does
+  // not recurse into a text node's `marks`, so this `crdt` SURVIVES, is hashed, and canon
+  // throws. Suppressing it by name would go silent on a document canon rejects — the
+  // completeness property broken in the direction that matters.
+  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"v","marks":[{"type":"anchor","id":"a","crdt":{"kids":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}]}}]}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(doc))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'a derived field under a text node\'s marks is still hashed');
+  assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon throws on it');
+});
+
+test('a split run in a `figure` `caption` rich array IS reported', () => {
+  // A rich array that is not a block's `children`, so it pins that the run rule follows
+  // hashed text rather than one field name. Canon reaches the same verdict by a DIFFERENT
+  // arm — it merges the two adjacent text nodes (equal marks) and the per-STRING check fires
+  // on the merged value — so the two implementations agree on the reject without agreeing on
+  // the route, which is why the scan cannot be derived from canon's message.
+  const doc = '{"version":"0.1","blocks":[{"type":"figure","caption":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}],"children":[]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(doc))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'a caption is hashed text');
+  assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon throws, via its merge arm');
+});
+
+test('the derived text-bearing set contains every block §3 names, and no container', () => {
+  // TWO ONE-SIDED ASSERTIONS, NOT AN EQUALITY, and the difference is the point. §3 defines a
+  // text-bearing block as "a block whose `children` are text nodes" and then illustrates it —
+  // "(SUCH AS `paragraph`, `heading`, `figcaption`, `definitionTerm`, and `codeBlock`)". The
+  // children test is the definition; the list is examples. So the specification supports only
+  // a superset relation, and an equality assertion would FAIL ON A CORRECT WIDENING — whereupon
+  // the cheapest way to green is to narrow the derivation back, re-creating the very defect
+  // this exists to catch. An earlier version of this test did assert equality, and it did so
+  // having just been written to catch `codeBlock` going missing.
+  //
+  // The lower bound catches a derivation that drops a type: `codeBlock` reaches `textNode`
+  // through an `allOf` that narrows it (§4: exactly one marks-free text node), so a derivation
+  // following only direct references dropped it, reported a conformant anchor into source code
+  // as targeting a non-text-bearing block, and downgraded an out-of-bounds one to the
+  // null-disposition code.
+  //
+  // The upper bound catches the opposite error, which is what a widening fix risks: §3 is
+  // explicit that "a container block whose children are other blocks (`list`, `listItem`,
+  // `blockquote`, `table`, and the like) has no text content of its own", so a derivation that
+  // swept one in would accept a character offset against a block that has no text.
+  //
+  // Neither bound is redundant with the throw-on-empty guard, which a partial refactor passes
+  // with a non-empty WRONG set. MEASURED: dropping `figcaption` leaves the WHOLE corpus green —
+  // every conformance check and every oracle confirmation — because no fixture anchors into one
+  // and a wrong set only produces CDX-E-ANCHOR-POSITION-INVALID, whose null disposition is
+  // invisible in both comparator dimensions (the findings check is a subset, and nulls are
+  // filtered from the disposition MAX). Only this assertion fails.
+  const derived = deriveContentVocabulary().textBearingTypes;
+  for (const named of ['paragraph', 'heading', 'figcaption', 'definitionTerm', 'codeBlock']) {
+    assert.ok(derived.has(named), `§3 names \`${named}\` text-bearing, so the derivation must include it`);
+  }
+  for (const container of ['blockquote', 'list', 'listItem', 'table', 'tableCell', 'admonition', 'definitionDescription']) {
+    assert.ok(!derived.has(container), `§3: a container block has no text content of its own, so \`${container}\` must not be derived`);
+  }
+});
+
+// --- B1b-3c-1a: the out-of-hash position arm (§2.2's combination rule) -------
+//
+// `contentAnchorPosition` is reachable only through an annotation layer — the object form is
+// the one that can express `offset` alongside `start`/`end`, a half range, and a negative or
+// fractional bound, none of which the URI grammar admits.
+//
+// Four of the five structural guards are killed by deleting them (verified). The HALF-RANGE
+// guard is not, and that is a property of the code rather than a gap here: a half range falls
+// through to the numeric guard, which reports the same code because the absent half is not a
+// number. It survives as a diagnostic, and `contentAnchorPosition` says so at the line itself.
+
+/** A document whose content is one 1-code-point block `p1`, plus an annotation anchored at it. */
+function annotationDoc(anchor: unknown): ZipEntryRecipe[] {
+  const content = '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"x"}]}]}';
+  const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+  const annotation = { id: 'a1', type: 'comment', anchor, author: { name: 'A' }, created: '2025-01-10T08:00:00Z', content: 'ok' };
+  return [
+    { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+    { name: 'content/document.json', text: content },
+    { name: 'metadata/dublin-core.json', text: DC },
+    { name: 'security/annotations.json', text: JSON.stringify({ version: '0.1', annotations: [annotation] }) },
+  ];
+}
+
+const POSITION_DEFECTIVE = 'CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID';
+
+for (const c of [
+  { label: '`offset` alongside `start`/`end`', anchor: { blockId: 'p1', offset: 0, start: 0, end: 1 } },
+  { label: 'a half range (`start` without `end`)', anchor: { blockId: 'p1', start: 0 } },
+  { label: 'a half range (`end` without `start`)', anchor: { blockId: 'p1', end: 1 } },
+  { label: 'a negative `offset`', anchor: { blockId: 'p1', offset: -1 } },
+  { label: 'a fractional `offset`', anchor: { blockId: 'p1', offset: 0.5 } },
+  { label: 'a fractional range bound', anchor: { blockId: 'p1', start: 0, end: 1.5 } },
+  { label: 'a negative range bound', anchor: { blockId: 'p1', start: -1, end: 1 } },
+]) {
+  test(`an annotation anchor with ${c.label} is reported`, () => {
+    const codes = codesFor(annotationDoc(c.anchor));
+    assert.ok(codes.has(POSITION_DEFECTIVE), `${c.label} violates §2.2's combination rule`);
+    assert.ok(!codes.has('CDX-E-ANNOTATION-ANCHOR-DANGLING'), 'the target block exists; only the position is at fault');
+  });
+}
+
+test('a present-but-null position field is a defect, not an absent one', () => {
+  // Pins `!== undefined` rather than a loose null check: reading `{offset: null}` as "no
+  // position" makes a malformed anchor silently block-level, which is the wrong direction —
+  // a reader would place the annotation on the whole block rather than report it.
+  const codes = codesFor(annotationDoc({ blockId: 'p1', offset: null }));
+  assert.ok(codes.has(POSITION_DEFECTIVE), 'a null offset is present and not an integer');
+});
+
+test('an annotation anchor with no position at all is clean', () => {
+  // The positive control for all of the above: block-level anchoring is the declared common
+  // case, and a reader reporting every annotation would fail here.
+  const codes = codesFor(annotationDoc({ blockId: 'p1' }));
+  assert.ok(!codes.has(POSITION_DEFECTIVE), 'no position fields is the block-level form §2.2 permits');
+  assert.ok(!codes.has('CDX-E-ANNOTATION-ANCHOR-DANGLING'), 'and the target resolves');
+});
+
+test('an annotation anchor in URI form has its position checked too', () => {
+  // The object form is what the schemas declare, so the string form is the arm most likely to
+  // rot unnoticed. A layer writing `#p1/20-25` has the same stale anchor as one writing
+  // `{blockId, start, end}`, and `p1` holds one code point.
+  const codes = codesFor(annotationDoc('#p1/20-25'));
+  assert.ok(codes.has(POSITION_DEFECTIVE), 'the URI spelling points past the end of the same block');
+});
+
+test('an annotation anchor in URI form with no position is clean', () => {
+  const codes = codesFor(annotationDoc('#p1'));
+  assert.ok(!codes.has(POSITION_DEFECTIVE), 'no position, no position defect');
+  assert.ok(!codes.has('CDX-E-ANNOTATION-ANCHOR-DANGLING'), 'and the target resolves');
+});
+
+test('the stored-text scan agrees with the canonicalizer it shares a predicate with', () => {
+  // Differential, not a restatement: the scan walks the RAW part while canonicalization
+  // validates the transformed one, so they agree only because the predicate is shared and
+  // the raw scope is a superset. A conformant document must satisfy both.
+  const clean = '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"a\\ud83d\\ude00b"}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(clean)), null, 'the scan accepts it');
+  assert.doesNotThrow(
+    () => canonicalContent({ manifest: '{}', content: clean, dublinCore: '{}' }),
+    'and so does the canonicalizer',
+  );
+  const dirty = '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"cafe\\u0301"}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(dirty))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'the scan rejects it');
+  assert.throws(
+    () => canonicalContent({ manifest: '{}', content: dirty, dublinCore: '{}' }),
+    'and so does the canonicalizer',
   );
 });
 

@@ -1,0 +1,32 @@
+{
+  "description": "A conformant content root carrying an UNRECOGNIZED extra member alongside `version` and `blocks`. The root is deliberately open — content.schema.json declares no root `additionalProperties: false` — so an extra member is not a defect, and a root-envelope check that closed the root would false-REJECT this. The published corpus already depends on the root being open: the two non-representable-number fixtures carry an extra root key of their own.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks section 2.2; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:4ddbd1bdb988196bd0c4e727f627aa54ad85edbbdacb144a7543fc6a39a087aa\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[],\"x-vendor\":{}}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Open Root\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

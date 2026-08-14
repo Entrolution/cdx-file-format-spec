@@ -47,12 +47,21 @@
  * §5.4's dispositions — the one INTEGRITY-ERROR this layer can assign without B2/B3 trust
  * material, since it is state-invariant.
  *
+ * A POSITION defect takes the SAME ROW as a dangle in the field carrying it, which is why
+ * the out-of-range arm has one code per row rather than one code (`POSITION_OUT_OF_RANGE_CODE`).
+ * The row is a property of the field — of what the reference is FOR — not of which half of it
+ * failed, so a reference whose target is missing and one whose offset is stale are disposed of
+ * alike. The structural arm is the exception, and only because §5.4.2 assigns it no row at all.
+ *
  * THE REFERENCE SET MIRRORS `rewriteIds`. `canonicalize.ts` `rewriteIds` enumerates
- * exactly which fields hold a Content Anchor URI; REFERENCE_FIELDS below is that same
- * enumeration, split by disposition. Keep the two in step: a field the canonicalizer
- * rewrites but this module ignores is a reference that can dangle unreported, and one this
- * module resolves but the canonicalizer leaves alone addresses a different namespace and
- * would be reported dangling wrongly.
+ * exactly which fields hold a Content Anchor URI; MARK_REFERENCE_FIELDS and
+ * BLOCK_REFERENCE_FIELDS below are that same enumeration, split by §5.4.2 row. Keep the two
+ * in step: a field the canonicalizer rewrites but this module ignores is a reference that can
+ * dangle unreported, and one this module resolves but the canonicalizer leaves alone
+ * addresses a different namespace and would be reported dangling wrongly. Only ONE direction
+ * is guarded — `test-document-verdict.ts`'s per-row table fails if a field is dropped from
+ * the tables below, but nothing catches a field added to `rewriteIds` alone, and the cost of
+ * that drift rose when these tables started deciding which §5.4.2 row a position defect takes.
  *
  * EXTENSION-BLOCK INTERIORS ARE NOT OPAQUE HERE, unlike content-classifier.ts, which
  * deliberately stops at a registered extension block's boundary because it cannot know
@@ -64,6 +73,7 @@
 
 import {
   collectDefinedIds,
+  type WalkContext,
   walkContentNodes,
   isPlainObject,
   isPackagedAssetRef,
@@ -72,6 +82,7 @@ import {
   MAX_CANONICALIZATION_DEPTH,
 } from './canonicalize.js';
 import { categoryOfAssetPath } from './asset-index.js';
+import { compareDigits } from './decimal-digits.js';
 
 /** Defect codes this resolver assigns (registered in conformance/errors.json). */
 export const RESOLVER_CODE = {
@@ -86,6 +97,11 @@ export const RESOLVER_CODE = {
   GLOSSARY_REFERENCE_DANGLING: 'CDX-E-GLOSSARY-REFERENCE-DANGLING',
   FOOTNOTE_REFERENCE_DANGLING: 'CDX-E-FOOTNOTE-REFERENCE-DANGLING',
   FOOTNOTE_REFERENCE_AMBIGUOUS: 'CDX-E-FOOTNOTE-REFERENCE-AMBIGUOUS',
+  ANCHOR_POSITION_INVALID: 'CDX-E-ANCHOR-POSITION-INVALID',
+  ANCHOR_POSITION_OUT_OF_RANGE: 'CDX-E-ANCHOR-POSITION-OUT-OF-RANGE',
+  BLOCK_REFERENCE_POSITION_OUT_OF_RANGE: 'CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE',
+  CROSS_REFERENCE_POSITION_OUT_OF_RANGE: 'CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE',
+  ANNOTATION_ANCHOR_POSITION_INVALID: 'CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID',
 } as const;
 
 export interface ResolverFinding {
@@ -93,6 +109,184 @@ export interface ResolverFinding {
   /** JSON-ish path to the offending node, for diagnostics only. */
   where: string;
   detail: string;
+}
+
+/**
+ * What an id in the shared namespace NAMES, for §7.3's position rules. Three states, and
+ * collapsing any pair loses or manufactures a finding:
+ *   - `anchor-mark` — defined by an `anchor` mark. §2.2: a named anchor already denotes a
+ *     position, so a reference to it MUST NOT carry one. Nothing can be out of range.
+ *   - `text-bearing` — a block whose children are text nodes (§3). `textLength` is its
+ *     concatenated text in CODE POINTS. Length 0 is legitimate (an empty paragraph).
+ *   - `other` — any other member: a container block, an equation line, a subfigure. §3
+ *     requires a character-offset anchor to target a text-bearing block, so a position
+ *     here is INVALID rather than out of range — and offset 0, which no length bound
+ *     would reject, is still invalid.
+ */
+export type AnchorTargetKind = 'anchor-mark' | 'text-bearing' | 'other';
+
+export interface AnchorTarget {
+  kind: AnchorTargetKind;
+  /** Concatenated text content in code points; 0 unless `kind` is `text-bearing`. */
+  textLength: number;
+}
+
+/**
+ * Classify the node defining an id. Supplied to `collectDefinedIds` as its `classify`
+ * option so the classification rides the walk that builds the namespace — the key set is
+ * then equal to `ids` by construction, and no walk can admit an id the other rejects.
+ *
+ * Text-bearing is decided by BOTH the block type and the child shape, deliberately. The
+ * type alone is not enough (a `paragraph` whose children are blocks is malformed, not
+ * text-bearing); the shape alone is not enough either, because `children: []` is
+ * structurally identical on a `paragraph` and a `blockquote` — they differ only in `type`
+ * — so a purely structural test calls an empty container text-bearing and accepts a
+ * position against it. Conjoined, a wrong vocabulary that ADDS a container type is still
+ * caught by the shape half, leaving only the drop direction, which the pinned set in
+ * test-document-verdict.ts covers.
+ *
+ * Length is in code points (§3: "A character is one Unicode scalar value"); `.length`
+ * would mis-measure every astral character.
+ */
+export function classifyAnchorTarget(
+  textBearingTypes: ReadonlySet<string>,
+): (node: Record<string, unknown>, ctx: WalkContext) => AnchorTarget {
+  return (node, ctx) => {
+    if (ctx.inMarks) return { kind: 'anchor-mark', textLength: 0 };
+    const children = node.children;
+    if (
+      typeof node.type === 'string' &&
+      textBearingTypes.has(node.type) &&
+      Array.isArray(children) &&
+      children.every((c) => isPlainObject(c) && c.type === 'text' && typeof c.value === 'string')
+    ) {
+      const text = children.map((c) => (c as Record<string, unknown>).value as string).join('');
+      return { kind: 'text-bearing', textLength: [...text].length };
+    }
+    return { kind: 'other', textLength: 0 };
+  };
+}
+
+/**
+ * The POSITION component of a Content Anchor URI — the part `anchorTargetId` discards.
+ * `#id` carries none; `#id/15` is a point; `#id/10-25` is a range. Anything else after the
+ * first `/` is malformed: the URI grammar (§2.1, and anchor.schema.json's
+ * `contentAnchorUri` pattern) admits only those three shapes, so `#p1/x`, `#p1/-5` and
+ * `#p1/1-2-3` are structural defects rather than positions to bounds-check.
+ *
+ * Returned separately from the target id because the two are checked against different
+ * things: the id against the namespace, the position against the target's kind and length.
+ */
+type AnchorPosition =
+  | { kind: 'none' }
+  | { kind: 'point'; offset: number }
+  /**
+   * `digits` carries the range bounds as they were WRITTEN, or null where they cannot be
+   * recovered. REQUIRED, not optional, so a future producer must decide which it has rather
+   * than defaulting into the imprecise path by omission — an implicit discriminator is what
+   * the rest of this module's design exists to avoid.
+   *
+   * Null for the OBJECT form, and the reason is a limit rather than a preference: `JSON.parse`
+   * has already rounded those bounds to doubles by the time this sees them, so the authored
+   * digits are gone and there is nothing more precise to keep. That is NOT the same as the
+   * comparison being exact — an implementation parsing JSON with arbitrary-precision integers
+   * (the Python oracle does) orders `{start: 9007199254740992, end: 9007199254740993}`
+   * correctly where this cannot. Unobservable today because out of hash both arms carry one
+   * code (see `resolveAnnotationAnchors`); it becomes observable the moment the object form
+   * gains a hashed-content caller, where the arms differ. Recovering it needs a raw-text JSON
+   * parse, which is a larger change than the divergence currently justifies.
+   */
+  | { kind: 'range'; start: number; end: number; digits: { start: string; end: string } | null }
+  | { kind: 'malformed'; raw: string };
+
+function anchorPosition(value: string): AnchorPosition {
+  const slash = value.indexOf('/');
+  if (slash === -1) return { kind: 'none' };
+  const raw = value.slice(slash + 1);
+  const point = /^(\d+)$/.exec(raw);
+  if (point) return { kind: 'point', offset: Number(point[1]) };
+  const range = /^(\d+)-(\d+)$/.exec(raw);
+  if (range) {
+    return { kind: 'range', start: Number(range[1]), end: Number(range[2]), digits: { start: range[1], end: range[2] } };
+  }
+  return { kind: 'malformed', raw };
+}
+
+/**
+ * The position a ContentAnchor OBJECT expresses (§2.2's field table). The object form is
+ * where §2.2's combination rule bites: "A ContentAnchor MUST have either no position
+ * fields (block-level), `offset` only (point), or both `start` and `end` (range). An
+ * anchor with `offset` alongside `start`/`end` is invalid." A half-range (`start` without
+ * `end`) is invalid for the same reason — it names no interval.
+ *
+ * Non-integer and negative values are rejected here rather than in `checkAnchorPosition`
+ * because only the object form can express them; the URI grammar admits `\d+` alone.
+ */
+function contentAnchorPosition(obj: Record<string, unknown>): AnchorPosition {
+  const hasOffset = obj.offset !== undefined;
+  const hasStart = obj.start !== undefined;
+  const hasEnd = obj.end !== undefined;
+  if (!hasOffset && !hasStart && !hasEnd) return { kind: 'none' };
+  if (hasOffset && (hasStart || hasEnd)) return { kind: 'malformed', raw: 'offset alongside start/end' };
+  // DIAGNOSTIC ONLY, and deliberately kept. Deleting this line changes no verdict: a half
+  // range falls through to the numeric guard below, where the absent half is not a number and
+  // the same code is reported — measured, and no test in this repo can catch its removal, so
+  // do not read the tests as covering it. What it buys is the message: "start without end"
+  // names the rule §2.2 states, where "start=0, end=undefined" reads like an internal error.
+  if (hasStart !== hasEnd) return { kind: 'malformed', raw: hasStart ? 'start without end' : 'end without start' };
+  if (hasOffset) {
+    const o = obj.offset;
+    if (typeof o !== 'number' || !Number.isInteger(o) || o < 0) return { kind: 'malformed', raw: `offset=${JSON.stringify(o)}` };
+    return { kind: 'point', offset: o };
+  }
+  const s = obj.start;
+  const e = obj.end;
+  if (typeof s !== 'number' || !Number.isInteger(s) || s < 0 || typeof e !== 'number' || !Number.isInteger(e) || e < 0) {
+    return { kind: 'malformed', raw: `start=${JSON.stringify(s)}, end=${JSON.stringify(e)}` };
+  }
+  return { kind: 'range', start: s, end: e, digits: null };
+}
+
+/** What is wrong with a position, if anything — the two arms report it under their own codes. */
+type PositionVerdict = { bad: 'invalid' | 'out-of-range'; detail: string } | null;
+
+/**
+ * Validate one anchor position against what its target names (03a §2.2, §3, §7.3).
+ *
+ * `target` is undefined when the id resolves to nothing: the dangling row already owns
+ * that, so bounds are not checked — but a STRUCTURAL defect in the position is still
+ * reported, because `#gone/10-5` is malformed whether or not `gone` exists, and gating it
+ * on resolution would let a dangling reference hide a second defect.
+ *
+ * `end === textLength` is VALID: §7.3 says a position MUST NOT EXCEED the text length, and
+ * a half-open interval ending at the length selects through the final character.
+ */
+function checkAnchorPosition(pos: AnchorPosition, target: AnchorTarget | undefined): PositionVerdict {
+  if (pos.kind === 'none') return null;
+  if (pos.kind === 'malformed') return { bad: 'invalid', detail: `position "${pos.raw}" is not a valid offset or range` };
+  if (pos.kind === 'range') {
+    // Exact where the bounds were written as digits (see compareDigits); the object form's
+    // bounds are already doubles, so `<` on them is exact too.
+    const ordered = pos.digits === null ? (pos.start < pos.end ? -1 : 1) : compareDigits(pos.digits.start, pos.digits.end);
+    if (ordered >= 0) {
+      // Reported as WRITTEN, not as parsed: a bound beyond 2^53 prints rounded, which would
+      // show two different bounds as the same number and read like a reader bug.
+      const [s, e] = pos.digits === null ? [String(pos.start), String(pos.end)] : [pos.digits.start, pos.digits.end];
+      return { bad: 'invalid', detail: `range start (${s}) is not less than end (${e})` };
+    }
+  }
+  if (target === undefined) return null; // unresolved: the dangling row owns it
+  if (target.kind === 'anchor-mark') {
+    return { bad: 'invalid', detail: 'target names an `anchor` mark, which already denotes a position, so it MUST NOT carry one' };
+  }
+  if (target.kind === 'other') {
+    return { bad: 'invalid', detail: 'target is not a text-bearing block, so it has no text content for a character offset to address' };
+  }
+  const max = pos.kind === 'point' ? pos.offset : pos.end;
+  if (max > target.textLength) {
+    return { bad: 'out-of-range', detail: `position ${max} exceeds the target block's text length (${target.textLength} code points)` };
+  }
+  return null;
 }
 
 /**
@@ -107,6 +301,17 @@ function anchorTargetId(value: string): string | null {
   return slash === -1 ? value.slice(1) : value.slice(1, slash);
 }
 
+/**
+ * The three §5.4.2 rows a Content Anchor URI field can take, named by the dangling code
+ * each row carries. A field's row is a property of the FIELD, not of what goes wrong in
+ * it: the same row disposes of a target that does not exist and of a position that runs
+ * off the end of one that does.
+ */
+type ReferenceRowCode =
+  | typeof RESOLVER_CODE.ANCHOR_DANGLING
+  | typeof RESOLVER_CODE.BLOCK_REFERENCE_DANGLING
+  | typeof RESOLVER_CODE.CROSS_REFERENCE_DANGLING;
+
 /** One reference-bearing field: which node carries it, and which code a dangle earns. */
 interface ReferenceField {
   /** Block/mark `type` this field belongs to. */
@@ -114,7 +319,7 @@ interface ReferenceField {
   field: string;
   /** True when the field holds an ARRAY of Content Anchor URIs rather than one. */
   many?: boolean;
-  code: string;
+  code: ReferenceRowCode;
 }
 
 /**
@@ -136,6 +341,44 @@ const BLOCK_REFERENCE_FIELDS: ReferenceField[] = [
 ];
 
 /**
+ * The OUT-OF-RANGE code each row carries — three, mirroring the three dangling codes,
+ * because the disposition of an out-of-range position follows the FIELD's §5.4.2 row and
+ * those rows do not agree once B3 lights the frozen column.
+ *
+ * A `link` href takes the core-anchor row, which ESCALATES to INTEGRITY-ERROR when frozen
+ * (03a §7.2 states it directly). An `academic:*-ref` mark takes the extension-cross-reference
+ * row, which §5.4.2 makes WARNING in EVERY state, its preamble giving the reason — such a
+ * mark is resolved at render time, so a dangling one "degrades rendering only (the signed
+ * bytes remain intact and hash-verified)". Emitting one code across both rows would publish a
+ * single disposition for two rows that diverge, and post-B3 a theorem-ref whose target is
+ * MISSING would stay a WARNING while one that merely names a stale offset became an
+ * INTEGRITY-ERROR — the milder defect disposed of more harshly than the worse one.
+ *
+ * The extension-block fields take the third code for the reason
+ * `CDX-E-BLOCK-REFERENCE-DANGLING`'s own note gives about its row: which side of the
+ * escalating/non-escalating line they fall on is genuinely contested, and separating the
+ * codes is what lets B3 settle that without re-pointing a published one, which
+ * conformance/errors.json's append-only policy forbids. Splitting is only available BEFORE
+ * publication of a disposition, which is why it is done here rather than deferred with the
+ * escalation itself.
+ *
+ * Keyed on `field.code` rather than declared per row so the two can never disagree: a
+ * position code is defined by the row, and `ReferenceRowCode` makes the map total at compile
+ * time, so a new reference field cannot be added without deciding which row its positions
+ * take.
+ *
+ * `CDX-E-ANCHOR-POSITION-INVALID` deliberately does NOT split. Its disposition is null —
+ * §5.4.2 assigns the structural arm no row at all — and a null disposition contributes
+ * nothing to a verdict, so it cannot invert between rows in any state. Splitting it would
+ * publish three codes recording the same absence of a rule.
+ */
+const POSITION_OUT_OF_RANGE_CODE: Record<ReferenceRowCode, string> = {
+  [RESOLVER_CODE.ANCHOR_DANGLING]: RESOLVER_CODE.ANCHOR_POSITION_OUT_OF_RANGE,
+  [RESOLVER_CODE.BLOCK_REFERENCE_DANGLING]: RESOLVER_CODE.BLOCK_REFERENCE_POSITION_OUT_OF_RANGE,
+  [RESOLVER_CODE.CROSS_REFERENCE_DANGLING]: RESOLVER_CODE.CROSS_REFERENCE_POSITION_OUT_OF_RANGE,
+};
+
+/**
  * Resolve every Content Anchor reference in the parsed CONTENT part against the ids that
  * part defines, and report duplicate definitions.
  *
@@ -144,6 +387,12 @@ const BLOCK_REFERENCE_FIELDS: ReferenceField[] = [
  * opaque `crdt` payload — is not content, and marks byte-identical within one text node
  * collapse exactly as §4.3.1 item 3 collapses them. Without that, this module would report
  * collisions and dangling references on documents `computeDocumentId` accepts.
+ *
+ * `textBearingTypes` is the derived vocabulary §3's text-bearing test needs; it is threaded
+ * in rather than re-derived here so this module carries no schema read, and the classifier it
+ * builds rides the id walk (see `classifyAnchorTarget`). `targets` is returned alongside the
+ * findings for the same reason the namespace is: the out-of-hash pass checks positions too and
+ * must see the identical view of what each id names.
  *
  * `assetMap` is the document's resolved asset map, and it is not optional in spirit: whether
  * two adjacent text nodes MERGE depends on whether their `link` hrefs resolve to the same
@@ -158,12 +407,23 @@ const BLOCK_REFERENCE_FIELDS: ReferenceField[] = [
  */
 export function resolveContentReferences(
   content: unknown,
+  textBearingTypes: ReadonlySet<string>,
   assetMap?: ReadonlyMap<string, string>,
-): { findings: ResolverFinding[]; ids: ReadonlySet<string> } {
+): { findings: ResolverFinding[]; ids: ReadonlySet<string>; targets: ReadonlyMap<string, AnchorTarget> } {
   assertBoundedDepth(content, MAX_CANONICALIZATION_DEPTH);
 
   const findings: ResolverFinding[] = [];
-  const { ids, duplicates } = collectDefinedIds(content, { rawInput: true, assetMap });
+  // ONE walk builds both the namespace and the per-id classification §7.3 needs. They must
+  // not come from two walks: an earlier revision collected targets separately and omitted
+  // `rawInput`, so ids inside a `crdt` payload — content canonicalization deletes outright
+  // — became anchor targets, letting a decoy shadow a real block and silence a genuine
+  // finding. Sharing the walk makes the key set equal to `ids` by construction.
+  const { ids, duplicates, classified } = collectDefinedIds(content, {
+    rawInput: true,
+    assetMap,
+    classify: classifyAnchorTarget(textBearingTypes),
+  });
+  const targets = classified as ReadonlyMap<string, AnchorTarget>;
 
   // Anchors & References §7.2: an id colliding in the shared namespace is an Error in
   // every state. Reported per distinct colliding id, not per repeat occurrence.
@@ -179,12 +439,27 @@ export function resolveContentReferences(
   const report = (field: ReferenceField, value: unknown, where: string): void => {
     if (typeof value !== 'string') return;
     const target = anchorTargetId(value);
-    if (target === null || defined.has(target)) return;
-    findings.push({
-      code: field.code,
-      where,
-      detail: `${field.type} ${field.field} "${value}" resolves to no block or anchor id in this document`,
-    });
+    if (target === null) return; // not an internal reference at all
+    if (!defined.has(target)) {
+      findings.push({
+        code: field.code,
+        where,
+        detail: `${field.type} ${field.field} "${value}" resolves to no block or anchor id in this document`,
+      });
+    }
+    // B1b-3c-1a: the position half (§2.2, §3, §7.3), independent of whether the id
+    // resolved — `#gone/10-5` is malformed either way, and gating on resolution would let
+    // a dangling reference conceal a second defect. The out-of-range arm takes the same
+    // §5.4.2 row as the dangle above it (POSITION_OUT_OF_RANGE_CODE); the structural arm
+    // takes one code across all three rows, having no disposition to diverge.
+    const verdict = checkAnchorPosition(anchorPosition(value), targets.get(target));
+    if (verdict !== null) {
+      findings.push({
+        code: verdict.bad === 'invalid' ? RESOLVER_CODE.ANCHOR_POSITION_INVALID : POSITION_OUT_OF_RANGE_CODE[field.code],
+        where,
+        detail: `${field.type} ${field.field} "${value}": ${verdict.detail}`,
+      });
+    }
   };
 
   walkContentNodes(
@@ -207,8 +482,9 @@ export function resolveContentReferences(
 
   // The namespace is returned alongside the findings because the caller needs it for the
   // out-of-hash anchor pass; recollecting it would re-walk the tree and re-serialize every
-  // mark a third time.
-  return { findings, ids: defined };
+  // mark a third time. `targets` rides along for the same reason — that pass checks
+  // positions too, and it must see the identical view of what each id names.
+  return { findings, ids: defined, targets };
 }
 
 /**
@@ -250,9 +526,17 @@ const ANNOTATION_ANCHOR_SOURCES: AnchorSource[] = [
  * no signature scope so its failure cannot signal tampering).
  *
  * `ids` is the content's defined namespace, from `collectDefinedIds(content, {rawInput:
- * true})`; `where` names the part, for diagnostics.
+ * true})`; `where` names the part, for diagnostics. `targets` is the per-id classification from
+ * `resolveContentReferences`, and it is REQUIRED: defaulting it to an empty map silently
+ * degrades this pass to structural checks alone, so every bounds and kind finding would go
+ * missing with no error.
  */
-export function resolveAnnotationAnchors(part: unknown, ids: ReadonlySet<string>, where: string): ResolverFinding[] {
+export function resolveAnnotationAnchors(
+  part: unknown,
+  ids: ReadonlySet<string>,
+  where: string,
+  targets: ReadonlyMap<string, AnchorTarget>,
+): ResolverFinding[] {
   const findings: ResolverFinding[] = [];
   if (!isPlainObject(part)) return findings;
 
@@ -262,6 +546,26 @@ export function resolveAnnotationAnchors(part: unknown, ids: ReadonlySet<string>
       code: RESOLVER_CODE.ANNOTATION_ANCHOR_DANGLING,
       where: at,
       detail: `anchor target "${target}" resolves to no block or anchor id in the content`,
+    });
+  };
+
+  /**
+   * The position half, for an anchor originating OUTSIDE the document hash. One code
+   * covers the structural defects, the out-of-bounds case, and every anchor-bearing field
+   * of every layer — where hashed content splits the same defects four ways (one
+   * structural code, and one out-of-range code per §5.4.2 reference row). Each of those
+   * splits exists to keep dispositions that MAY DIVERGE once B3 lights the frozen column
+   * separable under an append-only vocabulary. Here there is nothing to keep separable:
+   * every arm and every field takes the out-of-hash annotation row, WARNING in every
+   * state, so a split would record a distinction the specification does not make.
+   */
+  const reportPosition = (pos: AnchorPosition, target: string | null, at: string): void => {
+    const verdict = checkAnchorPosition(pos, target === null ? undefined : targets.get(target));
+    if (verdict === null) return;
+    findings.push({
+      code: RESOLVER_CODE.ANNOTATION_ANCHOR_POSITION_INVALID,
+      where: at,
+      detail: verdict.detail,
     });
   };
 
@@ -282,8 +586,14 @@ export function resolveAnnotationAnchors(part: unknown, ids: ReadonlySet<string>
         // still points into content and a dangling one still degrades rendering.
         if (isPlainObject(anchor) && typeof anchor.blockId === 'string') {
           report(anchor.blockId, `${at}.${source.anchorField}.blockId`);
+          reportPosition(contentAnchorPosition(anchor), anchor.blockId, `${at}.${source.anchorField}`);
         } else if (typeof anchor === 'string') {
-          report(anchorTargetId(anchor), `${at}.${source.anchorField}`);
+          // The URI spelling of the same thing. Its position is checked too — a layer that
+          // writes `#p1/20-25` where the block has five characters has the same stale
+          // anchor as one that writes `{blockId, start, end}`.
+          const target = anchorTargetId(anchor);
+          report(target, `${at}.${source.anchorField}`);
+          if (target !== null) reportPosition(anchorPosition(anchor), target, `${at}.${source.anchorField}`);
         }
       }
 

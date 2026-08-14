@@ -73,12 +73,17 @@
  * they are neither rejected nor ignored here. Other content structural rules structural-constraints.ts
  * already implements for the content part — notably anchor-range (`checkAnchors`,
  * `start < end`) — are NOT applied here; a dangling/invalid content anchor belongs to
- * the reference-resolver row and arrives in B1b-3. Root-envelope validity (a content
- * value that is not an object, or lacks `blocks`), full content-schema validation,
- * and NFC normalization of content strings are likewise out of this slice: they are
- * a broader content-schema-validity concern, not one of the three type rows above,
- * and arrive with the later content-validation / hashing work (B1b-3+). The
- * disposition VALUES for the codes below are authoritative in conformance/errors.json.
+ * the reference-resolver row, which owns anchor POSITION validity from B1b-3c-1a.
+ *
+ * SCOPE (B1b-3c-1a). `checkContentRoot` adds the content part's ROOT ENVELOPE (03 §2.2):
+ * an object carrying a string `version` and an array `blocks`, REJECT in every state. It
+ * is a sibling of `classifyContent`, not part of it — the envelope is checked even when
+ * the type walk cannot run, which is the whole point, since a non-array `blocks` is
+ * exactly what silences that walk. NFC normalization of content strings now lives in
+ * canonicalize.ts as a stored-byte pre-scan, not here. Still out of this module: full
+ * per-type content-schema validation (a `heading` with no `level`), and the interiors of
+ * registered extension blocks and marks (B1b-3c-1b). The disposition VALUES for the codes
+ * below are authoritative in conformance/errors.json.
  */
 
 import { loadSchema } from './ajv-utils.js';
@@ -99,6 +104,7 @@ export const CLASSIFIER_CODE = {
   MARK_TYPE_UNKNOWN_BARE: 'CDX-E-MARK-TYPE-UNKNOWN-BARE',
   MARK_TYPE_UNKNOWN_NAMESPACED: 'CDX-E-MARK-TYPE-UNKNOWN-NAMESPACED',
   MARK_MALFORMED: 'CDX-E-MARK-MALFORMED',
+  CONTENT_ROOT_MALFORMED: 'CDX-E-CONTENT-ROOT-MALFORMED',
 } as const;
 
 /**
@@ -116,6 +122,14 @@ export interface ContentVocabulary {
   knownMarks: ReadonlySet<string>;
   /** The core marks that are valid as a bare string (bold, italic, …). */
   stringMarks: ReadonlySet<string>;
+  /**
+   * Block types whose `children` are TEXT NODES — the text-bearing blocks of Anchors and
+   * References §3, the only blocks a character-offset anchor may target. Derived from the
+   * schema rather than listed, like its three siblings, because the distinction is not
+   * visible in a node: an empty `paragraph` and an empty `blockquote` are both
+   * `{type, id, children: []}` and differ only in `type`.
+   */
+  textBearingTypes: ReadonlySet<string>;
 }
 
 /** One classification finding: the defect code, a JSON-path-ish locator, and detail. */
@@ -149,6 +163,67 @@ function collectStringEnums(node: unknown, out: string[][]): void {
 }
 
 /**
+ * Every `$ref` an `items` schema resolves through — the direct one, and the members of an
+ * `allOf` that NARROWS it.
+ *
+ * The `allOf` arm is not defensive generality. `codeBlock` states its children as
+ * `items: { allOf: [{ $ref: .../textNode }, { … marks forbidden … }] }`, because §4's
+ * "exactly one marks-free text node" is a text node PLUS a restriction, and that is how JSON
+ * Schema spells a restriction. Matching only a direct `$ref` therefore dropped `codeBlock`
+ * from the text-bearing set although Anchors & References §3 names it outright — so an anchor
+ * into a code block was reported "not a text-bearing block" on conformant content, and an
+ * out-of-bounds one was downgraded from the WARNING §7.2 tabulates to the null-disposition
+ * structural code. A block type that constrains its text children is still text-bearing.
+ */
+function itemsRefs(items: unknown): string[] {
+  if (typeof items !== 'object' || items === null) return [];
+  const direct = (items as { $ref?: unknown }).$ref;
+  const refs = typeof direct === 'string' ? [direct] : [];
+  const branches = (items as { allOf?: unknown[] }).allOf;
+  if (Array.isArray(branches)) {
+    for (const b of branches) {
+      const r = (b as { $ref?: unknown })?.$ref;
+      if (typeof r === 'string') refs.push(r);
+    }
+  }
+  return refs;
+}
+
+/**
+ * Block types whose `children.items` resolve to a text node — §3's text-bearing set.
+ * Structural, like the three sibling derivations, so it tracks the schema instead of restating
+ * it — though note the mechanism is a scan of every `$defs` entry carrying an `allOf`, not a walk
+ * of the block dispatch. That is wider than it needs to be and happens to be harmless: all five
+ * types reach `textNode` through `$defs.block`'s branches. It also means the scan sees only
+ * THIS schema's `$defs`, so a block type an EXTENSION schema defines with text-node children is
+ * invisible to it (`semantic:ref` is one; see OQ-012).
+ *
+ * §3's enumeration ("`paragraph`, `heading`, `figcaption`, `definitionTerm`, and
+ * `codeBlock`") is prose and reads "such as", so it is not itself the definition — the
+ * definition is "a block whose `children` are text nodes", which is what this derives. The
+ * two must nevertheless agree, and test-document-verdict.ts pins the derived set against
+ * §3's list so a divergence fails loudly rather than silently narrowing what an anchor may
+ * address.
+ */
+export function findTextBearingTypes(schema: unknown): string[] {
+  const defs = (schema as { $defs?: Record<string, unknown> })?.$defs ?? {};
+  const out: string[] = [];
+  for (const def of Object.values(defs)) {
+    const branches = (def as { allOf?: unknown[] })?.allOf;
+    if (!Array.isArray(branches)) continue;
+    for (const branch of branches) {
+      const props = (branch as { properties?: Record<string, unknown> })?.properties;
+      const items = (props?.children as { items?: unknown })?.items;
+      const typeConst = (props?.type as { const?: unknown })?.const;
+      if (typeof typeConst === 'string' && itemsRefs(items).some((r) => r.endsWith('/textNode'))) {
+        out.push(typeConst);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Locate the core STRING-mark enum in a content schema — the marks valid as a bare
  * string. Identified structurally as the string enum containing `bold` and
  * `italic` but NOT `link`, which uniquely distinguishes it from `knownMarkTypes`
@@ -173,10 +248,22 @@ export function deriveContentVocabulary(): ContentVocabulary {
   const blockList = findBlockTypeEnum(schema.$defs?.block);
   const markList = findMarkTypeEnum(schema);
   const stringList = findStringMarkEnum(schema);
-  if (!blockList?.length || !markList?.length || !stringList?.length) {
+  const textBearingList = findTextBearingTypes(schema);
+  // Throw on an empty text-bearing set for the same reason as its siblings, and the guard
+  // earns more here: an empty blockTypes REJECTs every block, which is unmissable, whereas
+  // an empty textBearingTypes makes every anchor position INVALID — a null-disposition
+  // code that moves no document verdict at all. The quiet failure needs the loud guard.
+  // It is not sufficient, though: a PARTIAL schema refactor yields a non-empty but wrong
+  // set, which no throw can catch, so test-document-verdict.ts pins the set itself.
+  if (!blockList?.length || !markList?.length || !stringList?.length || !textBearingList.length) {
     throw new Error('content-classifier: could not derive the block/mark vocabulary from content.schema.json');
   }
-  return { blockTypes: new Set(blockList), knownMarks: new Set(markList), stringMarks: new Set(stringList) };
+  return {
+    blockTypes: new Set(blockList),
+    knownMarks: new Set(markList),
+    stringMarks: new Set(stringList),
+    textBearingTypes: new Set(textBearingList),
+  };
 }
 
 /**
@@ -216,6 +303,43 @@ function hasMalformedContainer(node: Record<string, unknown>): boolean {
     ('marks' in node && !Array.isArray(node.marks)) ||
     ('caption' in node && !Array.isArray(node.caption) && typeof node.caption !== 'string')
   );
+}
+
+/**
+ * Check the content part's ROOT ENVELOPE (03 §2.2, §7.1 item 5): the parsed value is an
+ * object carrying `version` (string) and `blocks` (array). REJECT in every state
+ * (§5.4.2's dedicated row), because a `blocks` that is not an array withdraws every
+ * content-level row in that table at once — `classifyContent`'s trailing guard walks the
+ * tree only when `blocks` IS an array, so one bracket turns a document the table rejects
+ * into one that reports nothing, while the id stays computable and a signature over it
+ * still verifies.
+ *
+ * The root is deliberately OPEN: content.schema.json declares no root
+ * `additionalProperties: false`, and the published corpus relies on that (the
+ * non-representable-number fixtures carry an extra root key), so an unrecognized member
+ * is NOT a defect here.
+ *
+ * The `version` VALUE is not checked, only its type. content.schema.json constrains it to
+ * `^\d+\.\d+$`, but a well-formed field carrying a bad value ("0.1.0", "9.9") is a
+ * different defect class from a missing or mistyped one, and §5.4.2 assigns it no row —
+ * its version rows govern the manifest's `cdx` version, not the content model's. Reporting
+ * it would mean choosing a disposition the specification does not state.
+ */
+export function checkContentRoot(value: unknown): ClassifierFinding[] {
+  if (!isRecord(value)) {
+    return [{
+      code: CLASSIFIER_CODE.CONTENT_ROOT_MALFORMED,
+      where: 'content',
+      detail: `content root is a ${value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value}, not an object`,
+    }];
+  }
+  const bad: string[] = [];
+  if (!('version' in value)) bad.push('`version` is absent');
+  else if (typeof value.version !== 'string') bad.push(`\`version\` is a ${value.version === null ? 'null' : typeof value.version}, not a string`);
+  if (!('blocks' in value)) bad.push('`blocks` is absent');
+  else if (!Array.isArray(value.blocks)) bad.push(`\`blocks\` is a ${value.blocks === null ? 'null' : typeof value.blocks}, not an array`);
+  if (bad.length === 0) return [];
+  return [{ code: CLASSIFIER_CODE.CONTENT_ROOT_MALFORMED, where: 'content', detail: bad.join('; ') }];
 }
 
 /**

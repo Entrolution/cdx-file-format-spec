@@ -1,0 +1,38 @@
+{
+  "description": "A `link` mark href `#target/0-25` whose target block holds 5 code points, so the range runs off the end — while an EARLIER block carries, inside a `crdt` payload, a decoy spelling the same `target` id with 30 code points of text. Document Hashing section 4.3.1 item 1 deletes `crdt`, so the decoy is not in the document and not in the shared identifier namespace: the anchor addresses the real block and is out of range. A reader whose anchor-target map comes from a walk that does not reproduce the canonical transforms lets the decoy claim the id first and reports NOTHING. Nothing else fires here — the id resolves, so this is not the dangling row, and only one occurrence is in the namespace, so it is not a collision — which is why the finding cannot be reached by accident.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.1 item 1; Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:f22dbd912af5a1c0fd9f44eb8747718c3d2380d04c271b23967ae184dfe3e58f\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"crdt\":{\"shadow\":{\"type\":\"paragraph\",\"id\":\"target\",\"children\":[{\"type\":\"text\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}},\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#target/0-25\"}]}]},{\"type\":\"paragraph\",\"id\":\"target\",\"children\":[{\"type\":\"text\",\"value\":\"short\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor Position Masked By Derived Field\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

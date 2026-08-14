@@ -1,0 +1,38 @@
+{
+  "description": "A combining sequence split across a text-node boundary: one node ends `cafe`, the next is U+0301 alone. EACH node value is individually in NFC — a per-string check passes this document — but their concatenation is not, which is the arm Document Hashing section 4.3.2 states explicitly (\"This applies to the concatenated text content of each block, not merely to individual text-node values\"). The two nodes carry different marks so canonicalization does not merge them, leaving the split observable in the stored bytes.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:6790b6550ee4d396e289587dac692cd7e47ed6a0bcd76de31a69708c77fb7aca\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\"},{\"type\":\"text\",\"value\":\"\\u0301\",\"marks\":[\"bold\"]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Split Combining Sequence\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

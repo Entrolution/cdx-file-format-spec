@@ -1,0 +1,38 @@
+{
+  "description": "The same split combining sequence, but the run of text nodes is FOLLOWED by a non-text sibling in the same array rather than ending it. Not redundant with the case above: a scan that flushed its pending run only at the end of an array would miss this one, and a scan that flushed only mid-array would miss that one. Together they pin both boundaries of the run.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:f29ea5a425826d7cec8f6be22c03f0bea14d3e51b06f65d6c69364936314141b\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"text\",\"value\":\"cafe\"},{\"type\":\"text\",\"value\":\"\\u0301\"},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"ok\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Split Combining Mid-Array\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}
