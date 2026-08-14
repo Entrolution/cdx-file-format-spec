@@ -1,0 +1,38 @@
+{
+  "description": "A text value carrying BOTH defects at once: decomposed text (`e` + U+0301) followed by a lone high surrogate. Both are REJECT, so the document disposition is the same either way — what this pins is WHICH arm is reported. A reader testing NFC first would report only the non-NFC arm and never mention that the string has no UTF-8 encoding at all, which is the arm under which two conformant readers disagree on the bytes. Note a string whose ONLY defect is a lone surrogate does not distinguish the two orders, because normalization leaves a lone surrogate unchanged.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:27305dca59492495800cd6668e82c7c41f824bdd224c3feb10ee14befc464916\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\\u0301\\ud800\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Ill-Formed And Non-NFC\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-ILL-FORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "description": "The content root carries `blocks` as an OBJECT rather than an array. This is the arm that matters most: every content-level row in the section 5.4.2 table is reached by walking `blocks`, so a non-array withdraws all of them at once. The document id stays computable and a signature over it still verifies, so nothing else catches it. (The wrapped block is well-formed — this case pins that the ENVELOPE is reported, not that a nested defect is withdrawn; the withdrawal property is an absence claim the subset comparator cannot express, and is pinned in test-document-verdict.ts.)",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks sections 2.2, 7.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:186f7fcb08a6bc540e61b792f7bd931ebb436714c60078c9d1dbddc19b0d41b1\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":{\"0\":{\"type\":\"paragraph\"}}}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Blocks Not Array\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONTENT-ROOT-MALFORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

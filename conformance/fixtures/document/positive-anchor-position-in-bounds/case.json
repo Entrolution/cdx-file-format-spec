@@ -1,0 +1,32 @@
+{
+  "description": "A `link` mark href `#p1/7-12` selecting `world` from a 13-code-point block. The positive control for the range check: a reader with an off-by-one bound, or one that reported every positional anchor, would emit a spurious finding here. CLEAN.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:276e4859cf3ba068a0c53abe2f6c9ccb5c4960d76034a720f2b7fb089213b446\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"Hello, world!\"}]},{\"type\":\"paragraph\",\"id\":\"p2\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#p1/7-12\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Anchor In Bounds\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

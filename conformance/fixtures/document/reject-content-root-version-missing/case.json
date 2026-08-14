@@ -1,0 +1,43 @@
+{
+  "description": "The content root carries a well-formed `blocks` array but no `version`. Because `blocks` IS an array here, the block/mark type walk still runs and still reports the bare `paragrph` inside it — pinning that the envelope check reports its own defect WITHOUT switching the classifier off. `version` is hashed inside the content slot (Document Hashing section 4.2), so its absence is a missing input to the document ID, not an unread field.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks sections 2.2, 7.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:ba5400b7fa859f2f505dd26235e4fa546ce5641894825f64858fde9014f703fc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"blocks\":[{\"type\":\"paragrph\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Version Missing\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONTENT-ROOT-MALFORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      },
+      {
+        "code": "CDX-E-BLOCK-TYPE-UNKNOWN-BARE",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

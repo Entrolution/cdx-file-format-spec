@@ -70,12 +70,27 @@
  *     layer;
  *   - extension config-slot `{path, hash}` side files: presence and hash, over exactly the
  *     set `collectConfigFileReferences` binds into the projection.
+ * SCOPE (B1b-3c-1a): content-part validity beyond the block/mark type rows —
+ *   - the content ROOT ENVELOPE (03 §2.2): an object carrying a string `version` and an
+ *     array `blocks`, REJECT in every state. Checked independently of the type walk,
+ *     because a non-array `blocks` is exactly what silences that walk;
+ *   - §4.3.2's stored-byte TEXT invariants — NFC and well-formed Unicode — as a
+ *     pre-canonicalization scan over the raw content part and the five PROJECTED Dublin
+ *     Core terms, REJECT in every state. A scan, not a check inside canonicalization:
+ *     `validateStoredByteInvariants` runs after `canon`, which throws uncoded on a
+ *     dangling asset reference, so reporting from there would let a WARNING suppress a
+ *     state-invariant REJECT. Scope is the STORED bytes, matching the number arm, so a
+ *     violation in a field canon deletes is still reported;
+ *   - anchor POSITION validity (03a §2.2/§3/§7.3) on the same walk that already resolves
+ *     Content Anchor URIs, plus the ContentAnchor objects of the out-of-hash annotation
+ *     layers. Out-of-bounds WARNs; the structural arm carries no disposition, because
+ *     §7.2's severity table does not tabulate it.
  * Still deferred: the declared-MIME-mismatch row (§5.4.2 row for 05 §11.1, which needs
  * magic-byte sniffing), asset `size` against actual bytes (05 §11.1 item 4, no §5.4.2 row),
  * the manifest/file presentation `type` agreement (04 §13.3, likewise no row), and 04 §13.5's
- * precise-layout coverage gap. Full content-part schema validity beyond the block/mark type
- * rows — the root envelope, anchor-range wiring, extension-block INTERIORS, and NFC
- * normalization — is B1b-3c. Every FROZEN/PUBLISHED INTEGRITY-ERROR escalation is B3.
+ * precise-layout coverage gap. Full per-type schema validation of CORE blocks (a `heading`
+ * with no `level`) and the INTERIORS of registered extension blocks and marks are B1b-3c-1b.
+ * Every FROZEN/PUBLISHED INTEGRITY-ERROR escalation is B3.
  * The disposition VALUES are authoritative in errors.json, never invented here.
  */
 
@@ -85,6 +100,7 @@ import {
   isPlainObject,
   CanonicalizationError,
   firstNonRepresentableNumber,
+  collectStoredTextViolations,
   hashBytes,
   computeDocumentId,
   algorithmOf,
@@ -100,10 +116,11 @@ import {
   collectGlossaryIds,
   collectFootnoteTargets,
   type SemanticNamespaces,
+  type AnchorTarget,
 } from './reference-resolver.js';
 import { verifyAssetIndexes } from './asset-index.js';
 import { resolveVerdict, type LayerVerdict, type VerdictFinding } from './verdict.js';
-import { classifyContent, type ContentVocabulary } from './content-classifier.js';
+import { classifyContent, checkContentRoot, type ContentVocabulary } from './content-classifier.js';
 import type { ArchiveResult } from './zip-reader.js';
 
 /** Document-layer defect codes this mapper assigns (registered in errors.json). */
@@ -404,6 +421,19 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       } else {
         dublinCore = dc.text;
         if (defect === 'missing-term') add(CODE.METADATA_TERM_MISSING);
+        // B1b-3c-1a: §4.3.2's stored-byte TEXT invariants over the metadata half of the
+        // hashed basis. Scoped to the PROJECTED terms alone — §4.3.1 keeps only these five,
+        // so a non-NFC `terms.rights` never enters the document ID and must not reject the
+        // document. This is the same scope `validateStoredByteInvariants` sees, which
+        // receives `{content, metadata}` with `metadata` already projected.
+        const terms = isPlainObject(dc.value) && isPlainObject(dc.value.terms) ? dc.value.terms : {};
+        for (const term of [...PROJECTED_STRING_TERMS, ...PROJECTED_ARRAY_TERMS]) {
+          const violation = collectStoredTextViolations(terms[term]);
+          if (violation !== null) {
+            add(violation.code);
+            break; // one violation is enough, as the content scan above does (both REJECT)
+          }
+        }
       }
     }
   }
@@ -545,6 +575,11 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
   // The content's identifier namespace, once known, is what an out-of-hash annotation
   // layer's anchors resolve against (below). Null while it cannot be established.
   let contentIds: ReadonlySet<string> | null = null;
+  // What each content id NAMES (an anchor mark, a text-bearing block and its length, or
+  // neither), for the anchor-position rules of 03a section 7.3. Collected with the id
+  // namespace and shared with the out-of-hash annotation pass, so both arms judge a
+  // position against exactly the same view of the content.
+  let anchorTargets: ReadonlyMap<string, AnchorTarget> = new Map();
   if (!hasEntry(archive.entries, core.content.path)) {
     add(CODE.CONTENT_PART_MISSING);
   } else {
@@ -561,6 +596,21 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       // rule (§5.4.3) applies to it even for a pending-id draft that is never
       // canonicalized.
       if (firstNonRepresentableNumber(c.value) !== null) add(CODE.PART_NUMBER_NON_REPRESENTABLE);
+      // B1b-3c-1a: the OTHER stored-byte invariant of §4.3.2 — NFC and well-formed Unicode
+      // — on the same terms and for the same reason as the number scan above. A
+      // pre-canonicalization scan, NOT a check hung off the document-ID recompute: that
+      // recompute is gated on a real `manifest.id`, and a draft's id is `pending`, so it
+      // reaches almost nothing. Reporting from inside canonicalization would be worse than
+      // silent — `validateStoredByteInvariants` runs after `canon`, which throws (uncoded)
+      // on a dangling asset reference, so appending one would let a WARNING suppress this
+      // state-invariant REJECT.
+      const textViolation = collectStoredTextViolations(c.value);
+      if (textViolation !== null) add(textViolation.code);
+      // B1b-3c-1a: the content ROOT ENVELOPE (03 §2.2), REJECT in every state. Runs BEFORE
+      // the type walk and independently of it: a non-array `blocks` is precisely what
+      // silences that walk, so an envelope check gated on the walk having run would report
+      // nothing on the defect that matters most.
+      for (const f of checkContentRoot(c.value)) add(f.code);
       // B1b-2: classify every block/mark type in the parsed content tree. An unknown
       // bare type REJECTs, an unknown namespaced type is IGNOREd, a malformed known
       // block/mark WARNs (§5.4.2, §5/§5.1). resolveVerdict maps each code's disposition.
@@ -576,9 +626,10 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
         // The asset map is passed so the walk merges adjacent text nodes exactly as canon
         // does; without it every packaged-asset href keys alike and the walk over-merges,
         // hiding a real id collision (see CollectOptions.assetMap).
-        const resolved = resolveContentReferences(c.value, trustedAssetMap);
+        const resolved = resolveContentReferences(c.value, vocab.textBearingTypes, trustedAssetMap);
         for (const f of resolved.findings) add(f.code);
         contentIds = resolved.ids;
+        anchorTargets = resolved.targets;
 
         // --- B1b-3b-2: dangling asset references (§5.4.2) --------------------
         // Only where the map is trustworthy. With an unresolvable category the map is
@@ -685,15 +736,15 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
           //   - a `#b<n>` reference using the reserved canonical-name form — reported above
           //     as dangling (it resolves to no id), though at a disposition that understates
           //     it: the document's identity cannot be computed at all;
-          //   - content OR Dublin Core past MAX_CANONICALIZATION_DEPTH, and a stored-byte
-          //     UNICODE violation (non-NFC, an unpaired surrogate) — NEITHER has a reporting
-          //     row yet: §5.4.2 has no document-layer depth row (Container Format §5.3
-          //     bounds the archive), and NFC/Unicode is B1b-3c. The third stored-byte arm,
-          //     an unsafe integer, is NOT silent: the pre-canonicalization scan at
-          //     `firstNonRepresentableNumber(c.value)` above fires
-          //     CDX-E-PART-NUMBER-NON-REPRESENTABLE, and it reaches every number this
-          //     throw could (canon only deletes numbers, and a Dublin Core number is
-          //     rejected by `projectMetadata` first);
+          //   - a stored-byte Unicode violation — reported above,
+          //     CDX-E-PART-STRING-NOT-NFC / -ILL-FORMED, by the scan beside the number one;
+          //   - content OR Dublin Core past MAX_CANONICALIZATION_DEPTH — still with no
+          //     reporting row: §5.4.2 has no document-layer depth row (Container Format
+          //     §5.3 bounds the archive, not the part). NO stored-byte arm is silent any
+          //     more: an unsafe integer fires from `firstNonRepresentableNumber(c.value)`
+          //     above, and a Unicode violation from `collectStoredTextViolations(c.value)`
+          //     beside it. Both are pre-canonicalization scans over the RAW part, so each
+          //     reaches everything the corresponding throw could and more;
           //   - a dangling asset reference — reported above, CDX-E-ASSET-REFERENCE-DANGLING;
           //   - conflicting or malformed asset hashes in an index — reported above,
           //     CDX-E-ASSET-INDEX-UNUSABLE, which also makes `assetsResolvable` false so
@@ -701,14 +752,13 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
           //   - a `semantic:term`/`semantic:footnote` id spelling a canonical name
           //     (Document Hashing §4.3.1 item 5) — NOT reported anywhere. §5.4.2 assigns
           //     no row and there is no code, so a document carrying such an id loads with
-          //     its declared `manifest.id` UNVERIFIED and nothing said. All three silent
-          //     arms suppress the id signal identically — what differs is reachability:
-          //     excess depth and a Unicode violation need structurally anomalous content,
+          //     its declared `manifest.id` UNVERIFIED and nothing said. Both remaining
+          //     silent arms suppress the id signal identically — what differs is reachability:
+          //     excess depth needs structurally anomalous content,
           //     whereas `id: "b0"` is innocuous on its face and valid under the schema's
           //     id pattern, so an injected block carrying it suppresses the mismatch for
           //     the whole document without looking like an attack. Tracked as OQ-007.
-          // The depth, Unicode and preserved-id bullets are silent; the rest fire before
-          // this catch.
+          // The depth and preserved-id bullets are silent; the rest fire before this catch.
           if (!(err instanceof CanonicalizationError)) throw err;
         }
       }
@@ -841,7 +891,7 @@ export function documentVerdict(bytes: Buffer, archive: ArchiveResult, support: 
       // sweep below reports; `code: null` is the uncoded parse failure this row owns.
       if (p.code === null) add(CODE.EXTENSION_DATA_PART_UNPARSEABLE);
     } else if (p.status === 'ok' && contentIds !== null && annotationPaths.has(path)) {
-      for (const f of resolveAnnotationAnchors(p.value, contentIds, path)) add(f.code);
+      for (const f of resolveAnnotationAnchors(p.value, contentIds, path, anchorTargets)) add(f.code);
     }
   }
 

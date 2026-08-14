@@ -1,0 +1,38 @@
+{
+  "description": "The content root is an object carrying `version` but no `blocks`. Content Blocks section 2.2 makes `blocks` Required, and absent is not the same as empty: Document Hashing section 4.3.1 item 6 preserves absence rather than materializing a default, so this document and one carrying `blocks: []` render identically but canonicalize to different bytes — one rendered document with two identities.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks sections 2.2, 7.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:cf107005b0df40f356d1f8643fa611bf27dd3a388f6950830880049a86b76295\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\"}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Blocks Missing\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONTENT-ROOT-MALFORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

@@ -2002,6 +2002,403 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     ),
     expect: warnOnly('CDX-E-CONFIG-FILE-HASH-MISMATCH'),
   },
+
+  // === B1b-3c-1a: content ROOT ENVELOPE (03 §2.2; §5.4.2's dedicated row) ============
+  //
+  // The envelope is checked independently of the block/mark type walk, because a
+  // non-array `blocks` is exactly what silences that walk: `classifyContent` descends
+  // only when `blocks` IS an array, so one bracket turns a document §5.4.2 rejects into
+  // one that reports nothing — with the id still computable and a signature over it
+  // still verifying. REJECT in every state.
+  {
+    name: 'reject-content-root-not-object',
+    description: 'The content part parses as JSON but its root is an array, not an object. Content Blocks section 2.2 requires an object carrying `version` and `blocks`; a document whose content root is not an object has no content tree at all, so it cannot be coherently loaded.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945' } }),
+      contentBody('[]', 'Root Not Object'),
+    ),
+    expect: rejectOnly('CDX-E-CONTENT-ROOT-MALFORMED'),
+  },
+  {
+    name: 'reject-content-root-scalar',
+    description: 'The content part parses as JSON but its root is a NUMBER. RFC 8259 permits a scalar at the top level, so this parses cleanly and is not the unparseable row — it simply is not a content document. Distinct from the array case above and not redundant with it: a reader that reached for a member of the root without first establishing it is an object would fault here, where an array root would silently answer "absent" to every member lookup.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049' } }),
+      contentBody('42', 'Root Scalar'),
+    ),
+    expect: rejectOnly('CDX-E-CONTENT-ROOT-MALFORMED'),
+  },
+  {
+    name: 'reject-content-root-blocks-missing',
+    description: 'The content root is an object carrying `version` but no `blocks`. Content Blocks section 2.2 makes `blocks` Required, and absent is not the same as empty: Document Hashing section 4.3.1 item 6 preserves absence rather than materializing a default, so this document and one carrying `blocks: []` render identically but canonicalize to different bytes — one rendered document with two identities.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:cf107005b0df40f356d1f8643fa611bf27dd3a388f6950830880049a86b76295' } }),
+      contentBody('{"version":"0.1"}', 'Blocks Missing'),
+    ),
+    expect: rejectOnly('CDX-E-CONTENT-ROOT-MALFORMED'),
+  },
+  {
+    name: 'reject-content-root-blocks-not-array',
+    description: 'The content root carries `blocks` as an OBJECT rather than an array. This is the arm that matters most: every content-level row in the section 5.4.2 table is reached by walking `blocks`, so a non-array withdraws all of them at once. The document id stays computable and a signature over it still verifies, so nothing else catches it. (The wrapped block is well-formed — this case pins that the ENVELOPE is reported, not that a nested defect is withdrawn; the withdrawal property is an absence claim the subset comparator cannot express, and is pinned in test-document-verdict.ts.)',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:186f7fcb08a6bc540e61b792f7bd931ebb436714c60078c9d1dbddc19b0d41b1' } }),
+      contentBody('{"version":"0.1","blocks":{"0":{"type":"paragraph"}}}', 'Blocks Not Array'),
+    ),
+    expect: rejectOnly('CDX-E-CONTENT-ROOT-MALFORMED'),
+  },
+  {
+    name: 'reject-content-root-version-missing',
+    description: 'The content root carries a well-formed `blocks` array but no `version`. Because `blocks` IS an array here, the block/mark type walk still runs and still reports the bare `paragrph` inside it — pinning that the envelope check reports its own defect WITHOUT switching the classifier off. `version` is hashed inside the content slot (Document Hashing section 4.2), so its absence is a missing input to the document ID, not an unread field.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:ba5400b7fa859f2f505dd26235e4fa546ce5641894825f64858fde9014f703fc' } }),
+      contentBody('{"blocks":[{"type":"paragrph","children":[{"type":"text","value":"x"}]}]}', 'Version Missing'),
+    ),
+    expect: {
+      documentDisposition: { atLeast: 'REJECT', atMost: 'REJECT' },
+      findings: [
+        { code: 'CDX-E-CONTENT-ROOT-MALFORMED', atLeast: 'REJECT', atMost: 'REJECT' },
+        { code: 'CDX-E-BLOCK-TYPE-UNKNOWN-BARE', atLeast: 'REJECT', atMost: 'REJECT' },
+      ],
+    },
+  },
+  {
+    name: 'reject-content-root-version-mistyped',
+    description: 'The content root carries `version` as a number rather than a string. Mistyping a Required field is the same defect class as omitting it — the manifest row of section 5.4.2 already reads "missing or mistyping a required field" — and the mistyped value changes the canonical bytes exactly as a missing one does.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks sections 2.2, 7.1; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:77442477abb9dbb687de844d6e241a3fb41ec241d0bf04d4f9604e7f4e1f23dc' } }),
+      contentBody('{"version":1,"blocks":[]}', 'Version Mistyped'),
+    ),
+    expect: rejectOnly('CDX-E-CONTENT-ROOT-MALFORMED'),
+  },
+  {
+    name: 'positive-content-root-open',
+    description: 'A conformant content root carrying an UNRECOGNIZED extra member alongside `version` and `blocks`. The root is deliberately open — content.schema.json declares no root `additionalProperties: false` — so an extra member is not a defect, and a root-envelope check that closed the root would false-REJECT this. The published corpus already depends on the root being open: the two non-representable-number fixtures carry an extra root key of their own.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Content Blocks section 2.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:4ddbd1bdb988196bd0c4e727f627aa54ad85edbbdacb144a7543fc6a39a087aa' } }),
+      contentBody('{"version":"0.1","blocks":[],"x-vendor":{}}', 'Open Root'),
+    ),
+    expect: CLEAN,
+  },
+
+  // === B1b-3c-1a: stored-byte TEXT invariants (06 §4.3.2 item 2; §5.4.3) =============
+  //
+  // Every non-ASCII character below is written as a literal `\uXXXX` ESCAPE in the JSON
+  // text, never as a raw character. Two reasons, both load-bearing:
+  //   - a lone surrogate has no UTF-8 encoding at all, so a raw one in this TS source
+  //     would be written to the archive as U+FFFD and the fixture would test nothing;
+  //   - a decomposed sequence written raw is one editor-normalization away from silently
+  //     becoming NFC, which would leave the fixture passing for the wrong reason.
+  // The escapes also keep the stored bytes ASCII, so the hashes below are stable.
+  {
+    name: 'reject-content-text-non-nfc',
+    description: 'A text node value in Normalization Form D (`e` followed by U+0301 COMBINING ACUTE) rather than NFC. Document Hashing section 4.3.2 makes NFC a property of the stored bytes and forbids normalizing at hash time, so a reader has no repair available: normalizing would change the very bytes the document is identified by. REJECT in every state.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:5e7ae1607b5a6f4662f0725354dc91a369d6ab735321408c217b1eb15aaee355' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"cafe\\u0301"}]}]}', 'Non-NFC Text'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
+  },
+  {
+    name: 'reject-content-key-non-nfc',
+    description: 'A non-NFC OBJECT KEY (an `attributes` member) while every string VALUE in the document is conformant. Document Hashing section 4.3.2 binds "all object keys and string values", so a reader that scanned only values would pass this — the key enters the canonical JCS serialization exactly as a value does.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:69ba96e2835a83f4ebc1477798ef0c86eea72d153574783e0b423f007fe61497' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"cafe\\u0301":"x"},"children":[{"type":"text","value":"ok"}]}]}', 'Non-NFC Key'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
+  },
+  {
+    name: 'reject-content-split-combining-sequence',
+    description: 'A combining sequence split across a text-node boundary: one node ends `cafe`, the next is U+0301 alone. EACH node value is individually in NFC — a per-string check passes this document — but their concatenation is not, which is the arm Document Hashing section 4.3.2 states explicitly ("This applies to the concatenated text content of each block, not merely to individual text-node values"). The two nodes carry different marks so canonicalization does not merge them, leaving the split observable in the stored bytes.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:6790b6550ee4d396e289587dac692cd7e47ed6a0bcd76de31a69708c77fb7aca' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301","marks":["bold"]}]}]}', 'Split Combining Sequence'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
+  },
+  {
+    name: 'reject-content-split-combining-sequence-mid-array',
+    description: 'The same split combining sequence, but the run of text nodes is FOLLOWED by a non-text sibling in the same array rather than ending it. Not redundant with the case above: a scan that flushed its pending run only at the end of an array would miss this one, and a scan that flushed only mid-array would miss that one. Together they pin both boundaries of the run.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:f29ea5a425826d7cec8f6be22c03f0bea14d3e51b06f65d6c69364936314141b' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"},{"type":"paragraph","children":[{"type":"text","value":"ok"}]}]}', 'Split Combining Mid-Array'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
+  },
+  {
+    name: 'reject-content-text-unpaired-surrogate',
+    description: 'A text node value carrying a lone high surrogate (U+D800) with no low surrogate following, so the string is not well-formed Unicode and has no UTF-8 encoding at all. RFC 8259 parsers disagree on such an escape exactly as they disagree on a duplicate key — preserve it, substitute U+FFFD, or refuse — so two conformant readers derive different document IDs from this one archive. REJECT in every state.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:e6572daa78e8b3c9dcf154f51bf3442ef0e6b2bfbfd2b1a509807dc9b162ea1f' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"\\ud800"}]}]}', 'Unpaired Surrogate'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-ILL-FORMED'),
+  },
+  {
+    name: 'reject-content-text-ill-formed-and-non-nfc',
+    description: 'A text value carrying BOTH defects at once: decomposed text (`e` + U+0301) followed by a lone high surrogate. Both are REJECT, so the document disposition is the same either way — what this pins is WHICH arm is reported. A reader testing NFC first would report only the non-NFC arm and never mention that the string has no UTF-8 encoding at all, which is the arm under which two conformant readers disagree on the bytes. Note a string whose ONLY defect is a lone surrogate does not distinguish the two orders, because normalization leaves a lone surrogate unchanged.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:27305dca59492495800cd6668e82c7c41f824bdd224c3feb10ee14befc464916' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"cafe\\u0301\\ud800"}]}]}', 'Ill-Formed And Non-NFC'),
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-ILL-FORMED'),
+  },
+  {
+    name: 'positive-content-derived-field-non-nfc',
+    description: 'A non-NFC string inside a `crdt` field — one of the three fields the canonical transform DELETES (Document Hashing section 4.3.1 item 1). CLEAN, and deliberately so: section 5.4.2\'s rows and both string codes bind a HASHED key or value, and a field canonicalization deletes is not hashed. The split-view harm that justifies the REJECT cannot reach it either — two readers cannot derive different canonical bytes from a field both delete. This is the control for the scan\'s SCOPE: a reader scanning the whole stored part rather than its hashed material REJECTs this conformant document in every state, and `crdt` carries opaque third-party CRDT state holding arbitrary user text, so that is a live false-reject on real collaborative documents.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.3.1, 4.3.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:04fef6e2e299a3367194cbc2b64ac7b7ca6f30d8dc68fcf8e3b7d8385ce50164' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","crdt":{"note":"cafe\\u0301"},"children":[{"type":"text","value":"ok"}]}]}', 'Non-NFC Derived Field'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-content-astral-text',
+    description: 'A text node carrying an astral character (U+1F600, stored as the well-formed surrogate PAIR U+D83D U+DE00) in NFC. A reader that flagged any surrogate code unit rather than an UNPAIRED one would false-REJECT this — every non-BMP character in every conformant document is a surrogate pair.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:9fa673a55e622b9f75269a3cf10a0fe3d9c3ac86ef7250d7e7fd23b9d978738f' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"a\\ud83d\\ude00b"}]}]}', 'Astral Text'),
+    ),
+    expect: CLEAN,
+  },
+
+  // === B1b-3c-1a: anchor POSITION validity (03a §2.2, §3, §7.3) ======================
+  //
+  // Only the arms carrying a CONCRETE disposition are fixtures. The structural arm
+  // (CDX-E-ANCHOR-POSITION-INVALID) has `disposition: null` — §5.4.2 assigns it no row —
+  // and the fixture comparator cannot express a null-disposition finding at all: it
+  // requires every expected finding to carry a disposition interval. No fixture in the
+  // published corpus asserts any of the ten null-disposition codes, for that reason.
+  // Those arms are pinned in scripts/test-document-verdict.ts instead.
+  {
+    name: 'warn-anchor-position-out-of-range',
+    description: 'A `link` mark href `#p1/20-25` whose target block holds 13 code points of text, so the range runs off the end of the text it addresses. Anchors and References section 7.3 makes a position exceeding the target text a defect, and section 7.2 tabulates it at the same severities as a dangling anchor. The reference RESOLVES — this is not the dangling row — so a reader that checked only target existence reports nothing here.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:fa5bd8826995c7fdb8a04c652b9e2d9a6920fbf1ce9e3906b3da580ccc936921' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"Hello, world!"}]},{"type":"paragraph","id":"p2","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/20-25"}]}]}]}', 'Anchor Out Of Range'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-anchor-position-out-of-range-astral',
+    description: 'The same defect where the unit of measurement is the whole question: the target block holds `a`, U+1F600, `b` — THREE code points but FOUR UTF-16 code units — and the anchor addresses `#p1/0-4`. Anchors and References section 3 fixes the unit as the Unicode scalar value, so this range exceeds the text; an implementation measuring `String.length` computes 4, finds the range in bounds, and reports nothing. That is the defect the anchor-offset vectors exist to catch, here at the document layer.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:2f2f2d8c1f9a2bd8207c502e3e7e5f01db820e1686cef0c4c86dc5d234531578' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a\\ud83d\\ude00b"}]},{"type":"paragraph","id":"p2","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/0-4"}]}]}]}', 'Anchor Astral Out Of Range'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'positive-anchor-position-in-bounds',
+    description: 'A `link` mark href `#p1/7-12` selecting `world` from a 13-code-point block. The positive control for the range check: a reader with an off-by-one bound, or one that reported every positional anchor, would emit a spurious finding here. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:276e4859cf3ba068a0c53abe2f6c9ccb5c4960d76034a720f2b7fb089213b446' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"Hello, world!"}]},{"type":"paragraph","id":"p2","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/7-12"}]}]}]}', 'Anchor In Bounds'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'positive-anchor-position-at-text-end',
+    description: 'A range ending EXACTLY at the target block\'s text length (`#p1/0-3` over three code points), which selects through the final character. Anchors and References section 7.3 says a position MUST NOT EXCEED the length, so equality is valid — a reader using `>=` rather than `>` reports a spurious finding here. It shares its target block with the astral out-of-range case above, so the two together pin both the unit and the boundary. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.3',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:5e5e9ffb229921762466a88f651f95b21ab87989911b3046e03c7ae27cd7ecc1' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"a\\ud83d\\ude00b"}]},{"type":"paragraph","id":"p2","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/0-3"}]}]}]}', 'Anchor At Text End'),
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-anchor-position-out-of-range-code-block',
+    description: 'A `link` href `#code1/0-99` into a `codeBlock` holding 12 code points. Anchors & References section 3 names `codeBlock` among the text-bearing blocks outright, so a position addresses its text exactly as it would a paragraph\'s and an out-of-bounds one is the tabulated WARNING. The case exists because a `codeBlock` reaches its text node through an `allOf` that NARROWS it (section 4: exactly one marks-free text node) rather than through a direct schema reference — an implementation deriving the text-bearing set from direct references alone drops it, reports a conformant in-bounds anchor into source code as targeting a non-text-bearing block, and downgrades this case to the structural code, whose disposition is null. Anchoring a range of code is the ordinary reason to anchor at all, so that is a live false positive.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.2, 7.3; Content Blocks section 4; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:b9f5f0661602ec76f59afaa787c9b7b151d15bab4cf9c0ef192ad3646182f685' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"codeBlock","id":"code1","children":[{"type":"text","value":"const x = 1;"}]},{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#code1/0-99"}]}]}]}', 'Code Block Anchor Out Of Range'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-anchor-position-out-of-range-unsafe-integer',
+    description: 'A range `#p1/9007199254740992-9007199254740993` whose two bounds are DISTINCT integers that round to the same IEEE-754 double. Schema-valid: `contentAnchorUri`\'s pattern admits an unbounded `[0-9]+`, and Document Hashing section 4.3.2\'s 2^53 limit governs hashed NUMBERS, not digits inside a string. A reader deciding `start < end` after converting to a double finds them equal, takes the STRUCTURAL arm, and reports a null-disposition finding — silently downgrading a WARNING that Anchors & References section 7.2 tabulates. The bound must be compared before conversion; the Python oracle uses arbitrary-precision integers and reaches the correct answer either way, so this is a live two-implementation disagreement rather than a shared blind spot.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 2.1, 3, 7.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:f8195049a7df3e358680581e56690f96df23dac77b7a62b151be9132eec621ca' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"short"}]},{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/9007199254740992-9007199254740993"}]}]}]}', 'Anchor Position Unsafe Integer'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-anchor-position-multi-text-node-target',
+    description: 'The only target in the corpus whose text spans MORE THAN ONE text node: `p1` holds `abc` and `def`, so Anchors & References section 3\'s concatenation gives six code points and the range `#p1/0-7` runs off the end. Section 3 defines a block\'s text content as the concatenation of its text-node children, with nothing inserted between them — an implementation joining on a separator computes seven, finds the range in bounds, and reports nothing. Every other positional fixture has a single-text-node target, where concatenation is unobservable, so this case is what makes the model testable at all.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:80f9cc25ef359e5fbfc86771a24196b7d898342393843b2e69b427991e09ac63' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"abc"},{"type":"text","value":"def"}]},{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#p1/0-7"}]}]}]}', 'Anchor Multi Text Node Target'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-block-reference-position-out-of-range',
+    description: 'A `semantic:ref` block whose `target` `#p1/20-25` resolves to a block holding 13 code points, so the range runs off the end of the text it addresses. The same defect as `warn-anchor-position-out-of-range` in a DIFFERENT §5.4.2 row, and therefore under a different code: an out-of-range position is disposed of by the row of the FIELD carrying it, exactly as a dangling target in that field is (`warn-block-reference-dangling`). A reader emitting one out-of-range code across every reference field passes the core-anchor case and fails here — which matters because the rows diverge in the frozen column, contested for these fields on the reasoning CDX-E-BLOCK-REFERENCE-DANGLING records.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.2, 7.3, 11; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:9ba8fa85b8abb2d3e63ba8bcdf4e3314cd0d456051f9c40c1533f459c879445c' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"Hello, world!"}]},{"type":"semantic:ref","target":"#p1/20-25"}]}', 'Block Reference Out Of Range'),
+    ),
+    expect: warnOnly('CDX-E-BLOCK-REFERENCE-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-cross-reference-position-out-of-range',
+    description: 'An `academic:theorem-ref` mark whose `target` `#p1/20-25` resolves to a block holding 13 code points. WARNING in EVERY state under §5.4.2\'s extension-cross-reference row, where the two cases above escalate when frozen — so a reader reusing the core-anchor row\'s code here would hold a stale offset in a render-time reference to a HARSHER frozen disposition than a missing target in the same mark, which is the inversion the three-code split exists to prevent. The mark targets a PARAGRAPH deliberately, and that is the only shape in which this code can fire: a position addresses the concatenated text of a text-bearing block (§3), so a `*-ref` naming a theorem or equation block instead carries the structural CDX-E-ANCHOR-POSITION-INVALID, whose disposition is null. Anchors & References §7.2 tabulates this condition as escalating regardless of the field, against §5.4.2\'s row — a conflict recorded, not settled (design-decisions OQ-011).',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.3, 11; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:664d9cbcb48ba2ea8136a6c8a31d7e33851dc3b2f92ab966411f4b6c4a9e977f' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"Hello, world!"}]},{"type":"paragraph","children":[{"type":"text","value":"see","marks":[{"type":"academic:theorem-ref","target":"#p1/20-25"}]}]}]}', 'Cross Reference Out Of Range'),
+    ),
+    expect: warnOnly('CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE'),
+  },
+  {
+    name: 'warn-annotation-anchor-position-non-ascii-digits',
+    description: 'An out-of-hash annotation anchoring by the URI form with an ARABIC-INDIC digit — `#p1/0-٥` — against a five-code-point block. The Content Anchor URI grammar (Anchors & References section 2.1) and `contentAnchorUri`\'s pattern both admit `[0-9]` only, so this is not a range at all but a structurally invalid position; either way the out-of-hash row reports one code. The case exists to pin the GRAMMAR rather than the disposition, and specifically to hold the independent oracle to it: a Python implementation writing `\\d` matches every Unicode decimal digit and `int()` accepts them, so it parses this as the in-bounds range 0-5 and reports NOTHING — silently agreeing with a reader that has stopped checking. The same shape catches an oracle whose `$` matches before a trailing newline.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 2.1, 2.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:3e33d6d0dae9648aaf1598d3bef37281c04197096743f973ce2194d54e5c6111' } }),
+      [
+        { name: 'content/document.json', text: '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"short"}]}]}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Annotation Anchor Non ASCII Digits') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":"#p1/0-\\u0665","author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"ok"}]}' },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID'),
+  },
+  {
+    name: 'positive-annotation-anchor-position-integral-float',
+    description: 'A CLEAN out-of-hash annotation whose `offset` is written `1.0` in the stored bytes. JSON Schema `integer` accepts an integral float and `contentAnchor` declares these fields that way, so this is a conformant anchor at offset 1 into a five-code-point block. The control for an over-strict integrality test: an implementation rejecting any non-`int` runtime type reports a defect here on a conformant document. It is invisible to an obvious probe, since a JSON serializer writes `1.0` back out as `1` — only hand-written bytes reach the case, which is why it needs a fixture rather than a generated one. CLEAN.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 2.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:3e33d6d0dae9648aaf1598d3bef37281c04197096743f973ce2194d54e5c6111' } }),
+      [
+        { name: 'content/document.json', text: '{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","children":[{"type":"text","value":"short"}]}]}' },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Annotation Anchor Integral Float') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":{"blockId":"p1","offset":1.0},"author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"ok"}]}' },
+      ],
+    ),
+    expect: CLEAN,
+  },
+  {
+    name: 'warn-annotation-anchor-position-malformed',
+    description: 'A comment anchor carrying `offset` ALONGSIDE `start`/`end`. Anchors & References section 2.2 states the combination rule directly — an anchor has no position fields, `offset` only, or both `start` and `end` — and this names two incompatible positions at once, so a reader cannot tell which the author meant. Schema-valid: the three fields are each declared and the rule is prose, so nothing but a dedicated check catches it. The STRUCTURAL sibling of `warn-annotation-anchor-position-out-of-range`, which exercises the same code by the bounds arm; out of hash both arms share one code, since both take the same §5.4.2 row in both columns.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References section 2.2; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH } }),
+      [
+        { name: 'content/document.json', text: CONTENT_PARAGRAPH },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Annotation Anchor Malformed Position') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":{"blockId":"p1","offset":0,"start":0,"end":1},"author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"ok"}]}' },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID'),
+  },
+  {
+    name: 'warn-annotation-anchor-position-out-of-range',
+    description: 'A core annotations file whose comment anchors at a block that EXISTS — so the dangling row does not fire — with a range running past the end of that block\'s text. WARNING in every state: the annotation layer is bound by neither the document hash nor the manifest projection, so its defect cannot signal tampering. Unlike hashed content, the out-of-hash arm carries ONE code for both the structural and the out-of-bounds cases, because both take the same section 5.4.2 row in both columns.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Anchors and References sections 3, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: CONTENT_PARAGRAPH_HASH } }),
+      [
+        { name: 'content/document.json', text: CONTENT_PARAGRAPH },
+        { name: 'metadata/dublin-core.json', text: dublinCoreJson('Annotation Anchor Out Of Range') },
+        { name: 'security/annotations.json', text: '{"version":"0.1","annotations":[{"id":"a1","type":"comment","anchor":{"blockId":"p1","start":20,"end":25},"author":{"name":"A"},"created":"2025-01-10T08:00:00Z","content":"ok"}]}' },
+      ],
+    ),
+    expect: warnOnly('CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID'),
+  },
+  {
+    name: 'warn-anchor-position-masked-by-derived-field',
+    description: 'A `link` mark href `#target/0-25` whose target block holds 5 code points, so the range runs off the end — while an EARLIER block carries, inside a `crdt` payload, a decoy spelling the same `target` id with 30 code points of text. Document Hashing section 4.3.1 item 1 deletes `crdt`, so the decoy is not in the document and not in the shared identifier namespace: the anchor addresses the real block and is out of range. A reader whose anchor-target map comes from a walk that does not reproduce the canonical transforms lets the decoy claim the id first and reports NOTHING. Nothing else fires here — the id resolves, so this is not the dangling row, and only one occurrence is in the namespace, so it is not a collision — which is why the finding cannot be reached by accident.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 item 1; Anchors and References sections 3, 7.2, 7.3; State Machine section 5.4.2',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:f22dbd912af5a1c0fd9f44eb8747718c3d2380d04c271b23967ae184dfe3e58f' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"p1","crdt":{"shadow":{"type":"paragraph","id":"target","children":[{"type":"text","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}},"children":[{"type":"text","value":"see","marks":[{"type":"link","href":"#target/0-25"}]}]},{"type":"paragraph","id":"target","children":[{"type":"text","value":"short"}]}]}', 'Anchor Position Masked By Derived Field'),
+    ),
+    expect: warnOnly('CDX-E-ANCHOR-POSITION-OUT-OF-RANGE'),
+  },
 ];
 
 /** The committed case.json object for a case (key order is the on-disk order). */

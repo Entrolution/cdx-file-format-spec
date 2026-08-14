@@ -1076,7 +1076,7 @@ The `writingMode` attribute indicates the semantic writing mode of the content. 
 
 All text content MUST be valid Unicode (UTF-8 encoded in JSON). Implementations MUST support:
 
-- All Unicode normalization forms
+- Text in any Unicode normalization form on input (hashed content is *stored* in Normalization Form C — Document Hashing, section 4.3.2 — so a producer normalizes on the way in rather than at hash time, and a reader rejects stored content that is not already NFC)
 - Bidirectional text
 - Combining characters
 - Emoji
@@ -1089,6 +1089,7 @@ All text content MUST be valid Unicode (UTF-8 encoded in JSON). Implementations 
 2. Children MUST be appropriate for the block type
 3. Required attributes MUST be present
 4. Text nodes MUST have non-null `value`
+5. The content root MUST be a JSON object carrying `version` (string) and `blocks` (array) — section 2.2. A reader MUST reject a content part that parses but violates this envelope (State Machine, section 5.4.2); in particular a `blocks` that is not an array is not a partial document but an unreadable one, because every block-level rule in this section is defined over that array's members.
 
 ### 7.2 Content Rules
 

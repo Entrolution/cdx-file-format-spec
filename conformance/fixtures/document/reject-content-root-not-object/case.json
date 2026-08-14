@@ -1,0 +1,38 @@
+{
+  "description": "The content part parses as JSON but its root is an array, not an object. Content Blocks section 2.2 requires an object carrying `version` and `blocks`; a document whose content root is not an object has no content tree at all, so it cannot be coherently loaded.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Content Blocks sections 2.2, 7.1; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "[]"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Root Not Object\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CONTENT-ROOT-MALFORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

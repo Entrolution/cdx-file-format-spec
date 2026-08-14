@@ -17,6 +17,11 @@
  * a case's outcome depends on.
  */
 
+// The one import, and deliberately a LEAF: this module stays free of the hashing
+// stack so a gate can pull it in without side effects, which importing the
+// document-layer resolver (where the same comparison is used) would undo.
+import { compareDigits } from './decimal-digits.js';
+
 export interface Finding {
   rule: string;
   where: string;
@@ -162,10 +167,14 @@ export function checkAnchors(node: unknown, where: string, out: Finding[]): void
   if (typeof node === 'string') {
     const m = URI_RANGE.exec(node);
     if (m) {
-      const start = Number(m[1]);
-      const end = Number(m[2]);
-      if (!(start < end)) {
-        out.push({ rule: 'anchor-range', where, message: `content anchor URI '${node}' has start (${start}) not less than end (${end})` });
+      // Ordered on the DIGITS, not on `Number(...)`. The URI grammar admits an unbounded
+      // `[0-9]+`, and two distinct integers above 2^53 round to the same double — so
+      // `#p1/9007199254740992-9007199254740993`, which is well ordered, was reported here as
+      // an inverted range under a message naming the same number twice. Shared with
+      // reference-resolver.ts, which reaches the same rule from the document layer; the two
+      // disagreeing on the same URI is what made this worth extracting.
+      if (compareDigits(m[1], m[2]) >= 0) {
+        out.push({ rule: 'anchor-range', where, message: `content anchor URI '${node}' has start (${m[1]}) not less than end (${m[2]})` });
       }
     }
     return;

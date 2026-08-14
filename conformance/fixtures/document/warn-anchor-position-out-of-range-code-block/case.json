@@ -1,0 +1,38 @@
+{
+  "description": "A `link` href `#code1/0-99` into a `codeBlock` holding 12 code points. Anchors & References section 3 names `codeBlock` among the text-bearing blocks outright, so a position addresses its text exactly as it would a paragraph's and an out-of-bounds one is the tabulated WARNING. The case exists because a `codeBlock` reaches its text node through an `allOf` that NARROWS it (section 4: exactly one marks-free text node) rather than through a direct schema reference — an implementation deriving the text-bearing set from direct references alone drops it, reports a conformant in-bounds anchor into source code as targeting a non-text-bearing block, and downgrades this case to the structural code, whose disposition is null. Anchoring a range of code is the ordinary reason to anchor at all, so that is a live false positive.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.2, 7.3; Content Blocks section 4; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:b9f5f0661602ec76f59afaa787c9b7b151d15bab4cf9c0ef192ad3646182f685\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"codeBlock\",\"id\":\"code1\",\"children\":[{\"type\":\"text\",\"value\":\"const x = 1;\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"link\",\"href\":\"#code1/0-99\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Code Block Anchor Out Of Range\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANCHOR-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

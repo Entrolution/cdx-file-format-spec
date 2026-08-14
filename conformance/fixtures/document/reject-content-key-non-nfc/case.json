@@ -1,0 +1,38 @@
+{
+  "description": "A non-NFC OBJECT KEY (an `attributes` member) while every string VALUE in the document is conformant. Document Hashing section 4.3.2 binds \"all object keys and string values\", so a reader that scanned only values would pass this — the key enters the canonical JCS serialization exactly as a value does.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:69ba96e2835a83f4ebc1477798ef0c86eea72d153574783e0b423f007fe61497\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"cafe\\u0301\":\"x\"},\"children\":[{\"type\":\"text\",\"value\":\"ok\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-NFC Key\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

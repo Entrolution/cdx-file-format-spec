@@ -1,0 +1,38 @@
+{
+  "description": "A text node value carrying a lone high surrogate (U+D800) with no low surrogate following, so the string is not well-formed Unicode and has no UTF-8 encoding at all. RFC 8259 parsers disagree on such an escape exactly as they disagree on a duplicate key — preserve it, substitute U+FFFD, or refuse — so two conformant readers derive different document IDs from this one archive. REJECT in every state.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:e6572daa78e8b3c9dcf154f51bf3442ef0e6b2bfbfd2b1a509807dc9b162ea1f\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"\\ud800\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Unpaired Surrogate\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-ILL-FORMED",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

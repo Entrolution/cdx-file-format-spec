@@ -1,0 +1,38 @@
+{
+  "description": "An `academic:theorem-ref` mark whose `target` `#p1/20-25` resolves to a block holding 13 code points. WARNING in EVERY state under §5.4.2's extension-cross-reference row, where the two cases above escalate when frozen — so a reader reusing the core-anchor row's code here would hold a stale offset in a render-time reference to a HARSHER frozen disposition than a missing target in the same mark, which is the inversion the three-code split exists to prevent. The mark targets a PARAGRAPH deliberately, and that is the only shape in which this code can fire: a position addresses the concatenated text of a text-bearing block (§3), so a `*-ref` naming a theorem or equation block instead carries the structural CDX-E-ANCHOR-POSITION-INVALID, whose disposition is null. Anchors & References §7.2 tabulates this condition as escalating regardless of the field, against §5.4.2's row — a conflict recorded, not settled (design-decisions OQ-011).",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.3, 11; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:664d9cbcb48ba2ea8136a6c8a31d7e33851dc3b2f92ab966411f4b6c4a9e977f\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"Hello, world!\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"see\",\"marks\":[{\"type\":\"academic:theorem-ref\",\"target\":\"#p1/20-25\"}]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Cross Reference Out Of Range\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-CROSS-REFERENCE-POSITION-OUT-OF-RANGE",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

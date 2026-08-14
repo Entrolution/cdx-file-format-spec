@@ -642,10 +642,37 @@ export interface CollectedIds {
    * wants `ids`; only `alphaRenameIds` wants this.
    */
   preserved: Set<string>;
+  /**
+   * Whatever `CollectOptions.classify` returned for each id, keyed by id. Empty when no
+   * classifier was supplied.
+   *
+   * Collected on the SAME walk and under the SAME first-occurrence rule as `ids`, so its
+   * key set equals `ids` BY CONSTRUCTION. That is the point: a separate walk to classify
+   * ids can silently disagree about which ids exist — and did, until a review caught a
+   * second walk here that omitted `rawInput` and so admitted ids from inside `crdt`,
+   * letting a decoy shadow a real block. One walk removes the failure mode rather than
+   * disciplining it, and no future option can separate the two views.
+   *
+   * The classifier is INJECTED rather than implemented here because what an id names is
+   * an Anchors-and-References concept (§2.2/§3), not a hashing one; this module has no
+   * business knowing about text-bearing blocks. Same discipline structural-constraints.ts
+   * states for `walkBlocks`, whose block vocabulary is a parameter for the same reason.
+   */
+  classified: Map<string, unknown>;
 }
 
 /** Options for `collectDefinedIds`. */
 export interface CollectOptions {
+  /**
+   * Optional per-id classifier, invoked on the node that DEFINES each id, at the moment
+   * the id enters `ids`. Its return value lands in `CollectedIds.classified` under that id.
+   *
+   * Injected rather than implemented here so this module needs no vocabulary of its own:
+   * the only current classifier answers an Anchors-and-References question (does this id
+   * name a text-bearing block, an `anchor` mark, or neither), which is not a hashing
+   * concern. `alphaRenameIds` passes no options, so it pays nothing for this.
+   */
+  classify?: (node: Record<string, unknown>, ctx: WalkContext) => unknown;
   /**
    * Set when walking RAW stored content rather than the output of `canon`. A consumer
    * that resolves references against raw content must reproduce every `canon` transform
@@ -707,6 +734,7 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
   const ids: string[] = [];
   const duplicates: string[] = [];
   const preserved = new Set<string>();
+  const classified = new Map<string, unknown>();
 
   walkContentNodes(
     content,
@@ -722,12 +750,15 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
         if (!ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type)) {
           preserved.add(id);
         }
+        // Classified on the SAME first-occurrence branch as `ids`, so the two cannot
+        // disagree about which ids exist or about which node defines one.
+        if (options.classify !== undefined) classified.set(id, options.classify(node, ctx));
       }
     },
     options,
   );
 
-  return { ids, duplicates, preserved };
+  return { ids, duplicates, preserved, classified };
 }
 
 /** Where a visited node sits, which is what decides namespace membership (`definedId`). */
@@ -1121,6 +1152,14 @@ function isAnchorRefMark(type: unknown): boolean {
  * `academic:theorem-ref`/`academic:equation-ref`/`academic:algorithm-ref` mark
  * `target`; `academic:theorem` `uses[]`; `academic:proof` `of`; `semantic:ref`
  * and `presentation:reference` block `target`.
+ *
+ * ADDING A FIELD HERE MEANS ADDING IT TO reference-resolver.ts TOO, in
+ * MARK_REFERENCE_FIELDS or BLOCK_REFERENCE_FIELDS. That module resolves exactly
+ * this enumeration, and nothing checks this direction — its own table catches a
+ * field DROPPED there, but a field added here alone is silently unresolved. The
+ * cost is no longer just a missed dangling report: those tables now decide which
+ * State Machine §5.4.2 row an out-of-range POSITION defect takes, so a field
+ * known here and unknown there has no row at all.
  */
 function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, inArray: boolean, parentKey: string | undefined): unknown {
   if (Array.isArray(value)) {
@@ -1308,13 +1347,48 @@ export function validateStoredByteInvariants(value: unknown): void {
   }
 }
 
-function checkString(s: string): void {
+/** Defect codes for the §4.3.2 stored-byte TEXT invariants (registered in errors.json). */
+export const STORED_TEXT_CODE = {
+  NOT_NFC: 'CDX-E-PART-STRING-NOT-NFC',
+  ILL_FORMED: 'CDX-E-PART-STRING-ILL-FORMED',
+} as const;
+
+/**
+ * The reason a single string violates §4.3.2 item 2 — an unpaired surrogate (not
+ * well-formed Unicode), or not in Normalization Form C — or null if it is conformant.
+ *
+ * The single definition of the text rule, shared by `checkString` (which throws on it
+ * during canonicalization) and `collectStoredTextViolations` (the part loader's
+ * pre-canonicalization scan), exactly as `nonRepresentableNumberReason` is shared by the
+ * number arm. One predicate, two drivers: the boundary and the codes cannot drift.
+ *
+ * Order matters, though not for the reason it first appears. `normalize('NFC')` leaves a
+ * lone surrogate unchanged, so a string whose ONLY defect is an unpaired surrogate is
+ * reported as ill-formed under either order. The order decides the string that carries
+ * BOTH defects — decomposed text alongside a lone surrogate — where an NFC-first test
+ * reports the non-NFC arm and masks the ill-formed one. Well-formedness is the stronger
+ * finding of the two (it is the arm under which two conformant readers disagree on the
+ * bytes at all), so it is tested first. Pinned by reject-content-text-ill-formed-and-non-nfc.
+ */
+export function storedTextViolation(s: string): { code: string; detail: string } | null {
   if (!isWellFormedUnicode(s)) {
-    throw new CanonicalizationError(`string contains an unpaired surrogate (not well-formed Unicode): ${JSON.stringify(s)}`);
+    return {
+      code: STORED_TEXT_CODE.ILL_FORMED,
+      detail: `string contains an unpaired surrogate (not well-formed Unicode): ${JSON.stringify(s)}`,
+    };
   }
   if (s.normalize('NFC') !== s) {
-    throw new CanonicalizationError(`string is not in Normalization Form C (NFC): ${JSON.stringify(s)}`);
+    return {
+      code: STORED_TEXT_CODE.NOT_NFC,
+      detail: `string is not in Normalization Form C (NFC): ${JSON.stringify(s)}`,
+    };
   }
+  return null;
+}
+
+function checkString(s: string): void {
+  const v = storedTextViolation(s);
+  if (v) throw new CanonicalizationError(v.detail, v.code);
 }
 
 /** Reject a run of concatenated text-node values whose NFC form differs (§4.3.2 item 2). */
@@ -1322,8 +1396,96 @@ function checkConcatenatedNfc(run: string): void {
   if (run.normalize('NFC') !== run) {
     throw new CanonicalizationError(
       `concatenated block text is not in NFC — a combining sequence is split across text-node boundaries: ${JSON.stringify(run)}`,
+      STORED_TEXT_CODE.NOT_NFC,
     );
   }
+}
+
+/**
+ * The first §4.3.2 item-2 text violation in the HASHED material of `value`, or null. An
+ * ITERATIVE walk (explicit stack) so a deeply nested part cannot overflow the native stack,
+ * mirroring `firstNonRepresentableNumber` — and used for the same reason: to enforce a
+ * state-invariant stored-byte rule (§5.4.3) on a hashed part at LOAD time, independent of
+ * document-ID computation. A pending-id draft is never canonicalized, so a check hung off
+ * the recompute would reach almost nothing.
+ *
+ * SCOPE IS WHAT CANONICALIZATION HASHES, not the whole stored part. §5.4.2's rows and both
+ * codes' summaries say "a HASHED object key or string value", and a field `canon` deletes
+ * — `crdt`, `measurement.display`, `codeBlock.tokens` — is not hashed: two readers cannot
+ * derive different canonical bytes from a field both delete, so the split-view harm that
+ * justifies the REJECT cannot reach it. `isDerivedField` is term-for-term canon's own
+ * deletion set, so this neither over- nor under-approximates. Suppression stops at a TEXT
+ * NODE's `marks`, which canon does not recurse into (above).
+ *
+ * The relationship to canonicalization is therefore two one-sided properties, NOT an
+ * equivalence — stating it as "reports iff canon throws" would be false and the repair for
+ * the failing case would be to suppress a genuine defect:
+ *   (a) COMPLETENESS — this reports everything `canon` would throw on. That is what stops a
+ *       silent arm, and it is the direction that matters.
+ *   (b) PRECISION — the only excess is a field canon REWRITES rather than deletes: an asset
+ *       path resolved to a content hash (§4.3.1 item 2) is replaced before validation runs,
+ *       so canon never sees the stored path. Reporting it is correct, since §4.3.2 binds the
+ *       stored bytes; it simply cannot be observed through canon.
+ *
+ * Object KEYS are checked as well as values (§4.3.2 binds "all object keys and string
+ * values"), and each run of two or more adjacent text nodes is checked as a CONCATENATION,
+ * since §4.3.2 applies NFC to a block's whole text content. Merging never changes a
+ * concatenation, so measuring the run over raw nodes matches the canonical form.
+ */
+export function collectStoredTextViolations(value: unknown): { code: string; detail: string } | null {
+  interface Frame { v: unknown; inDerived: boolean; inTextMarks: boolean }
+  const stack: Frame[] = [{ v: value, inDerived: false, inTextMarks: false }];
+  const runViolation = (run: string): { code: string; detail: string } | null =>
+    run.normalize('NFC') === run
+      ? null
+      : { code: STORED_TEXT_CODE.NOT_NFC, detail: `concatenated block text is not in NFC — a combining sequence is split across text-node boundaries: ${JSON.stringify(run)}` };
+
+  while (stack.length > 0) {
+    const { v, inDerived, inTextMarks } = stack.pop()!;
+    if (typeof v === 'string') {
+      if (inDerived) continue;
+      const violation = storedTextViolation(v);
+      if (violation) return violation;
+    } else if (Array.isArray(v)) {
+      let run = '';
+      let runNodes = 0;
+      for (const el of v) {
+        if (isPlainObject(el) && el.type === 'text' && typeof el.value === 'string') {
+          run += el.value;
+          runNodes++;
+        } else {
+          if (!inDerived && runNodes >= 2) {
+            const violation = runViolation(run);
+            if (violation) return violation;
+          }
+          run = '';
+          runNodes = 0;
+        }
+        stack.push({ v: el, inDerived, inTextMarks });
+      }
+      if (!inDerived && runNodes >= 2) {
+        const violation = runViolation(run);
+        if (violation) return violation;
+      }
+    } else if (isPlainObject(v)) {
+      for (const key of Object.keys(v)) {
+        if (!inDerived) {
+          const violation = storedTextViolation(key);
+          if (violation) return violation;
+        }
+        stack.push({
+          v: v[key],
+          // `canon` does not recurse into a TEXT NODE's `marks` (see its `case 'text'`), so a
+          // derived field carried on or under such a mark SURVIVES canonicalization and canon
+          // does throw on it. Without this term a gate keyed on the field NAME alone goes
+          // silent on a document canon rejects.
+          inDerived: inDerived || (!inTextMarks && isDerivedField(v, key)),
+          inTextMarks: inTextMarks || (key === 'marks' && v.type === 'text'),
+        });
+      }
+    }
+  }
+  return null;
 }
 
 function isWellFormedUnicode(s: string): boolean {
@@ -1342,10 +1504,6 @@ function isWellFormedUnicode(s: string): boolean {
   }
   return true;
 }
-
-// ---------------------------------------------------------------------------
-// Small helpers
-// ---------------------------------------------------------------------------
 
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);

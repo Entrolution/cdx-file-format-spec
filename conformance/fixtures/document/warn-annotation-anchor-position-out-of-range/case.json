@@ -1,0 +1,42 @@
+{
+  "description": "A core annotations file whose comment anchors at a block that EXISTS — so the dangling row does not fire — with a range running past the end of that block's text. WARNING in every state: the annotation layer is bound by neither the document hash nor the manifest projection, so its defect cannot signal tampering. Unlike hashed content, the out-of-hash arm carries ONE code for both the structural and the out-of-bounds cases, because both take the same section 5.4.2 row in both columns.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Anchors and References sections 3, 7.3; State Machine section 5.4.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d2da00ccb856ddd6dffab5b12df723d8899316fdde8185bef09f30f901f61acc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Annotation Anchor Out Of Range\",\"creator\":\"A. Author\"}}"
+      },
+      {
+        "name": "security/annotations.json",
+        "text": "{\"version\":\"0.1\",\"annotations\":[{\"id\":\"a1\",\"type\":\"comment\",\"anchor\":{\"blockId\":\"p1\",\"start\":20,\"end\":25},\"author\":{\"name\":\"A\"},\"created\":\"2025-01-10T08:00:00Z\",\"content\":\"ok\"}]}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "WARNING",
+      "atMost": "WARNING"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-ANNOTATION-ANCHOR-POSITION-INVALID",
+        "atLeast": "WARNING",
+        "atMost": "WARNING"
+      }
+    ]
+  }
+}

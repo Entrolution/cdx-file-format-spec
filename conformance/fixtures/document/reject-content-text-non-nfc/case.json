@@ -1,0 +1,38 @@
+{
+  "description": "A text node value in Normalization Form D (`e` followed by U+0301 COMBINING ACUTE) rather than NFC. Document Hashing section 4.3.2 makes NFC a property of the stored bytes and forbids normalizing at hash time, so a reader has no repair available: normalizing would change the very bytes the document is identified by. REJECT in every state.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5e7ae1607b5a6f4662f0725354dc91a369d6ab735321408c217b1eb15aaee355\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\\u0301\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-NFC Text\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

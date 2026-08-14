@@ -1,0 +1,32 @@
+{
+  "description": "A non-NFC string inside a `crdt` field — one of the three fields the canonical transform DELETES (Document Hashing section 4.3.1 item 1). CLEAN, and deliberately so: section 5.4.2's rows and both string codes bind a HASHED key or value, and a field canonicalization deletes is not hashed. The split-view harm that justifies the REJECT cannot reach it either — two readers cannot derive different canonical bytes from a field both delete. This is the control for the scan's SCOPE: a reader scanning the whole stored part rather than its hashed material REJECTs this conformant document in every state, and `crdt` carries opaque third-party CRDT state holding arbitrary user text, so that is a live false-reject on real collaborative documents.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.3.1, 4.3.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:04fef6e2e299a3367194cbc2b64ac7b7ca6f30d8dc68fcf8e3b7d8385ce50164\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"crdt\":{\"note\":\"cafe\\u0301\"},\"children\":[{\"type\":\"text\",\"value\":\"ok\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Non-NFC Derived Field\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

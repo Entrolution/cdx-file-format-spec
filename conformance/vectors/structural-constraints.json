@@ -419,6 +419,28 @@
       }
     },
     {
+      "name": "anchor-uri-large-well-ordered-range",
+      "description": "A content-anchor URI whose bounds are distinct integers above 2^53. The URI grammar (Anchors and References section 2.1) admits an unbounded [0-9]+, and section 4.3.2's 2^53 limit governs hashed NUMBERS rather than digits inside a string, so this is well formed and well ordered. An implementation ordering the bounds by converting to an IEEE-754 double finds them equal and reports an inverted range — a false positive on conformant content, under a message naming the same number twice. The bounds must be compared before conversion.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": "#intro/9007199254740992-9007199254740993",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
+      "name": "anchor-uri-leading-zero-range",
+      "description": "A content-anchor URI whose start carries leading zeros. [0-9]+ admits them, and 007 is 7, so the range is well ordered. The companion to the case above: an implementation that switches to comparing digit strings must normalize leading zeros first, or a length-first comparison calls this inverted and reports a conformant anchor.",
+      "structural": {
+        "rule": "anchor-range",
+        "instance": "#intro/007-10",
+        "expect": {
+          "valid": true
+        }
+      }
+    },
+    {
       "name": "anchor-object-valid-range",
       "description": "A range anchor object with start < end (1,2) is valid.",
       "structural": {
