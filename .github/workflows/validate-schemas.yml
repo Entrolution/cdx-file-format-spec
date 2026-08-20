@@ -22,12 +22,26 @@ on:
       - 'package-lock.json'
       - '.github/workflows/validate-schemas.yml'
 
+concurrency:
+  # A new push to the same PR or branch supersedes the run in flight. Without
+  # this every push queued a *fresh* full set of jobs alongside the old ones,
+  # so a branch pushed five times held five complete matrices at once — on
+  # paid Blacksmith runners, and with nothing reclaiming the superseded work.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   validate:
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    # Capped because the GitHub default is **six hours** per job, and this
+    # workflow is reachable from a fork pull request. Measured over the last
+    # six runs the slowest job here is 34s, so 20 minutes is roughly 35x
+    # headroom while removing the runaway: a stuck or hostile job now costs
+    # 20 minutes of a paid runner rather than a working day of one.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
