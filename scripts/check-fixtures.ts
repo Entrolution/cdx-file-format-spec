@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Gate for the Level-1 container fixture corpus (the document track's front door).
+ * Gate for the committed fixture corpus, container and document layers alike.
  *
  * This gate proves the committed corpus is coherent and the reference reader is
  * capable; the end-to-end VERDICT evaluation (does the reader disposition each
@@ -13,21 +13,31 @@
  *      fixture fails. Mirrors the vector byte round-trip gate.
  *   2. Schema: every committed case.json validates against fixtures.schema.json.
  *   3. No orphans: every committed case directory maps to a corpus case.
- *   4. Reader codes: every code zip-reader.ts can emit is registered in errors.json.
- *   5. Deflate support: method 8 round-trips in-memory with a verified CRC (proving
+ *   4. Content-hash coherence: every document fixture's declared content.hash agrees
+ *      with the bytes its recipe stores, and disagrees exactly where the case expects
+ *      CDX-E-FILE-HASH-MISMATCH. check:conformance cannot assert this — see below.
+ *   5. Reader codes: every code zip-reader.ts can emit is registered in errors.json.
+ *   6. Deflate support: method 8 round-trips in-memory with a verified CRC (proving
  *      the mandatory algorithm works WITHOUT committing a non-deterministic archive).
- *   6. Independent oracle: archive_oracle.py confirms each malformation is actually
- *      present in the committed bytes.
+ *   7. Independent archive oracle: archive_oracle.py confirms each container-layer
+ *      malformation is actually present in the committed bytes.
+ *   8. Independent document oracle: document_oracle.py does the same for the part layer,
+ *      and its selftest proves its clean-case guards refuse what they check for.
+ *
+ * Plus one unnumbered check between 3 and 4: every authored disposition interval is
+ * well-formed (atLeast <= atMost), which the case schema does not constrain.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import { isValidContentHash, algorithmOf, hashBytes, CanonicalizationError } from './lib/canonicalize.js';
 import { createAjv } from './lib/ajv-utils.js';
 import { FIXTURE_CORPUS, caseJson } from './lib/fixture-corpus.js';
 import { buildZip } from './lib/zip-writer.js';
 import { readArchive, crcMatches, CODE } from './lib/zip-reader.js';
 import { CODE as DOC_CODE } from './lib/document-verdict.js';
+import { ASSET_CODE } from './lib/asset-index.js';
 import { CLASSIFIER_CODE } from './lib/content-classifier.js';
 import { isRegisteredCode } from './lib/error-codes.js';
 import { isWellFormedInterval } from './lib/disposition.js';
@@ -109,14 +119,254 @@ for (const c of FIXTURE_CORPUS) {
 }
 if (intervalOk) ok(`all ${FIXTURE_CORPUS.length} fixtures have well-formed disposition intervals`);
 
-// 4. Reader + document-mapper + content-classifier codes registered.
+// Hash coherence: every hash a document fixture's manifest DECLARES must agree with the bytes
+// its recipe stores — and must DISAGREE exactly where the case expects the mismatch code for
+// that reference's class.
+//
+// This cannot be delegated to check:conformance, which is why it lives here. The fixture
+// comparator is a SUBSET check over findings, so an unexpected hash-mismatch finding is
+// tolerated outright; and on a case whose expected disposition is already WARNING or REJECT it
+// cannot move the document disposition either, since a hash mismatch is a WARNING in draft and
+// review (every fixture is one or the other). Measured on `reject-content-key-non-nfc`: flipping
+// one hex digit of its content hash leaves all 366 conformance checks green while this gate
+// names it. The exception is the five cases expecting exactly [IGNORE, IGNORE], where the extra
+// WARNING does move the disposition and check:conformance catches it — so the hole this closes
+// is the WARNING and REJECT population, not literally every non-clean fixture.
+//
+// Scope is every {path|index, hash} pair reachable in the MANIFEST. That deliberately stops at
+// the manifest: the asset entries listed INSIDE an index file are a second level whose paths are
+// resolved relative to the index's own location, and re-deriving that here would duplicate
+// asset-index.ts's resolution — the kind of second implementation that drifts and then hides the
+// defect it was added to catch. Those hashes are pinned instead by the oracle's asset arms, but
+// SAY WHAT THAT LEAVES: those arms run only on CLEAN fixtures, so an asset whose bytes diverge
+// from the hash listed inside an index is unpinned on a non-clean one. Measured on
+// `integrity-error-id-collision-distinct-assets`: corrupting its asset bytes leaves
+// check:fixtures, check:conformance, check:document-oracle, check:document-id and
+// check:structural all green. That is this same hole one level down, and the boundary is drawn
+// here deliberately rather than because the residue is empty.
+// 4. Hash coherence.
+console.log('\nFixture hash coherence:');
+{
+  const isObj = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v);
+
+  // The mismatch code a reference's class carries, decided by the manifest key it hangs under.
+  // `security` is NOT a config slot: manifest.security.accessControl is the one security-block
+  // reference carried as a {path, hash} (manifest-projection.ts:454), the config slots are
+  // exactly academic/semantic/legal/collaboration, and NOTHING in the reader verifies
+  // accessControl's hash against stored bytes. So no code names a disagreement there, and
+  // claiming one would make such a fixture unauthorable — the gate would demand a code the
+  // implementation never emits, and check:conformance would then fail on that same code.
+  // `null` keeps the forward direction (the hash must still match its bytes) without inventing
+  // an attribution for the reverse one.
+  const codeForTopKey = (key: string): string | null =>
+    key === 'content' ? DOC_CODE.FILE_HASH_MISMATCH
+      : key === 'assets' ? ASSET_CODE.ASSET_INDEX_HASH_MISMATCH
+        : key === 'presentation' ? DOC_CODE.PRESENTATION_HASH_MISMATCH
+          : key === 'security' ? null
+            : DOC_CODE.CONFIG_FILE_HASH_MISMATCH;
+
+  interface Ref { where: string; path: string; hash: unknown; code: string | null }
+  const refsOf = (manifest: unknown): Ref[] => {
+    const out: Ref[] = [];
+    if (!isObj(manifest)) return out;
+    const visit = (node: unknown, where: string, code: string | null): void => {
+      if (Array.isArray(node)) { node.forEach((el, i) => visit(el, `${where}[${i}]`, code)); return; }
+      if (!isObj(node)) return;
+      // `index` is the asset category's path key; `path` is every other reference's. A
+      // reference with no `hash` key is a path-only binding (metadata.dublinCore, provenance)
+      // and binds no bytes, so it is not this check's business.
+      const pathKey = typeof node.path === 'string' ? 'path' : typeof node.index === 'string' ? 'index' : null;
+      if (pathKey !== null && 'hash' in node) out.push({ where, path: node[pathKey] as string, hash: node.hash, code });
+      // A node carrying a `hash` but whose path is MISTYPED would otherwise vanish here, which
+      // is the same silent hiding place the mistyped-`hash` branch below refuses to allow.
+      // Recorded with an empty path so it reaches that branch rather than dropping out.
+      else if (pathKey === null && 'hash' in node && ('path' in node || 'index' in node)) out.push({ where, path: '', hash: node.hash, code });
+      for (const k of Object.keys(node)) visit(node[k], `${where}.${k}`, code);
+    };
+    for (const k of Object.keys(manifest)) visit(manifest[k], k, codeForTopKey(k));
+    return out;
+  };
+
+  const documentCases = FIXTURE_CORPUS.filter((c) => c.layer === 'document');
+  let compared = 0;
+  let malformed = 0;
+  const declined: string[] = [];
+  const noComparableRef: string[] = [];
+  let coherent = true;
+
+  for (const c of documentCases) {
+    const manifestEntry = c.recipe.entries.find((e) => e.name === 'manifest.json');
+    let manifest: unknown = undefined;
+    if (manifestEntry?.text !== undefined) {
+      try { manifest = JSON.parse(manifestEntry.text); } catch { manifest = undefined; }
+    }
+    const expected = new Set(c.expect.findings.map((f) => f.code));
+    let comparableHere = 0;
+    const disagreed = new Set<string>();
+
+    for (const ref of refsOf(manifest)) {
+      if (ref.path === '') {
+        // Recorded by the walk with an empty path because `path`/`index` was present but not a
+        // string. Treated exactly as a mistyped `hash` is, rather than dropping out: the pair
+        // binds bytes and a mistyped path unbinds it just as effectively.
+        //
+        // EXCEPT for a config slot, where the reader reports NOTHING for this shape — see #120,
+        // which is open on whether it should and under which code. Demanding one here would make
+        // such a fixture unauthorable: this gate would require the code and check:conformance
+        // would then fail because the reader never emits it. The gap is recorded there, not
+        // asserted here, until the specification decision is taken.
+        if (ref.code === DOC_CODE.CONFIG_FILE_HASH_MISMATCH || ref.code === null) {
+          declined.push(`${c.name}:${ref.where} (mistyped path on a config-slot reference; #120)`);
+          continue;
+        }
+        if (!expected.has(ASSET_CODE.MANIFEST_REFERENCE_MALFORMED) && !expected.has(ASSET_CODE.MANIFEST_HASH_MALFORMED)) {
+          fail(`${c.name}: ${ref.where} carries a hash beside a MISTYPED path, but the case expects neither ${ASSET_CODE.MANIFEST_REFERENCE_MALFORMED} nor ${ASSET_CODE.MANIFEST_HASH_MALFORMED} — the hash binds nothing and nothing says so`);
+          coherent = false;
+        }
+        malformed++;
+        comparableHere++;
+        continue;
+      }
+      const entry = c.recipe.entries.find((e) => e.name === ref.path);
+      // An entry with no `text` is a real ZERO-BYTE part — zip-writer stores `e.text ?? ''` —
+      // so its declared hash is comparable against the digest of the empty string. Only a
+      // reference whose target the archive omits entirely is uncomparable.
+      if (entry === undefined) { declined.push(`${c.name}:${ref.where} (target absent)`); continue; }
+      // Forward-looking: no document fixture manipulates its stored bytes today (the three
+      // recipes that do are container-layer, which this loop never reaches). Kept so that
+      // adding one cannot silently start comparing a digest against bytes the recipe altered.
+      if (entry.truncateStoredBytes !== undefined || entry.methodCodeOverride !== undefined) {
+        declined.push(`${c.name}:${ref.where} (stored bytes manipulated)`);
+        continue;
+      }
+      if (typeof ref.hash !== 'string') {
+        // A present-but-mistyped `hash` is a malformed manifest reference, not a coherence
+        // question. Asserted rather than skipped, so a mistyped one cannot hide here.
+        if (!expected.has(ASSET_CODE.MANIFEST_HASH_MALFORMED) && !expected.has(ASSET_CODE.MANIFEST_REFERENCE_MALFORMED)) {
+          fail(`${c.name}: ${ref.where} declares a non-string hash ${JSON.stringify(ref.hash)} but the case expects neither ${ASSET_CODE.MANIFEST_HASH_MALFORMED} nor ${ASSET_CODE.MANIFEST_REFERENCE_MALFORMED}`);
+          coherent = false;
+        }
+        malformed++;
+        comparableHere++;
+        continue;
+      }
+      if (!isValidContentHash(ref.hash)) {
+        if (!expected.has(ASSET_CODE.MANIFEST_HASH_MALFORMED)) {
+          fail(`${c.name}: ${ref.where} declares ${JSON.stringify(ref.hash)}, not a well-formed algorithm:hexdigest, but the case does not expect ${ASSET_CODE.MANIFEST_HASH_MALFORMED}`);
+          coherent = false;
+        }
+        malformed++;
+        comparableHere++;
+        continue;
+      }
+      let actual: string;
+      try {
+        // Algorithm from the value's own prefix, as every other hash comparison in the repo
+        // does. This THROWS for an algorithm the runtime cannot compute — blake3 is permitted
+        // by Container §3.2 and declared in capabilities.json, and document-verdict.ts:676
+        // deliberately tolerates it rather than reporting. An uncomputable digest is a limit of
+        // this runtime, not an incoherent fixture, so it is declined here too. Uncaught it
+        // would abort the whole gate and take checks 5-8, including BOTH oracles, with it.
+        actual = hashBytes(algorithmOf(ref.hash), Buffer.from(entry.text ?? '', 'utf8'));
+      } catch (err) {
+        // ONLY an uncomputable algorithm is declinable. Swallowing every throw would let a
+        // future fault here be silently reclassified as one — the sibling call sites at
+        // document-verdict.ts:538 and :545 rethrow for the same reason.
+        if (!(err instanceof CanonicalizationError)) throw err;
+        declined.push(`${c.name}:${ref.where} (${algorithmOf(ref.hash)} not computable here)`);
+        continue;
+      }
+      compared++;
+      comparableHere++;
+      if (actual !== ref.hash) {
+        if (ref.code === null) {
+          // No published code names a disagreement on this reference — see codeForTopKey. The
+          // hash is still wrong, and saying so is the whole point of the forward direction.
+          fail(`${c.name}: ${ref.where} declares ${ref.hash} but the stored bytes digest to ${actual}; no defect code names a mismatch on this reference, so it is simply incoherent`);
+          coherent = false;
+        } else {
+          disagreed.add(ref.code);
+          if (!expected.has(ref.code)) {
+            fail(`${c.name}: ${ref.where} declares ${ref.hash} but the stored bytes digest to ${actual}, and the case does not expect ${ref.code} — recompute it, or the case carries an unnamed extra hash defect`);
+            coherent = false;
+          }
+        }
+      }
+    }
+
+    // The other direction: a case naming a hash-mismatch code must actually carry one of that
+    // class. Without this a fixture can expect a mismatch it does not have and prove nothing.
+    for (const code of [DOC_CODE.FILE_HASH_MISMATCH, ASSET_CODE.ASSET_INDEX_HASH_MISMATCH,
+      DOC_CODE.PRESENTATION_HASH_MISMATCH, DOC_CODE.CONFIG_FILE_HASH_MISMATCH]) {
+      if (expected.has(code) && !disagreed.has(code)) {
+        fail(`${c.name}: expects ${code}, but every ${code === DOC_CODE.FILE_HASH_MISMATCH ? 'content' : 'matching'} hash it declares AGREES with the stored bytes — the case cannot be testing what it names`);
+        coherent = false;
+      }
+    }
+    if (comparableHere === 0) noComparableRef.push(c.name);
+  }
+
+  // A COUNT IS NOT ENOUGH, and this is the failure this block was itself guilty of. Without a
+  // floor the gate prints a tick having compared nothing: any refactor that moves every fixture
+  // onto the uncomparable path leaves "0 fixtures ... agree" and exit 0, which is literally true
+  // and completely empty. So the skip set is pinned by NAME, and every fixture must be accounted
+  // for. Growing it is a deliberate edit, as it is for the orphan check above.
+  const EXPECTED_NO_REF = [
+    'reject-content-part-missing',      // manifest names a content part the archive omits
+    'reject-content-path-traversal',    // content.path is ../secret.json; no entry matches
+    'reject-content-reference-malformed', // content is a bare string, so no {path, hash} pair
+    'reject-manifest-absent',           // no manifest.json at all
+    'reject-manifest-not-object',       // manifest parses to an array
+    'reject-manifest-unparseable',      // manifest is not valid JSON
+  ];
+  const unexpected = noComparableRef.filter((n) => !EXPECTED_NO_REF.includes(n));
+  const absent = EXPECTED_NO_REF.filter((n) => !noComparableRef.includes(n));
+  if (unexpected.length > 0) {
+    fail(`fixtures newly carrying no comparable hash reference: ${unexpected.join(', ')} — if that is intended, add them to EXPECTED_NO_REF with the reason`);
+    coherent = false;
+  }
+  if (absent.length > 0) {
+    fail(`EXPECTED_NO_REF names fixtures that DO now carry a comparable hash reference: ${absent.join(', ')} — remove them`);
+    coherent = false;
+  }
+  if (compared === 0) {
+    fail('the hash-coherence pass compared nothing — it is vacuous, not clean');
+    coherent = false;
+  }
+  // A DECLINED reference is a declared hash this pass did NOT verify. Counting its fixture among
+  // those that "agree" is precisely the empty tick this block exists to remove, so declines are
+  // pinned by name and reported separately rather than folded into the total. Every one today is
+  // a reference whose target the archive deliberately omits — there are no bytes to hash.
+  const EXPECTED_DECLINED = [
+    'reject-asset-index-path-divergent:assets.images (target absent)',
+    'reject-content-part-missing:content (target absent)',
+    'reject-content-path-traversal:content (target absent)',
+    'warn-asset-index-missing:assets.images (target absent)',
+    'warn-config-part-missing:semantic.bibliography (target absent)',
+    'warn-presentation-part-missing:presentation[0] (target absent)',
+  ];
+  const newDeclines = declined.filter((d) => !EXPECTED_DECLINED.includes(d)).sort();
+  const goneDeclines = EXPECTED_DECLINED.filter((d) => !declined.includes(d));
+  if (newDeclines.length > 0) {
+    fail(`declared hashes newly going unverified: ${newDeclines.join(', ')} — if that is intended, add them to EXPECTED_DECLINED with the reason`);
+    coherent = false;
+  }
+  if (goneDeclines.length > 0) {
+    fail(`EXPECTED_DECLINED names references that ARE now verified: ${goneDeclines.join(', ')} — remove them`);
+    coherent = false;
+  }
+  if (coherent) ok(`${compared} declared hash(es) across ${documentCases.length - noComparableRef.length} document fixtures agree with their stored bytes (${malformed} deliberately malformed, ${declined.length} declined and named, ${noComparableRef.length} fixtures carry no comparable reference)`);
+}
+
+// 5. Reader + document-mapper + content-classifier codes registered.
 console.log('\nReader defect codes:');
 const codes = [...Object.values(CODE), ...Object.values(DOC_CODE), ...Object.values(CLASSIFIER_CODE)];
 const unreg = codes.filter((c) => !isRegisteredCode(c));
 if (unreg.length === 0) ok(`all ${codes.length} reader/document/classifier codes registered in errors.json`);
 else fail(`reader/document/classifier codes not registered in errors.json: ${unreg.join(', ')}`);
 
-// 5. Deflate support (in-memory; never committed, since deflate bytes are not
+// 6. Deflate support (in-memory; never committed, since deflate bytes are not
 //    guaranteed stable across zlib builds).
 console.log('\nCompression support:');
 {
@@ -130,7 +380,7 @@ console.log('\nCompression support:');
   }
 }
 
-// 6. Independent archive oracle: container-layer defect-presence in the bytes.
+// 7. Independent archive oracle: container-layer defect-presence in the bytes.
 console.log('\nIndependent archive oracle (python3, defect-presence):');
 try {
   const out = execFileSync('python3', [path.join(CONF, 'oracles', 'archive_oracle.py'), 'check'], { encoding: 'utf8' });
@@ -142,7 +392,7 @@ try {
   fail(`archive_oracle.py check failed${e.message ? `: ${e.message}` : ''}`);
 }
 
-// 7. Independent document oracle: part-layer defect-presence in the bytes.
+// 8. Independent document oracle: part-layer defect-presence in the bytes.
 console.log('\nIndependent document oracle (python3, defect-presence):');
 try {
   const out = execFileSync('python3', [path.join(CONF, 'oracles', 'document_oracle.py'), 'check'], { encoding: 'utf8' });

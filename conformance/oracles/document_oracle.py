@@ -29,6 +29,7 @@ manifest and referenced content part both parse as JSON and carry no duplicate k
 Usage: document_oracle.py check
 """
 
+import ast
 import hashlib
 import io
 import json
@@ -2245,6 +2246,13 @@ def confirm_clean(name, data):
         manifest = json.loads(mtext)
     except Exception as exc:  # noqa: BLE001
         return f"clean case manifest is not valid JSON: {exc}"
+    # Parseable JSON is not necessarily an OBJECT. Without this the arms below call
+    # `.get` on a list and raise AttributeError, and `check` does not wrap this call —
+    # so a clean fixture whose manifest was an array aborted the entire oracle run with
+    # a traceback rather than reporting a refusal. Found by driving this guard from
+    # `reject-manifest-not-object`, which is exactly what the selftest below does.
+    if not isinstance(manifest, dict):
+        return "clean case manifest is not a JSON object"
     path = (manifest.get("content") or {}).get("path") if isinstance(manifest.get("content"), dict) else None
     if not isinstance(path, str) or path not in cdm:
         return "clean case manifest does not reference an existing content part"
@@ -2430,9 +2438,291 @@ def check():
     return 0
 
 
+# Drives the clean-case guards in `confirm_clean` from the MALFORMED corpus. Each row is
+# (fixture, message fragment, what the fixture carries).
+#
+# Why this table has to exist: an arm of `confirm_clean` only ever runs on a CLEAN fixture,
+# and a fixture carrying the defect that arm looks for is by definition not clean. So no
+# corpus case reaches the arm with its defect present, and deleting the arm outright left
+# every gate green — the arms added by B1b-3c-1a were unmutatable in exactly that way.
+# archive_oracle.py records the same trap — "Drive the REAL clean-case guard, not its
+# parts" — though its own selftest is a single targeted probe rather than a table.
+#
+# The fragment matters as much as the fixture. `confirm_clean` returns on its FIRST failing
+# arm, so `is not None` is satisfied by ANY later arm and would still pass with the arm
+# under test deleted — the assertion has to be attributable to the arm it is pinning.
+CLEAN_GUARD_CASES = (
+    # Listed in the order `confirm_clean` runs them, so this table reads alongside it.
+    # --- the archive, the manifest and the content part ---
+    ("reject-manifest-absent", "has no readable manifest.json",
+     "no manifest.json at all"),
+    ("reject-manifest-duplicate-keys", "manifest has a duplicate key",
+     "a duplicate key in the manifest"),
+    ("reject-manifest-unparseable", "manifest is not valid JSON",
+     "a manifest that is not valid JSON"),
+    ("reject-manifest-not-object", "manifest is not a JSON object",
+     "a manifest that parses as an array rather than an object"),
+    ("reject-content-part-missing", "manifest does not reference an existing content part",
+     "a content reference naming a part the archive omits"),
+    ("reject-duplicate-json-keys", "content part is missing or has a duplicate key",
+     "a duplicate key in the content part"),
+    ("reject-content-unparseable", "content part is not valid JSON",
+     "a content part that is not valid JSON"),
+    # Two drivers, because the sweep is over EVERY declared part rather than the two
+    # named ones: a guard narrowed back to manifest+content still passes the first.
+    ("reject-dublincore-duplicate-keys", "part metadata/dublin-core.json has a duplicate key",
+     "a duplicate key in the Dublin Core part"),
+    ("reject-declared-part-duplicate-keys", "part metadata/doc.jsonld has a duplicate key",
+     "a duplicate key in a manifest-declared part that is not named .json by convention"),
+
+    # --- B1b-3c-1a: content-part validity ---
+    ("reject-content-root-blocks-missing", "content root violates its envelope",
+     "a content root whose `blocks` is absent"),
+    ("reject-content-key-non-nfc", "stored-byte text invariants: ['non-nfc']",
+     "a non-NFC object KEY in the content half of the hashed basis"),
+    ("reject-content-text-ill-formed-and-non-nfc", "stored-byte text invariants: ['ill-formed']",
+     "an ill-formed UTF-16 sequence in the hashed basis"),
+    ("reject-metadata-term-non-nfc-array-element", "stored-byte text invariants: ['non-nfc']",
+     "a non-NFC Dublin Core term in the METADATA half of the hashed basis"),
+    # The three position rows assert the KIND as well as the arm. All three take the SAME
+    # arm, so without the kind any one of them would be satisfied by any position defect at
+    # all and would pin nothing about the field it names. That keeps these rows honest; it
+    # is not extra routing coverage, which CONFIRMERS already provides — misrouting `block`
+    # to `anchor` was measured to fail check() on its own, with the selftest disabled.
+    ("warn-anchor-position-out-of-range", "anchor-position finding(s): ['out-of-range:anchor']",
+     "an out-of-range position on a mark anchor"),
+    ("warn-block-reference-position-out-of-range", "anchor-position finding(s): ['out-of-range:block']",
+     "an out-of-range position on a block reference"),
+    ("warn-cross-reference-position-out-of-range", "anchor-position finding(s): ['out-of-range:xref']",
+     "an out-of-range position on a semantic cross-reference"),
+    ("warn-annotation-anchor-position-malformed", "out-of-hash annotation anchor carries a defective position",
+     "a structurally malformed position on an out-of-hash annotation anchor"),
+
+    # --- B1b-2: the block/mark classifier, one row per tag it can return ---
+    # Two rows, because `block_bare` is emitted from two different places — a non-object in a
+    # block position (fail closed) and an unknown bare type (refused) — and one row cannot
+    # tell which path went silent.
+    ("reject-block-position-non-object", "classifier finding(s): ['block_bare']",
+     "a non-object in a block position"),
+    ("reject-block-type-unknown-bare", "classifier finding(s): ['block_bare']",
+     "an unknown BARE block type"),
+    ("warn-block-figure-cardinality", "classifier finding(s): ['block_malformed']",
+     "a known block type violating its own cardinality rule"),
+    ("ignore-block-namespaced-opaque-subtree", "classifier finding(s): ['block_ns']",
+     "an unknown NAMESPACED block type"),
+    ("reject-mark-type-unknown-bare", "classifier finding(s): ['mark_bare']",
+     "an unknown BARE mark type"),
+    ("warn-mark-anchor-no-id", "classifier finding(s): ['mark_malformed']",
+     "a known mark type missing a required field"),
+    ("ignore-mark-type-unknown-namespaced", "classifier finding(s): ['mark_ns']",
+     "an unknown NAMESPACED mark type"),
+
+    # --- B1b-3b-1: metadata, out-of-hash parts and content references ---
+    ("reject-metadata-reference-malformed", "has no readable Dublin Core part",
+     "a Dublin Core reference that resolves to nothing"),
+    ("warn-metadata-part-unparseable", "Dublin Core part is not a JSON object",
+     "a Dublin Core part that is not a JSON object"),
+    ("warn-metadata-term-malformed", "Dublin Core is malformed or omits a required term",
+     "a Dublin Core part missing a required term"),
+    ("warn-custom-metadata-part-missing", "declares a path-only part reference that the archive omits",
+     "a path-only part reference the archive omits"),
+    ("warn-extension-data-part-unparseable", "unparseable out-of-hash extension data part",
+     "an unparseable out-of-hash extension data part"),
+    ("warn-annotation-anchor-dangling", "out-of-hash annotation anchored at no content id",
+     "an out-of-hash annotation anchored at no content id"),
+    # One row per reference tag, for the same reason the position rows carry their kind.
+    ("warn-anchor-dangling", "reference finding(s): ['anchor']",
+     "a dangling core anchor"),
+    ("warn-block-reference-dangling", "reference finding(s): ['block']",
+     "a dangling extension block reference"),
+    ("warn-cross-reference-dangling", "reference finding(s): ['xref']",
+     "a dangling semantic cross-reference"),
+    ("integrity-error-id-collision", "reference finding(s): ['collision']",
+     "two content nodes sharing an id"),
+
+    # --- B1b-3b-2: hash-bound assets, presentation layers and config slots ---
+    ("warn-asset-index-missing", "missing a hash-bound part",
+     "a hash-bound part the archive omits"),
+    ("warn-asset-index-unusable", "asset index that cannot be used to resolve the category",
+     "an asset index that cannot resolve its category"),
+    ("reject-asset-index-path-divergent", "asset index path that differs from the derived location",
+     "an asset index declared at a path other than its derived location"),
+    ("warn-asset-index-hash-mismatch", "asset index does not match its declared hash",
+     "an asset index whose bytes do not match its declared hash"),
+    ("warn-asset-hash-mismatch", "asset or variant does not match its declared hash",
+     "an asset whose bytes do not match its declared hash"),
+    ("warn-asset-variant-missing", "lists an image variant the archive omits",
+     "a listed image variant the archive omits"),
+    ("warn-asset-reference-dangling", "references an asset that resolves to no registered asset",
+     "content referencing an unregistered asset"),
+    ("warn-presentation-hash-mismatch", "presentation layer does not match its declared hash",
+     "a presentation layer whose bytes do not match its declared hash"),
+    ("warn-presentation-undeclared", "ships a presentation file no manifest.presentation[] entry declares",
+     "a presentation file no manifest entry declares"),
+    ("warn-presentation-reference-dangling", "presentation targets a block id the content does not define",
+     "a presentation targeting an undefined block id"),
+    ("warn-config-part-missing", "config-slot side file that is absent or unparseable",
+     "a config-slot side file that is absent"),
+    ("warn-config-file-hash-mismatch", "config-slot side file does not match its declared hash",
+     "a config-slot side file whose bytes do not match its declared hash"),
+
+    # --- semantic cross-references, footnotes, and the hash/id recomputes ---
+    ("warn-citation-and-glossary-dangling", "dangling cross-reference(s): ['citation', 'glossary']",
+     "dangling citation and glossary references"),
+    ("warn-footnote-reference-dangling", "footnote resolution defect(s): ['dangling']",
+     "a footnote mark resolving to no block"),
+    ("warn-footnote-reference-ambiguous", "footnote resolution defect(s): ['ambiguous']",
+     "a footnote marker resolving to more than one block"),
+    ("warn-file-and-id-mismatch", "content.hash does not match the stored content bytes",
+     "a content.hash that does not match the stored bytes"),
+    ("warn-asset-document-id-mismatch", "recomputed document id does not match manifest.id",
+     "a manifest.id that is not the recomputed canonical id"),
+)
+
+
+# The archive-unreadable arm is the one refusal `confirm_clean` has that NO document fixture
+# can drive: every document fixture is a readable zip, and the only two archives in the corpus
+# that are not — reject-truncated-no-eocd, reject-unsafe-overlong-utf8 — are container-layer,
+# which the rows above resolve no path for. `confirm_clean` takes BYTES rather than a fixture,
+# so it is driven directly, the same shape as archive_oracle.py's targeted probe. Without it
+# the coverage assertion below could not reach 37 of 37 and would have to carry an exemption.
+UNREADABLE_ARCHIVE_PROBE = (
+    b"PK\x03\x04 not a readable archive",
+    "zipfile could not read it",
+    "bytes that are not a readable archive",
+)
+
+
+def _confirm_clean_arms():
+    """{line number: static message text} for every REFUSAL return in `confirm_clean`.
+
+    Derived from this file's own AST rather than listed, so the count cannot drift from the
+    function it describes. Nested callables are SKIPPED: `ast.walk` descends into them, so a
+    local helper's `return` would be enumerated as an arm — and the tracer below filters on
+    the frame's code name, so nothing could ever mark it reached. That combination produces a
+    selftest failure no row can satisfy, pointing the maintainer at a defect that does not exist.
+    """
+    fn = next(n for n in ast.walk(ast.parse(io.open(__file__, encoding="utf-8").read()))
+              if isinstance(n, ast.FunctionDef) and n.name == "confirm_clean")
+
+    def static_text(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(v.value for v in node.values
+                           if isinstance(v, ast.Constant) and isinstance(v.value, str))
+        return ""
+
+    arms = {}
+
+    def visit(node):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue  # a nested helper's return belongs to the helper, not to this arm set
+            if isinstance(child, ast.Return) and not (
+                child.value is None
+                or (isinstance(child.value, ast.Constant) and child.value.value is None)
+            ):
+                arms[child.lineno] = static_text(child.value)
+            visit(child)
+
+    visit(fn)
+    return arms
+
+
+def selftest():
+    """Assert the clean-case guards REFUSE every document carrying what they look for.
+
+    Drives the REAL `confirm_clean`, not the helper predicates behind it. Asserting the
+    helpers directly is the trap archive_oracle.py records: such a selftest passes with the
+    guard removed from the clean-case path entirely, which is the only place it does any work.
+
+    Two properties, and the second is what keeps the first honest:
+
+      1. Every driver is refused BY ITS OWN ARM, checked on the refusal message rather than on
+         "was refused at all" — `confirm_clean` returns on its first failing arm, so a bare
+         is-not-None assertion is satisfied by any LATER arm and survives deleting the one
+         under test.
+      2. Every refusal arm is reached by some driver. Without this the table is a snapshot: it
+         restores coverage for the arms present today while adding nothing that keeps a NEWLY
+         added arm from being silent — which is exactly how the four B1b-3c-1a arms came to be
+         unmutatable. The arms are enumerated from the AST and the drivers traced, so a new
+         arm with no row fails here instead of passing quietly.
+
+    A CONSEQUENCE FOR FIXTURE AUTHORS, since nothing else states it: each driver below must
+    trip the arm its row names and no EARLIER one. Giving one of them a second, unrelated
+    defect makes an earlier arm fire, which both fails that row and leaves its own arm
+    unreached — so the two reports are correlated and the second is diagnosed as shadowing
+    rather than as a missing row.
+
+    Failures accumulate rather than returning on the first, so one rotted fragment reports
+    every other rotted row in the same run instead of costing a run each.
+    """
+    arms = _confirm_clean_arms()
+    reached = set()
+    failures = []
+    shadowed_fragments = []
+
+    def trace(frame, event, arg):
+        if frame.f_code.co_name != "confirm_clean":
+            return None
+        if event == "line" and frame.f_lineno in arms:
+            reached.add(frame.f_lineno)
+        return trace
+
+    def drive(label, data, fragment, why):
+        verdict = confirm_clean(label, data)
+        if verdict is None:
+            failures.append(f"the clean-case guards blessed {label}, which carries {why} "
+                            f"— the guard for it is vacuous or absent")
+        elif fragment not in verdict:
+            failures.append(f"{label} carries {why}, but the clean-case guards refused it for a "
+                            f"different reason: {verdict!r} (expected to contain {fragment!r})")
+            shadowed_fragments.append((fragment, label))
+
+    previous = sys.gettrace()  # restore, do not clobber: a caller may be profiling or tracing
+    sys.settrace(trace)
+    try:
+        for fixture, fragment, why in CLEAN_GUARD_CASES:
+            path = os.path.join(FIXTURES, fixture, "case.cdx")
+            if not os.path.exists(path):
+                failures.append(f"fixture {fixture} is missing")
+                continue
+            drive(fixture, open(path, "rb").read(), fragment, why)
+        drive("<synthetic>", *UNREADABLE_ARCHIVE_PROBE)
+    finally:
+        sys.settrace(previous)
+
+    for line in sorted(set(arms) - reached):
+        # An arm goes unreached for two very different reasons, and the remedies are opposite.
+        # If a row exists but its driver was refused by an EARLIER arm, the row is not missing
+        # — the fixture grew a second defect — and telling the maintainer to add a row makes
+        # them add a duplicate. Correlate the two reports rather than emitting both blind.
+        shadow = next(((frag, label) for frag, label in shadowed_fragments
+                       if frag and frag in arms[line]), None)
+        if shadow is not None:
+            failures.append(f"confirm_clean line {line} went unreached because its driver "
+                            f"{shadow[1]} was refused by an EARLIER arm — fix that fixture, "
+                            f"do NOT add a row")
+        else:
+            failures.append(f"confirm_clean line {line} is a refusal arm no driver reaches: "
+                            f"{arms[line] or '(dynamic message)'} — add a row to "
+                            f"CLEAN_GUARD_CASES that carries that defect, or a probe if no "
+                            f"fixture can")
+
+    for failure in failures:
+        print(f"FAIL selftest: {failure}")
+    if failures:
+        print(f"{len(failures)} selftest failure(s).")
+        return 1
+    print(f"selftest: {len(CLEAN_GUARD_CASES) + 1} drivers reach all {len(arms)} refusal arms "
+          f"in confirm_clean")
+    return 0
+
+
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "check":
-        sys.exit(check())
+        sys.exit(selftest() or check())
     print("usage: document_oracle.py check", file=sys.stderr)
     sys.exit(2)
 

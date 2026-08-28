@@ -950,6 +950,34 @@ test('a non-NFC PROJECTED Dublin Core term IS reported', () => {
   assert.ok(codes.has('CDX-E-PART-STRING-NOT-NFC'), '`title` projects into the document ID');
 });
 
+for (const term of ['creator', 'subject', 'language'] as const) {
+  test(`a non-NFC element of the ARRAY-valued projected Dublin Core term \`${term}\` IS reported`, () => {
+    // §4.3.1 keeps exactly five terms and projects `creator`, `subject` and `language` as
+    // ARRAYS — "a scalar value is coerced to a one-element array". It is the AUTHORED value
+    // that may be a string or an array of strings (dublin-core.schema.json makes each a
+    // `oneOf`); after projection all three are arrays. So a violation inside an ELEMENT is
+    // inside the hashed basis exactly as a bare string is.
+    //
+    // All three are asserted, not just one: narrowing the scan loop to
+    // PROJECTED_STRING_TERMS + 'creator' was measured to leave the entire corpus green —
+    // 366/366, both oracles, every verdict test — so pinning one term leaves the other two
+    // unscanned in BOTH implementations, which is the shared-misreading case this suite exists
+    // to catch.
+    const terms: Record<string, unknown> = { title: 'T', creator: 'A. Author' };
+    terms[term] = term === 'creator' ? ['A. Author', 'cafe\u0301'] : ['ok', 'cafe\u0301'];
+    const dc = JSON.stringify({ version: '1.1', terms });
+    const content = '{"version":"0.1","blocks":[]}';
+    const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+    const codes = codesFor([
+      { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+      { name: 'content/document.json', text: content },
+      { name: 'metadata/dublin-core.json', text: dc },
+    ]);
+    assert.ok(codes.has('CDX-E-PART-STRING-NOT-NFC'), 'an array ELEMENT is hashed basis exactly as a bare string is');
+    assert.ok(!codes.has('CDX-E-METADATA-PART-UNPARSEABLE'), 'a string array is projectable, so this is the scan arm, not the malformed one');
+  });
+}
+
 // The three absence/presence properties the fixture comparator cannot express: it is a
 // SUBSET check, so "this document reports NOTHING" is unassertable there. Each pairs the
 // scan against `canonicalContent`, because the scan's scope claim is a claim ABOUT canon —
@@ -984,6 +1012,37 @@ test('a split run in a `figure` `caption` rich array IS reported', () => {
   const doc = '{"version":"0.1","blocks":[{"type":"figure","caption":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}],"children":[]}]}';
   assert.equal(collectStoredTextViolations(JSON.parse(doc))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'a caption is hashed text');
   assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon throws, via its merge arm');
+});
+
+test('a non-text element BREAKS the run, so the strings either side are never concatenated', () => {
+  // The NEGATIVE control for the mid-array flush. `reject-content-split-combining-sequence-mid-array`
+  // pins that a run IS flushed and reported at a non-text element, but nothing pinned that the
+  // flush actually SEPARATES: deleting the `run = ''` reset leaves that fixture green, because
+  // the longer merged run still violates NFC. Only a document whose runs are individually clean
+  // can tell the two apart.
+  //
+  // The PAIR is the control. Both documents carry the same four text-node values in the same
+  // order and differ only by a paragraph between the second and third. Each run is NFC-stable
+  // alone ('ae', and U+0301 followed by 'c'); only the concatenation across the boundary is not.
+  // So a scan that fails to reset reports `separated`, and one that resets too eagerly stops
+  // reporting `adjacent` — the second assertion is what stops "never concatenate" passing.
+  //
+  // Both sit in a `blockquote`, whose `children` take `#/$defs/block` and so admit a text node
+  // beside a paragraph. Verified with the repo's own validator against a negative control (a
+  // paragraph's children holding a paragraph is INVALID, Content Blocks §7.2 rule 1). The
+  // shape is deliberately NOT at the root: the root array would work too, but its admissibility
+  // for a bare text node is settled only by the schema, and a control does not need to rest on
+  // that. `blockquote`, `listItem`, `tableCell`, `admonition` and `definitionDescription` all
+  // admit it.
+  const separated = '{"version":"0.1","blocks":[{"type":"blockquote","children":[{"type":"text","value":"a"},{"type":"text","value":"e"},{"type":"paragraph","children":[{"type":"text","value":"x"}]},{"type":"text","value":"\\u0301"},{"type":"text","value":"c"}]}]}';
+  const adjacent = '{"version":"0.1","blocks":[{"type":"blockquote","children":[{"type":"text","value":"a"},{"type":"text","value":"e"},{"type":"text","value":"\\u0301"},{"type":"text","value":"c"}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(separated)), null, 'the non-text element ends the run');
+  assert.equal(collectStoredTextViolations(JSON.parse(adjacent))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'and the same values adjacent DO violate');
+  // Canon agrees in both directions, by its merge arm: with no marks to differ, the adjacent
+  // nodes merge into one value and the per-STRING check fires on it, while the separated pair
+  // merges into two individually clean values.
+  assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: separated, dublinCore: '{}' }), 'canon accepts the separated runs');
+  assert.throws(() => canonicalContent({ manifest: '{}', content: adjacent, dublinCore: '{}' }), 'and throws on the adjacent ones');
 });
 
 test('the derived text-bearing set contains every block §3 names, and no container', () => {
