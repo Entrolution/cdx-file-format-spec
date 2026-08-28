@@ -2206,6 +2206,25 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     ),
     expect: CLEAN,
   },
+  {
+    name: 'reject-metadata-term-non-nfc-array-element',
+    description: 'A non-NFC string (`cafe` followed by U+0301 COMBINING ACUTE) carried as an ELEMENT of the array-valued `creator` term, while every string-valued term is conformant. Document Hashing section 4.3.2 binds the whole hashed basis, and section 4.3.1 keeps exactly five Dublin Core terms in it — projecting `creator`, `subject` and `language` as ARRAYS (a scalar value is coerced to a one-element array). It is the AUTHORED value that may be either a string or an array of strings, per dublin-core.schema.json, and this part authors the array form. So a reader that scanned only the terms authored as bare strings admits a non-NFC byte into the document identity through three of the five. The part is otherwise conformant — `title` is present and `creator` holds a non-empty member — so it projects cleanly and this is the section 4.3.2 scan arm rather than the malformed-metadata or missing-term rows. It carries the corpus\'s only array-shaped projected term, so it is the only fixture in which that shape reaches the scan. REJECT in every state.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing sections 4.3.1, 4.3.2; State Machine section 5.4.3',
+    recipe: documentArchive(
+      manifestJson(),
+      [
+        { name: 'content/document.json', text: CLEAN_CONTENT },
+        // Written as a raw JSON literal rather than through `dublinCoreJson`, for the reason
+        // the content fixtures above give: the `\u0301` escape keeps the STORED bytes ASCII, so
+        // the decomposed sequence cannot be silently normalized away by an editor and leave the
+        // fixture passing for the wrong reason.
+        { name: 'metadata/dublin-core.json', text: '{"version":"1.1","terms":{"title":"T","creator":["A. Author","cafe\\u0301"]}}' },
+      ],
+    ),
+    expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
+  },
 
   // === B1b-3c-1a: anchor POSITION validity (03a §2.2, §3, §7.3) ======================
   //

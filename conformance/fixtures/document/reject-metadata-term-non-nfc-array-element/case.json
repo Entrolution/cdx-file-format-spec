@@ -1,0 +1,38 @@
+{
+  "description": "A non-NFC string (`cafe` followed by U+0301 COMBINING ACUTE) carried as an ELEMENT of the array-valued `creator` term, while every string-valued term is conformant. Document Hashing section 4.3.2 binds the whole hashed basis, and section 4.3.1 keeps exactly five Dublin Core terms in it — projecting `creator`, `subject` and `language` as ARRAYS (a scalar value is coerced to a one-element array). It is the AUTHORED value that may be either a string or an array of strings, per dublin-core.schema.json, and this part authors the array form. So a reader that scanned only the terms authored as bare strings admits a non-NFC byte into the document identity through three of the five. The part is otherwise conformant — `title` is present and `creator` holds a non-empty member — so it projects cleanly and this is the section 4.3.2 scan arm rather than the malformed-metadata or missing-term rows. It carries the corpus's only array-shaped projected term, so it is the only fixture in which that shape reaches the scan. REJECT in every state.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.3.1, 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:5d69e5acc01e8b76df35531f9199eda7f594a972eec7d5718071842062fb39cc\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":[\"A. Author\",\"cafe\\u0301\"]}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}
