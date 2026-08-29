@@ -1,0 +1,38 @@
+{
+  "description": "A combining sequence split across the two text nodes of a FIGURE CAPTION, which carry differing marks and so cannot merge. REJECT. The block-content positions are not only `children`: a figure's rich `caption` array holds text nodes (content.schema.json) and both rules reach it. This is the positive control the `attributes` cases need: a scope narrowed too far reads exactly like a scope drawn correctly. Strict `children` is the specific wrong answer it rules out — that scope drops this array AND the root `blocks` array reject-content-split-combining-sequence-mid-array uses. The corpus is what carries the `caption` pin to an implementation whose own unit tests cover only its `children` path.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:16e9f3d6b5c03a5f63aa17fd0850a124b4f0d88d8b5afd384ca135bafcf27764\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"subfigures\":[{\"label\":\"a\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Panel a\"}]}]}],\"caption\":[{\"type\":\"text\",\"value\":\"cafe\",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"\\u0301\",\"marks\":[\"italic\"]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Caption Split Combining Sequence\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

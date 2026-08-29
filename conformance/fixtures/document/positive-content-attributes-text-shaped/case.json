@@ -1,0 +1,32 @@
+{
+  "description": "Two objects SHAPED like text nodes inside a block's `attributes.semantic`, whose values are each in NFC but whose concatenation is not (`cafe` + U+0301). CLEAN. This is the corpus control for the POSITION scope of both rules that read runs of text nodes — section 4.3.1 item 4's merge and section 4.3.2 item 2's concatenated-NFC check. Neither is a property of an element's SHAPE: `attributes.semantic` is a JSON-LD annotation with `additionalProperties: true` (semantic.schema.json), so an author may put a member named `children` there holding whatever the vocabulary calls for, and an implementation keyed on shape merges these two and then REJECTS the merged string. That is a live false-reject on a conformant document. Authored through `semantic` of necessity, not preference: `blockAttributes` is `additionalProperties: false`, so an array of text-shaped objects can sit NOWHERE ELSE beneath `attributes` — a case authored under any other member name is itself non-conformant and pins nothing. The run is nested one level below `semantic` so the barrier must survive an array-to-item hop, not only an object one. Note what stays in force underneath: the PER-STRING checks still run here, pinned by the two cases below; only the RUN rule is withheld.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing sections 4.3.1, 4.3.2",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:d5e6370be0a680ea053267c9ee592a0f01048297b51c7dd354be3dc56878b7db\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"children\":[{\"@type\":\"Answer\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\"},{\"type\":\"text\",\"value\":\"\\u0301\"}]}]}},\"children\":[{\"type\":\"text\",\"value\":\"ok\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Attributes Text Shaped\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "IGNORE",
+      "atMost": "IGNORE"
+    },
+    "findings": []
+  }
+}

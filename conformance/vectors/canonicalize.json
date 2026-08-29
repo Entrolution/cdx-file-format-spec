@@ -826,6 +826,71 @@
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
       },
       "expectReject": true
+    },
+    {
+      "name": "text-merge-in-figure-caption",
+      "description": "A figure's rich `caption` array is block content, so its adjacent equal-marked text nodes MERGE (§4.3.1 item 4). The merge is a property of the POSITION an array is reached by, and `caption` is one of those positions: an implementation that scopes the rule to `children` alone leaves both nodes standing and computes a different document ID. This is the positive control for the `attributes` vectors below — without it, a scope narrowed too far reads as clean.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"subfigures\":[{\"label\":\"a\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Panel a\"}]}]}],\"caption\":[{\"type\":\"text\",\"value\":\"Figure \"},{\"type\":\"text\",\"value\":\"1: overview.\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"caption\":[{\"type\":\"text\",\"value\":\"Figure 1: overview.\"}],\"subfigures\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"Panel a\"}],\"type\":\"paragraph\"}],\"label\":\"a\"}],\"type\":\"figure\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:f4aea638bed8b05d9514e8ab7f8b7d1858ce9d79151921c3fe3f763418f116e3"
+    },
+    {
+      "name": "reject-caption-nfc-split-across-nodes",
+      "description": "The §4.3.2 block-level NFC rule FIRES at `caption` too, on the same positions as the merge: differing marks make these two caption nodes unmergeable, so the combining acute stays split from its base and the concatenated caption text is NFD. Rejected. This is the counterpart to text-merge-in-figure-caption — a merge vector alone cannot catch an implementation that scopes the run rule more narrowly than the merge, because both scopes produce the same bytes for a document that merges.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"figure\",\"subfigures\":[{\"label\":\"a\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Panel a\"}]}]}],\"caption\":[{\"type\":\"text\",\"value\":\"cafe\",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"\\u0301\",\"marks\":[\"italic\"]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectReject": true
+    },
+    {
+      "name": "attributes-text-shaped-not-merged",
+      "description": "An object inside a block's `attributes` that merely LOOKS like a text node is data, not content. `attributes.semantic` is a JSON-LD annotation with `additionalProperties: true`, so an author may put a member named `children` there holding anything; §4.3.1 item 4 does not reach it, and both nodes survive with their values as authored. Two implementations fail this: one that keys the merge on element SHAPE, and one whose `attributes` barrier does not STICK — the array here sits below `attributes.semantic`, which is the shallowest an array of text-shaped objects can sit, since `blockAttributes` is a closed set that admits no array of its own. The annotation nests the array one level below `semantic`, so the barrier must survive an array-to-item hop as well as an object one; a witness sitting directly on the annotation leaves that propagation untested.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"children\":[{\"@type\":\"Answer\",\"children\":[{\"type\":\"text\",\"value\":\"Hello \"},{\"type\":\"text\",\"value\":\"world\"}]}]}},\"children\":[{\"type\":\"text\",\"value\":\"Q\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"children\":[{\"@type\":\"Answer\",\"children\":[{\"type\":\"text\",\"value\":\"Hello \"},{\"type\":\"text\",\"value\":\"world\"}]}]}},\"children\":[{\"type\":\"text\",\"value\":\"Q\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:c0b22c218039aa4718710a0f0f2ce4e438d9bd93621c2321069ab14fdb157a80"
+    },
+    {
+      "name": "attributes-concatenated-nfc-not-block-checked",
+      "description": "§4.3.2's block-level NFC rule is scoped by the same KEY test as the merge. Here “cafe” and a lone combining acute (U+0301) concatenate to an NFD sequence, but they sit inside `attributes.semantic`, so no block-level run spans them and the document canonicalizes; each string is still checked on its own and both are NFC. An implementation that runs the concatenation check over every array rejects this conformant document. KNOWN DIVERGENCE, stated because an implementer will otherwise derive the wrong rule from this case: the two are keyed alike but do not reach the same positions. Canonicalization does not recurse into a text node's `marks`, and `content` — a `presentation:footnote` mark's content blocks — occurs ONLY there, so at that one position the run rule fires while the merge does not. Two adjacent mark-less text nodes in a footnote mark's `content` are therefore preserved unmerged, and a combining sequence split across them IS reported. Everywhere else the two agree, and must: a run reported where the merge DID fire would reject a document canonicalization accepts. The annotation nests the array one level below `semantic`, so the barrier must survive an array-to-item hop as well as an object one; a witness sitting directly on the annotation leaves that propagation untested.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"children\":[{\"@type\":\"Answer\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\"},{\"type\":\"text\",\"value\":\"\\u0301\"}]}]}},\"children\":[{\"type\":\"text\",\"value\":\"Q\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"children\":[{\"@type\":\"Answer\",\"children\":[{\"type\":\"text\",\"value\":\"cafe\"},{\"type\":\"text\",\"value\":\"́\"}]}]}},\"children\":[{\"type\":\"text\",\"value\":\"Q\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:71985e58c794df83a201ad1378920627655a6f0eea389cd8ec20bd8e0d433161"
+    },
+    {
+      "name": "text-merge-in-exercise-hints",
+      "description": "An `academic:exercise` `hints` array is block content: its adjacent equal-marked text nodes MERGE (§4.3.1 item 4). `hints` declares its `items` as `$defs/block`, and a `block` DISPATCHES `type:\"text\"` to `$defs/textNode` in its first `allOf` branch — so \"resolves to `block`\" is \"resolves to `textNode`\" whenever the element is a text node, and a run here is reachable without leaving the schema. An implementation that reads the `$ref` and concludes a text node cannot sit here scopes `hints` out and computes a different document ID.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:exercise\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Q\"}]}],\"hints\":[{\"type\":\"text\",\"value\":\"Try \"},{\"type\":\"text\",\"value\":\"induction.\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"Q\"}],\"type\":\"paragraph\"}],\"hints\":[{\"type\":\"text\",\"value\":\"Try induction.\"}],\"type\":\"academic:exercise\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1331623093e2c6b1e435d07d57de846570316a0d3b05388537cfbcd13ed12ab3"
+    },
+    {
+      "name": "text-merge-in-exercise-set-preamble",
+      "description": "The same for an `academic:exercise-set` `preamble`, the sixth and last block-content position. Not redundant with the `hints` vector: the two keys are declared on DIFFERENT blocks, and an implementation deriving its position set per-block can admit one and miss the other. Together with the `blocks`, `caption` and `children` cases these pin five of the six positions; `content` (a `presentation:footnote` mark's content) is the one left, and is described in attributes-concatenated-nfc-not-block-checked.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:exercise-set\",\"preamble\":[{\"type\":\"text\",\"value\":\"Show \"},{\"type\":\"text\",\"value\":\"your working.\"}],\"exercises\":[{\"type\":\"academic:exercise\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Q\"}]}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"exercises\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"Q\"}],\"type\":\"paragraph\"}],\"type\":\"academic:exercise\"}],\"preamble\":[{\"type\":\"text\",\"value\":\"Show your working.\"}],\"type\":\"academic:exercise-set\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:21b661a2486cef3c6fc7363e7fde5029b48facc1b4202ae6c5c15e9ac4d1eb26"
     }
   ]
 }

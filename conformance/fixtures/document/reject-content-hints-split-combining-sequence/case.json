@@ -1,0 +1,38 @@
+{
+  "description": "A combining sequence split across two differently-marked text nodes of an `academic:exercise` `hints` array. REJECT. `hints` declares its `items` as `$defs/block`, and a `block` DISPATCHES `type:\"text\"` to `$defs/textNode` in its first `allOf` branch — so a text node is admissible here and both rules reach it. The `$ref` is what makes this worth a case: reading it as \"blocks only, never text nodes\" is a natural and WRONG inference, and it is the inference that leaves this position unenforced. The same reading would exempt the root `blocks` array, which reject-content-split-combining-sequence-mid-array already shows is enforced.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:03539fdae7f15113cf8893689132897afb694845efa2a6aaba41308e8f118f28\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:exercise\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Q\"}]}],\"hints\":[{\"type\":\"text\",\"value\":\"cafe\",\"marks\":[\"bold\"]},{\"type\":\"text\",\"value\":\"\\u0301\",\"marks\":[\"italic\"]}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Hints Split Combining Sequence\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}
