@@ -159,5 +159,8 @@ jobs:
       - name: Check enumeration coverage
         run: npm run check:enumeration-coverage
 
+      - name: Check block-content positions
+        run: npm run check:block-content-positions
+
       - name: Generate template (self-validating)
         run: npm run generate:template -- --preset all --output "$RUNNER_TEMP/cdx-template"
