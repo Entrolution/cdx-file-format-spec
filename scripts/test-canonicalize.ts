@@ -1393,6 +1393,16 @@ test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () =
       { type: 'text', value: 'a', marks: [anchor('x'), anchor('x')] }] }] }],
     // ... but canon dedups marks ONLY for a text node
     ['duplicate marks on a non-text node', { blocks: [{ type: 'paragraph', marks: [anchor('x'), anchor('x')], children: [] }] }],
+    // Beneath `attributes` nothing is content: the merge does not run and no id is defined,
+    // so BOTH sides must be silent. These rows do not pin the barrier on their own — the raw
+    // walk and canon share `definedId`, so removing it moves them together — they pin that
+    // the two sides never move APART, which is the property this differential exists for.
+    ['duplicate anchor id under attributes.semantic', { blocks: [{ type: 'paragraph', attributes: { semantic: {
+      '@type': 'Q', children: [{ type: 'text', value: 'a', marks: [anchor('dup')] }, { type: 'text', value: 'b', marks: [anchor('dup')] }] } },
+      children: [{ type: 'text', value: 'ok' }] }] }],
+    ['duplicate block id under attributes.semantic', { blocks: [{ type: 'paragraph', attributes: { semantic: {
+      '@type': 'Q', children: [{ type: 'paragraph', id: 'dup', children: [] }, { type: 'paragraph', id: 'dup', children: [] }] } },
+      children: [] }] }],
   ];
   for (const [label, content] of cases) {
     const { duplicates } = collectDefinedIds(content, { rawInput: true });

@@ -656,9 +656,10 @@ def _walk_text_violations(value, out, in_derived=False, in_text_marks=False, key
         if v:
             out.add(v)
     elif isinstance(value, list):
-        # The RUN rule applies only where the array holds block content; every string in it
-        # is still checked individually. Must agree with the reference exactly: a run
-        # reported where canon does not merge is a REJECT on a document canon accepts.
+        # The run rule applies only where the array holds block content; every string is still
+        # checked individually. Same key test as the merge, but canon skips a text node's `marks`
+        # and `content` occurs only there, so at that position this fires and the merge cannot.
+        # Elsewhere a run reported where canon merged is a REJECT on a document canon accepts.
         in_content = (not blocked) and key in BLOCK_CONTENT_KEYS
         run, run_nodes = "", 0
         for el in value:

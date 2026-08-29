@@ -22,7 +22,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { BLOCK_CONTENT_KEYS, parseStrictJson } from './lib/canonicalize.js';
+import { BLOCK_CONTENT_KEYS, CONTENT_BARRIER_KEY, parseStrictJson } from './lib/canonicalize.js';
 
 // Resolved from this file rather than from the cwd, so the gate reads the same schemas
 // whichever directory `npm run` is invoked from.
@@ -46,38 +46,81 @@ const isContentRef = (r: string): boolean => r.endsWith('/block') || r.endsWith(
 
 /**
  * Derive the property names whose declared array items are block or text content.
- * A property qualifies through a direct `type: array`, or through a `oneOf` arm that is one
- * (a `figure` `caption` is `oneOf [string, array]`, and the array arm is the rich form the
- * run rule governs) — so a narrowing of either shape is visible here.
+ *
+ * Recursive, and resolves local `$ref`s, because a position can be declared three ways: on the
+ * property directly, behind a `$ref` to an array-typed `$def`, or on an inline nested object
+ * inside an array's `items`. Under-derivation is the one failure this gate cannot report on
+ * itself — a key it never saw is a key both transcriptions agree about.
  */
 function deriveKeys(): Map<string, Set<string>> {
   const found = new Map<string, Set<string>>();
+
   for (const file of fs.readdirSync(schemasDir).filter((f) => f.endsWith('.schema.json')).sort()) {
     const schema = parseStrictJson(fs.readFileSync(path.join(schemasDir, file), 'utf8')) as Record<string, unknown>;
     const defs = (schema.$defs ?? {}) as Record<string, unknown>;
-    for (const [defName, def] of [['<root>', schema] as const, ...Object.entries(defs)]) {
-      if (def === null || typeof def !== 'object') continue;
-      const branches = ((def as Record<string, unknown>).allOf as unknown[]) ?? [def];
-      const props: Record<string, unknown> = {};
-      for (const b of branches) {
-        if (b !== null && typeof b === 'object') Object.assign(props, (b as Record<string, unknown>).properties ?? {});
+    const short = file.replace('.schema.json', '');
+
+    /** Follow a local `#/$defs/x` chain; a cross-file ref is returned as-is for `refsOf`. */
+    const resolve = (node: unknown, seen = new Set<string>()): unknown => {
+      let cur = node;
+      while (cur !== null && typeof cur === 'object' && typeof (cur as Record<string, unknown>).$ref === 'string') {
+        const ref = (cur as Record<string, unknown>).$ref as string;
+        if (!ref.startsWith('#/$defs/') || seen.has(ref)) return cur;
+        seen.add(ref);
+        const target = defs[ref.slice('#/$defs/'.length)];
+        if (target === undefined) return cur;
+        cur = target;
       }
-      for (const [key, raw] of Object.entries(props)) {
-        if (raw === null || typeof raw !== 'object') continue;
-        const v = raw as Record<string, unknown>;
-        const arms: unknown[] = [];
-        if (v.type === 'array') arms.push(v.items);
-        for (const arm of (v.oneOf as unknown[]) ?? []) {
-          if (arm !== null && typeof arm === 'object' && (arm as Record<string, unknown>).type === 'array') {
-            arms.push((arm as Record<string, unknown>).items);
-          }
-        }
-        if (arms.some((a) => a !== undefined && refsOf(a).some(isContentRef))) {
+      return cur;
+    };
+
+    /** Every schema that `node` effectively is, unwrapping composition keywords. */
+    const arms = (node: unknown, seen = new Set<string>()): Record<string, unknown>[] => {
+      const r = resolve(node, seen);
+      if (r === null || typeof r !== 'object' || Array.isArray(r)) return [];
+      const o = r as Record<string, unknown>;
+      const out = [o];
+      for (const k of ['allOf', 'anyOf', 'oneOf'] as const) {
+        for (const b of (o[k] as unknown[]) ?? []) out.push(...arms(b, new Set(seen)));
+      }
+      return out;
+    };
+
+    const isContentArray = (node: unknown): boolean =>
+      arms(node).some((a) => a.type === 'array' && a.items !== undefined && refsOf(a.items).some(isContentRef));
+
+    // Walk every subschema, recording each `properties` entry that is a content array. The
+    // seen-set is on OBJECT IDENTITY, so a recursive schema terminates without collapsing
+    // two structurally identical branches into one.
+    const visited = new Set<unknown>();
+    const walk = (node: unknown, where: string): void => {
+      if (node === null || typeof node !== 'object' || visited.has(node)) return;
+      visited.add(node);
+      if (Array.isArray(node)) {
+        for (const n of node) walk(n, where);
+        return;
+      }
+      const o = node as Record<string, unknown>;
+      for (const a of arms(o)) {
+        const props = (a.properties ?? {}) as Record<string, unknown>;
+        for (const [key, raw] of Object.entries(props)) {
+          if (!isContentArray(raw)) continue;
           if (!found.has(key)) found.set(key, new Set());
-          found.get(key)!.add(`${file.replace('.schema.json', '')}:${defName}`);
+          found.get(key)!.add(where);
         }
       }
-    }
+      for (const k of ['properties', 'items', 'allOf', 'anyOf', 'oneOf', 'additionalProperties', 'prefixItems'] as const) {
+        const child = o[k];
+        if (k === 'properties' && child !== null && typeof child === 'object') {
+          for (const v of Object.values(child as Record<string, unknown>)) walk(v, where);
+        } else {
+          walk(child, where);
+        }
+      }
+    };
+
+    walk(schema, `${short}:<root>`);
+    for (const [defName, def] of Object.entries(defs)) walk(def, `${short}:${defName}`);
   }
   return found;
 }
@@ -88,6 +131,13 @@ function oracleKeys(): Set<string> {
   const m = /^BLOCK_CONTENT_KEYS = \{([^}]*)\}/m.exec(src);
   if (m === null) throw new Error('document_oracle.py: BLOCK_CONTENT_KEYS not found — did it move or get renamed?');
   return new Set([...m[1].matchAll(/"([^"]+)"/g)].map((g) => g[1]));
+}
+
+/** The oracle's barrier constant, read from its source for the same reason as its key set. */
+function oracleBarrier(): string {
+  const m = /^CONTENT_BARRIER_KEY = "([^"]+)"/m.exec(fs.readFileSync(ORACLE, 'utf8'));
+  if (m === null) throw new Error('document_oracle.py: CONTENT_BARRIER_KEY not found — did it move or get renamed?');
+  return m[1];
 }
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
@@ -116,6 +166,23 @@ const problems = [
   ...compare('scripts/lib/canonicalize.ts BLOCK_CONTENT_KEYS', BLOCK_CONTENT_KEYS as Set<string>, derivedKeys),
   ...compare('conformance/oracles/document_oracle.py BLOCK_CONTENT_KEYS', oracleKeys(), derivedKeys),
 ];
+
+// The barrier is the other half of the position model and was compared against nothing: the
+// two implementations could name different keys, or name one the schemas do not declare, and
+// every check above would still pass. It is pinned against `blockBase` rather than a literal,
+// so the assertion tracks the schema that makes it true — Content Blocks §3.1 closes
+// `attributes` to authored values, which is the whole reason it is a barrier.
+const barrierInSchema = (() => {
+  const content = parseStrictJson(fs.readFileSync(path.join(schemasDir, 'content.schema.json'), 'utf8')) as Record<string, unknown>;
+  const base = ((content.$defs as Record<string, unknown>).blockBase ?? {}) as Record<string, unknown>;
+  return Object.keys((base.properties ?? {}) as Record<string, unknown>).includes(CONTENT_BARRIER_KEY);
+})();
+if (!barrierInSchema) {
+  problems.push(`CONTENT_BARRIER_KEY \`${CONTENT_BARRIER_KEY}\` is not a declared property of content.schema.json $defs/blockBase — the barrier names a field no block carries`);
+}
+if (oracleBarrier() !== CONTENT_BARRIER_KEY) {
+  problems.push(`CONTENT_BARRIER_KEY differs: reference \`${CONTENT_BARRIER_KEY}\`, oracle \`${oracleBarrier()}\` — the two implementations barrier different fields`);
+}
 
 if (problems.length > 0) {
   console.error('✗ block-content position sets disagree with the published schemas:\n');

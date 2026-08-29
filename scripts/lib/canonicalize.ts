@@ -864,11 +864,10 @@ export function walkContentNodes(
   // the derived-field deletion reaches inside them.
   const walk = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined, inTextMarks: boolean, blocked = false): void => {
     if (Array.isArray(value)) {
-      // The absorbed-node erasure is scoped exactly as `canon`'s merge is (BLOCK_CONTENT_KEYS):
-      // this walk exists to reproduce canon's view of the tree, so a position where canon no
-      // longer merges must not drop a node here. Getting this wrong is not a missed finding but
-      // an INVERTED one — the walks disagree about which ids exist, and a document canon rejects
-      // for a duplicate id loads clean.
+      // Scoped exactly as `canon`'s merge is: this walk reproduces canon's view of the tree,
+      // so a position where canon no longer merges must not drop a node here. Getting it wrong
+      // inverts a verdict rather than losing one — the walks disagree about which ids exist,
+      // and a document canon rejects for a duplicate id loads clean.
       const mergesHere = !blocked && isBlockContentKey(parentKey ?? null);
       const items = raw && !inTextMarks && mergesHere ? dropAbsorbedTextNodes(value, options.assetMap) : value;
       for (const el of items) walk(el, inMarks, true, parentKey, inTextMarks, blocked); // items inherit the array's field name
@@ -1395,9 +1394,10 @@ export function validateStoredByteInvariants(value: unknown, key: string | null 
     // equals the block's full text content; resetting the run on any non-text
     // element is a defensive path (a break or a nested block severs adjacency).
     //
-    // Scoped to block content on the same terms as `canon`'s merge, and it MUST agree with it:
-    // a run reported here that canon did not merge is a REJECT on a document canonicalization
-    // accepts. Every string is still checked individually below — only the RUN rule is withheld.
+    // Same key test as `canon`'s merge, but not the same reachable positions: `canon` skips a
+    // text node's `marks`, and `content` occurs only there, so at that position this fires and
+    // the merge cannot. Elsewhere a run reported where canon merged would REJECT a document
+    // canonicalization accepts. Every string is still checked individually; only the run is withheld.
     const inContent = !blocked && isBlockContentKey(key);
     let run = '';
     let runNodes = 0;
@@ -1521,10 +1521,9 @@ export function collectStoredTextViolations(value: unknown): { code: string; det
       const violation = storedTextViolation(v);
       if (violation) return violation;
     } else if (Array.isArray(v)) {
-      // Mirrors `canon` exactly — see BLOCK_CONTENT_KEYS. This walk reads the RAW stored part
-      // while canon validates the transformed one, so a scope that differs by a single position
-      // is the "raw walk must mirror canon" invariant broken, and shows up as a document canon
-      // rejects loading clean.
+      // Same key test as `canon`, over the RAW part rather than the transformed one, so a scope
+      // differing by one position shows up as a document canon rejects loading clean. Carries no
+      // `marks` skip, so unlike the merge it reaches a footnote mark's `content`.
       const inContent = !blocked && isBlockContentKey(key);
       let run = '';
       let runNodes = 0;

@@ -39,7 +39,7 @@ import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
-import { canonicalContent, collectStoredTextViolations, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
+import { canonicalContent, collectDefinedIds, collectStoredTextViolations, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
 
 let passed = 0;
 let failed = 0;
@@ -1009,7 +1009,21 @@ test("a non-NFC STRING inside a `crdt` under a TEXT NODE's `marks` IS reported",
   assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon throws on it');
 });
 
-test('the run rule is withheld OUTSIDE block content, and both implementations agree', () => {
+test('an id under `attributes` reaches the raw walk and canon alike', () => {
+  // Agreement, not correctness: whether such an id belongs in the namespace at all is open.
+  // What must not happen is the two disagreeing — a duplicate canon rejects while the walk
+  // that feeds the verdict reports nothing.
+  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"semantic":{"@type":"Q","children":[{"@type":"A","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"dup"}]},{"type":"text","value":"a","marks":[{"type":"anchor","id":"dup"}]}]}]}},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.deepEqual(collectDefinedIds(JSON.parse(doc), { rawInput: true }).duplicates, ['dup']);
+  assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), /duplicate id/);
+
+  // Without this the assertion above passes on a walk that reports every id twice.
+  const once = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"semantic":{"@type":"Q","children":[{"@type":"A","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"solo"}]}]}]}},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.deepEqual(collectDefinedIds(JSON.parse(once), { rawInput: true }).duplicates, []);
+  assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: once, dublinCore: '{}' }));
+});
+
+test('the run rule is withheld OUTSIDE block content, scan and canon agreeing', () => {
   // §4.3.1 item 4 and §4.3.2 item 2 are properties of POSITION, not of element shape
   // (BLOCK_CONTENT_KEYS). These are the positions where an array may hold objects shaped
   // like text nodes without being block content, and where keying on shape made
