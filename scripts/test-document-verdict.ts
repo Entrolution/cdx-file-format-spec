@@ -39,7 +39,7 @@ import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
-import { canonicalContent, collectStoredTextViolations } from './lib/canonicalize.js';
+import { canonicalContent, collectStoredTextViolations, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
 
 let passed = 0;
 let failed = 0;
@@ -1171,6 +1171,190 @@ test('the stored-text scan agrees with the canonicalizer it shares a predicate w
   );
 });
 
+
+// ---------------------------------------------------------------------------
+// The canonicalization depth bound silences the reference-resolution pass (OQ-007)
+// ---------------------------------------------------------------------------
+//
+// `assertBoundedDepth` runs at the TOP of `resolveContentReferences`, and this file's
+// subject wraps that call, `resolveAssetReferences` and `resolveSemanticReferences` in ONE
+// `try` whose `catch` swallows `CanonicalizationError`. Content nested past the bound
+// therefore silences every code those three passes emit, plus the two passes gated on
+// `contentIds` and the id recompute — seventeen codes, headed by CDX-E-ID-COLLISION and
+// CDX-E-DOCUMENT-ID-MISMATCH. OQ-007 records what a reader should do about it.
+//
+// THE SILENCE IS NOT BLANKET, and saying so is most of the work here. The
+// pre-canonicalization scans run BEFORE the guarded block and survive any depth, so
+// "a deep document loads clean" holds only of one carrying nothing they catch.
+//
+// EVERY TEST BELOW CARRIES A LIVE WITNESS: a second defect that still fires above the
+// bound. Without one, "reports nothing" is equally satisfied by a reader that never
+// managed to read the part at all — the assertion cannot tell a silence from a failure to
+// load, which is the difference the tests exist to establish. The witness is a non-NFC
+// string, scanned by `collectStoredTextViolations`: an iterative walk with no depth guard
+// at any nesting. An unknown block type does NOT work as a witness — `classifyContent`
+// carries its own bound (counting block LEVELS, not containers), so it goes silent around
+// 256 blockquotes and a test resting on it would pin a claim false one bound further out.
+//
+// PINNED AGAINST THE BOUND, NOT A BLOCK COUNT. `MAX_CANONICALIZATION_DEPTH` counts
+// CONTAINERS — every object and every array — and a blockquote contributes two, itself and
+// its `children`. So the block count at which a document goes silent is a function of the
+// constant AND of everything else in the tree. The boundary is therefore SEARCHED for
+// rather than written down: a hard-coded 126 would be a fact about today's constant and
+// today's document shape, true of neither if either moved. Assertions use set EQUALITY, not
+// membership, so one comparison catches all three directions at once — the gated code gone,
+// the witness still present, and nothing swapped in.
+
+/** Container depth of a parsed value, counting objects and arrays as assertBoundedDepth does. */
+function containerDepth(v: unknown): number {
+  if (v === null || typeof v !== 'object') return 0;
+  const kids = Object.values(v as Record<string, unknown>).map(containerDepth);
+  return 1 + (kids.length > 0 ? Math.max(...kids) : 0);
+}
+
+/** `n` nested blockquotes wrapping `inner`. Each contributes TWO containers. */
+function nestBlockquotes(n: number, inner: unknown[]): unknown[] {
+  let nodes = inner;
+  for (let i = 0; i < n; i++) nodes = [{ type: 'blockquote', children: nodes }];
+  return nodes;
+}
+
+/**
+ * The largest `n` for which `build(n)` still canonicalizes, and the first that does not.
+ * Throws rather than returning a degenerate pair, so a shape that never crosses the bound
+ * fails loudly instead of vacuously satisfying every assertion below.
+ */
+function depthBoundary(build: (n: number) => unknown): { under: number; over: number } {
+  for (let n = 1; n <= 400; n++) {
+    if (containerDepth(build(n)) > MAX_CANONICALIZATION_DEPTH) {
+      if (n === 1) throw new Error('shape exceeds the bound with a single wrapper: no boundary to pin');
+      return { under: n - 1, over: n };
+    }
+  }
+  throw new Error('shape never reaches the canonicalization depth bound within 400 wrappers');
+}
+
+/**
+ * The live witness: non-NFC text, reported by a pre-canonicalization scan at any depth.
+ * Written as an ESCAPE, never a raw combining character — a literal here is one editor
+ * normalization away from being NFC, at which point the witness stops firing and every
+ * test below fails for a reason that has nothing to do with what it pins.
+ */
+const NFD_WITNESS = 'cafe\u0301';
+const WITNESS_CODE = 'CDX-E-PART-STRING-NOT-NFC';
+const sorted = (s: Set<string>): string[] => [...s].sort();
+
+test('a hashed anchor position goes silent past the depth bound, and only it does', () => {
+  const build = (n: number): unknown => ({
+    version: '0.1',
+    blocks: [...nestBlockquotes(n, [para('p1', NFD_WITNESS)]), linkPara('#p1/20-25')],
+  });
+  const { under, over } = depthBoundary(build);
+  const blocks = (n: number) => (build(n) as { blocks: unknown[] }).blocks;
+
+  // THE FLOOR. Without it, "silent above the bound" is satisfied by a check that never
+  // fires at all — which is exactly how the arms this file guards came to be unmutatable.
+  assert.deepEqual(
+    sorted(codesFor(anchorDoc(blocks(under)))),
+    ['CDX-E-ANCHOR-POSITION-OUT-OF-RANGE', WITNESS_CODE].sort(),
+    'below the bound both the anchor defect and the witness are reported',
+  );
+
+  // The claim. The witness surviving is what makes this a silence rather than a reader
+  // that gave up on the part: the position code is gone, the witness is not.
+  assert.deepEqual(
+    sorted(codesFor(anchorDoc(blocks(over)))),
+    [WITNESS_CODE],
+    'one container deeper the anchor defect is gone and nothing replaces it',
+  );
+
+  // ON THE BOUND EXACTLY. A blockquote contributes two containers, so the chain above
+  // steps in twos and straddles the bound without ever landing on it: `under` is 255 and
+  // `over` is 257. That leaves the guard's comparison untested on the one value that
+  // distinguishes `>` from `>=`, and TIGHTENING it by one was measured to pass every gate
+  // in the repository. An empty `marks` array on the innermost text node adds a single
+  // container, shifting the parity so a document sits at exactly MAX_CANONICALIZATION_DEPTH
+  // — which the specification admits, the bound being a maximum and not a limit exceeded.
+  const onBound = (n: number): unknown => ({
+    version: '0.1',
+    blocks: [
+      ...nestBlockquotes(n, [{ type: 'paragraph', id: 'p1', children: [{ type: 'text', value: NFD_WITNESS, marks: [] }] }]),
+      linkPara('#p1/20-25'),
+    ],
+  });
+  const exact = depthBoundary(onBound).under;
+  assert.equal(
+    containerDepth(onBound(exact)),
+    MAX_CANONICALIZATION_DEPTH,
+    'the padded shape lands on the bound itself, not one short of it',
+  );
+  assert.deepEqual(
+    sorted(codesFor(anchorDoc((onBound(exact) as { blocks: unknown[] }).blocks))),
+    ['CDX-E-ANCHOR-POSITION-OUT-OF-RANGE', WITNESS_CODE].sort(),
+    'a document AT the bound is still fully checked',
+  );
+});
+
+test('an OUT-OF-HASH annotation position goes silent on deep content too', () => {
+  // The stronger instance. The annotation layer is not deep and its author does not
+  // control the content part, so what silences the check is the depth of a document
+  // somebody else wrote.
+  const build = (n: number): unknown => ({
+    version: '0.1',
+    blocks: nestBlockquotes(n, [para('p1', NFD_WITNESS)]),
+  });
+  const { under, over } = depthBoundary(build);
+
+  const deepAnnotationDoc = (n: number): ZipEntryRecipe[] => {
+    const content = JSON.stringify(build(n));
+    const hash = 'sha256:' + createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+    const annotation = { id: 'a1', type: 'comment', anchor: { blockId: 'p1', start: 20, end: 25 }, author: { name: 'A' }, created: '2025-01-10T08:00:00Z', content: 'ok' };
+    return [
+      { name: 'manifest.json', text: JSON.stringify({ cdx: '0.1', id: 'pending', state: 'draft', created: '2025-01-10T08:00:00Z', modified: '2025-01-10T08:00:00Z', content: { path: 'content/document.json', hash }, metadata: { dublinCore: 'metadata/dublin-core.json' } }) },
+      { name: 'content/document.json', text: content },
+      { name: 'metadata/dublin-core.json', text: DC },
+      { name: 'security/annotations.json', text: JSON.stringify({ version: '0.1', annotations: [annotation] }) },
+    ];
+  };
+
+  assert.deepEqual(
+    sorted(codesFor(deepAnnotationDoc(under))),
+    [POSITION_DEFECTIVE, WITNESS_CODE].sort(),
+    'below the bound the stale annotation anchor and the witness are both reported',
+  );
+  assert.deepEqual(
+    sorted(codesFor(deepAnnotationDoc(over))),
+    [WITNESS_CODE],
+    'past the bound the annotation defect is gone and the witness remains',
+  );
+});
+
+test('an id COLLISION goes silent past the bound, taking a REJECT with it', () => {
+  // The sharpest instance in the vocabulary, and the reason this is worth its own case
+  // rather than another code folded into the one above. CDX-E-ID-COLLISION is an Error in
+  // every state, and `documentVerdict` deliberately orders the reference pass BEFORE the
+  // id recompute so a duplicate id surfaces as its own finding rather than being swallowed
+  // by the recompute's catch. Past the bound that ordering buys nothing: the collision is
+  // never reported, so the document loses the REJECT and its id verification together, and
+  // reads as carrying only a stray Unicode defect.
+  const build = (n: number): unknown => ({
+    version: '0.1',
+    blocks: nestBlockquotes(n, [para('dup', NFD_WITNESS), para('dup', 'b')]),
+  });
+  const { under, over } = depthBoundary(build);
+  const blocks = (n: number) => (build(n) as { blocks: unknown[] }).blocks;
+
+  assert.deepEqual(
+    sorted(codesFor(anchorDoc(blocks(under)))),
+    ['CDX-E-ID-COLLISION', WITNESS_CODE].sort(),
+    'below the bound the collision is reported',
+  );
+  assert.deepEqual(
+    sorted(codesFor(anchorDoc(blocks(over)))),
+    [WITNESS_CODE],
+    'past the bound the collision is gone while the witness proves the part was still read',
+  );
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
