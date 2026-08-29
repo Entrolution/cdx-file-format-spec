@@ -107,6 +107,28 @@ KNOWN_MARKS = {
 }
 # The core marks valid as a bare string.
 STRING_MARKS = {"bold", "italic", "underline", "strikethrough", "code", "superscript", "subscript"}
+
+# Property names whose declared array items are block or text content, transcribed from the
+# published schemas (see scripts/lib/canonicalize.ts BLOCK_CONTENT_KEYS, and
+# scripts/check-block-content-positions.ts, which re-derives the set and fails on drift).
+#
+# Document Hashing section 4.3.1 item 4 merges "adjacent sibling text nodes" and section
+# 4.3.2 item 2 binds "the concatenated text content of each BLOCK"; Anchors and References
+# section 3, which both cite, computes that content from a block's text-node CHILDREN. Both
+# rules are therefore properties of WHERE a node sits. Keyed on element SHAPE instead, they
+# reach any array whose members resemble text nodes and REJECT conformant documents.
+#
+# Transcribed rather than derived, like BLOCK_TYPES above and for the same reason: this
+# oracle is an INDEPENDENT implementation, and reading the same schema as the reference
+# would make the two share any error in it. Divergence is caught by the corpus, which
+# carries a fixture at each position class.
+BLOCK_CONTENT_KEYS = {"blocks", "caption", "children", "content", "hints", "preamble"}
+
+# Content Blocks section 3.1 makes `attributes` a CLOSED set of authored values and nothing
+# anchors into it, so an object there shaped like a text node is data. The barrier STICKS:
+# `attributes.semantic` is a JSON-LD annotation with additionalProperties true, so a member
+# named `children` may legitimately sit at any depth beneath it.
+CONTENT_BARRIER_KEY = "attributes"
 # Blocks whose parent is structurally constrained (structural-constraints.ts REQUIRED_PARENT).
 REQUIRED_PARENT = {"figcaption": "figure", "tableCell": "tableRow", "tableRow": "table"}
 # The schema's extension-type form: a non-empty prefix, a colon, a non-empty suffix.
@@ -614,7 +636,7 @@ def _text_violation(s):
     return None
 
 
-def _walk_text_violations(value, out, in_derived=False, in_text_marks=False):
+def _walk_text_violations(value, out, in_derived=False, in_text_marks=False, key=None, blocked=False):
     """Record every section 4.3.2 item-2 violation class present in the HASHED material.
 
     Scans object KEYS as well as string values, and each maximal run of two or more
@@ -634,16 +656,20 @@ def _walk_text_violations(value, out, in_derived=False, in_text_marks=False):
         if v:
             out.add(v)
     elif isinstance(value, list):
+        # The RUN rule applies only where the array holds block content; every string in it
+        # is still checked individually. Must agree with the reference exactly: a run
+        # reported where canon does not merge is a REJECT on a document canon accepts.
+        in_content = (not blocked) and key in BLOCK_CONTENT_KEYS
         run, run_nodes = "", 0
         for el in value:
-            if isinstance(el, dict) and el.get("type") == "text" and isinstance(el.get("value"), str):
+            if in_content and isinstance(el, dict) and el.get("type") == "text" and isinstance(el.get("value"), str):
                 run += el["value"]
                 run_nodes += 1
             else:
                 if not in_derived and run_nodes >= 2 and unicodedata.normalize("NFC", run) != run:
                     out.add("non-nfc")
                 run, run_nodes = "", 0
-            _walk_text_violations(el, out, in_derived, in_text_marks)
+            _walk_text_violations(el, out, in_derived, in_text_marks, key, blocked)
         if not in_derived and run_nodes >= 2 and unicodedata.normalize("NFC", run) != run:
             out.add("non-nfc")
     elif isinstance(value, dict):
@@ -657,6 +683,8 @@ def _walk_text_violations(value, out, in_derived=False, in_text_marks=False):
                 out,
                 in_derived or (not in_text_marks and _is_derived_field(value, k)),
                 in_text_marks or (k == "marks" and value.get("type") == "text"),
+                k,
+                blocked or k == CONTENT_BARRIER_KEY,
             )
 
 
@@ -1156,7 +1184,7 @@ def _drop_absorbed_text_nodes(arr, asset_map=None):
     return out
 
 
-def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None, in_text_marks=False, asset_map=None):
+def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None, in_text_marks=False, asset_map=None, blocked=False):
     """Raw-content walk reproducing every canon transform that changes which ids exist:
     adjacent merge-eligible text nodes with equal mark sets collapse, marks identical
     within ONE TEXT NODE's array dedup, and derived fields drop. The last two are scoped
@@ -1164,9 +1192,13 @@ def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None,
     duplicate marks genuinely survive) and does NOT recurse into a text node's marks (so a
     derived field carried on or under such a mark survives and its ids ARE relabelled)."""
     if isinstance(value, list):
-        items = value if in_text_marks else _drop_absorbed_text_nodes(value, asset_map)
+        # Scoped exactly as the merge is (BLOCK_CONTENT_KEYS). This walk exists to reproduce
+        # canon's view of which ids exist, so dropping a node where canon no longer merges
+        # inverts the answer: canon rejects a duplicate id the document verdict never sees.
+        merges_here = (not blocked) and parent_key in BLOCK_CONTENT_KEYS
+        items = value if (in_text_marks or not merges_here) else _drop_absorbed_text_nodes(value, asset_map)
         for el in items:
-            _walk_content(el, visit, in_marks, True, parent_key, in_text_marks, asset_map)
+            _walk_content(el, visit, in_marks, True, parent_key, in_text_marks, asset_map, blocked)
         return
     if not isinstance(value, dict):
         return
@@ -1188,11 +1220,12 @@ def _walk_content(value, visit, in_marks=False, in_array=False, parent_key=None,
                         continue
                     seen.add(k)
                     deduped.append(mark)
-                _walk_content(deduped, visit, True, False, key, True, asset_map)
+                _walk_content(deduped, visit, True, False, key, True, asset_map, blocked)
             else:
-                _walk_content(child, visit, False, False, key, True, asset_map)
+                _walk_content(child, visit, False, False, key, True, asset_map, blocked)
             continue
-        _walk_content(child, visit, key == "marks" and isinstance(child, list), False, key, in_text_marks, asset_map)
+        _walk_content(child, visit, key == "marks" and isinstance(child, list), False, key, in_text_marks, asset_map,
+                      blocked or key == CONTENT_BARRIER_KEY)
 
 
 def _collect_ids(content, asset_map=None):
