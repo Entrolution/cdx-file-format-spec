@@ -1,0 +1,38 @@
+{
+  "description": "A non-NFC string VALUE inside `attributes.semantic`. REJECT — and this is the boundary of the case above, not a contradiction of it. `attributes` is HASHED material: unlike `crdt`, the canonical transform does not delete it, so section 4.3.2's per-string rule binds every string it carries and two readers that normalize differently derive different canonical bytes. What the position scope withholds under `attributes` is only the CONCATENATION rule, which needs a run of adjacent text nodes to mean anything. Without this case the scope can be widened into a wholesale exemption for everything beneath `attributes` — an implementation that skips the subtree rather than withholding one rule passes the case above and every other published case; only a non-NFC KEY was otherwise covered.",
+  "layer": "document",
+  "requires": [
+    "container",
+    "document"
+  ],
+  "clause": "Document Hashing section 4.3.2; State Machine section 5.4.3",
+  "recipe": {
+    "entries": [
+      {
+        "name": "manifest.json",
+        "text": "{\"cdx\":\"0.1\",\"id\":\"pending\",\"state\":\"draft\",\"created\":\"2025-01-10T08:00:00Z\",\"modified\":\"2025-01-10T08:00:00Z\",\"content\":{\"path\":\"content/document.json\",\"hash\":\"sha256:e2128736a984ce22317efbe0d345529c40a5fd49796123c61abde3fbff137841\"},\"metadata\":{\"dublinCore\":\"metadata/dublin-core.json\"}}"
+      },
+      {
+        "name": "content/document.json",
+        "text": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"@type\":\"Question\",\"name\":\"cafe\\u0301\"}},\"children\":[{\"type\":\"text\",\"value\":\"ok\"}]}]}"
+      },
+      {
+        "name": "metadata/dublin-core.json",
+        "text": "{\"version\":\"1.1\",\"terms\":{\"title\":\"Attributes Value Non-NFC\",\"creator\":\"A. Author\"}}"
+      }
+    ]
+  },
+  "expect": {
+    "documentDisposition": {
+      "atLeast": "REJECT",
+      "atMost": "REJECT"
+    },
+    "findings": [
+      {
+        "code": "CDX-E-PART-STRING-NOT-NFC",
+        "atLeast": "REJECT",
+        "atMost": "REJECT"
+      }
+    ]
+  }
+}

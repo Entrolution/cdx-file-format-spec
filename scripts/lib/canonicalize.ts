@@ -485,13 +485,72 @@ function resolveAssetRef(ref: string, assetMap: Map<string, string>, external: b
 }
 
 // ---------------------------------------------------------------------------
+// Block-content positions (§4.3.1 item 4, §4.3.2 item 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * The property names whose declared array items are block or text content.
+ *
+ * WHY THIS EXISTS. §4.3.1 item 4 merges "adjacent sibling text nodes", and §4.3.2 item 2
+ * binds "the concatenated text content of each BLOCK" — and Anchors and References §3, which
+ * both cite, computes that content by traversing a block's text-node CHILDREN. Both rules are
+ * therefore properties of WHERE a node sits, not of what it looks like. Implemented on element
+ * SHAPE instead — "is this object `{type:"text", value:string}`?" — they reach any array whose
+ * members happen to resemble text nodes, and canonicalization then REJECTS conformant
+ * documents: two authored `attributes.semantic` values, each individually in NFC, are merged
+ * and the merged string fails the per-string check.
+ *
+ * DERIVED, NOT INVENTED. This set is every property name in the published schemas whose array
+ * `items` resolve to `$defs/block` or `$defs/textNode`, through `allOf`/`anyOf`/`oneOf`.
+ * `scripts/check-block-content-positions.ts` re-derives it and fails on any disagreement, so a
+ * new block type carrying a rich text array cannot silently fall out of scope. Transcribed
+ * rather than read at runtime because this module is a specification's reference canonicalizer
+ * and stays a pure function of its inputs — no filesystem, no schema loader (which imports
+ * FROM here, so reading one would also be a cycle).
+ *
+ * KEYS, NOT (type, key) PAIRS. Several content arrays hang off sub-objects that carry no
+ * `type` at all — an `academic:exercise` part, a `solution`, a phantom's content — so a map
+ * keyed on the parent's type cannot reach them. The looser key match costs nothing: the
+ * `children` arrays it additionally admits (`list`, `table`, `tableRow`, `figure`,
+ * `definitionList`, `definitionItem`) are schema-forbidden from holding a text node at all, so
+ * neither rule can fire there on conformant content.
+ */
+export const BLOCK_CONTENT_KEYS: ReadonlySet<string> = new Set([
+  'blocks',    // the root content array, and a phantom's content
+  'caption',   // figure, subfigure — a rich caption array, not the string form
+  'children',  // every text-bearing and container block, core and extension
+  'content',   // a `presentation:footnote` mark's content blocks
+  'hints',     // academic exercise and exercise part
+  'preamble',  // academic exercise set
+]);
+
+/**
+ * `attributes` is a hard barrier regardless of the key beneath it. Content Blocks §3.1 makes
+ * it a CLOSED set of authored values — `dir`, `lang`, `writingMode`, `style`, `semantic` — and
+ * nothing anchors into it, so an object there shaped like a text node is data that merely
+ * resembles inline content. The barrier is needed because `attributes.semantic` is a JSON-LD
+ * annotation with `additionalProperties: true`, so an author may legitimately put a member
+ * named `children` inside it; without the barrier the key match alone would readmit exactly
+ * the false REJECT this scoping exists to remove.
+ */
+export const CONTENT_BARRIER_KEY = 'attributes';
+
+/** True iff an array reached by `key` holds block content (see BLOCK_CONTENT_KEYS). */
+function isBlockContentKey(key: string | null): boolean {
+  return key !== null && BLOCK_CONTENT_KEYS.has(key);
+}
+
+// ---------------------------------------------------------------------------
 // Content transform (§4.3.1 "Content transforms")
 // ---------------------------------------------------------------------------
 
-function canon(value: unknown, assetMap: Map<string, string>): unknown {
+function canon(value: unknown, assetMap: Map<string, string>, key: string | null = null, blocked = false): unknown {
   if (Array.isArray(value)) {
-    const mapped = value.map((v) => canon(v, assetMap));
-    return mergeAdjacentText(mapped); // §4.3.1 item 4
+    const mapped = value.map((v) => canon(v, assetMap, key, blocked));
+    // §4.3.1 item 4, scoped to block content. `key` is the property this array was reached
+    // by; `blocked` is set once `attributes` has been entered and never cleared. See
+    // BLOCK_CONTENT_KEYS for why the rule is a property of position, not of element shape.
+    return !blocked && isBlockContentKey(key) ? mergeAdjacentText(mapped) : mapped;
   }
   if (!isPlainObject(value)) {
     return value;
@@ -537,7 +596,11 @@ function canon(value: unknown, assetMap: Map<string, string>): unknown {
   // redundant, so skip it.
   for (const key of Object.keys(obj)) {
     if (type === 'text' && key === 'marks') continue;
-    obj[key] = canon(obj[key], assetMap);
+    // The barrier STICKS. `attributes.semantic` is a JSON-LD annotation with
+    // `additionalProperties: true`, so an author may put a member named `children` inside it
+    // at any depth; clearing the flag on the way down would readmit exactly the false REJECT
+    // this scoping removes.
+    obj[key] = canon(obj[key], assetMap, key, blocked || key === CONTENT_BARRIER_KEY);
   }
   return obj;
 }
@@ -799,10 +862,15 @@ export function walkContentNodes(
   // `inTextMarks` tracks the one subtree canon leaves alone: a text node's `marks` are
   // normalized in place and then SKIPPED by canon's recursion, so neither the merge nor
   // the derived-field deletion reaches inside them.
-  const walk = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined, inTextMarks: boolean): void => {
+  const walk = (value: unknown, inMarks: boolean, inArray: boolean, parentKey: string | undefined, inTextMarks: boolean, blocked = false): void => {
     if (Array.isArray(value)) {
-      const items = raw && !inTextMarks ? dropAbsorbedTextNodes(value, options.assetMap) : value;
-      for (const el of items) walk(el, inMarks, true, parentKey, inTextMarks); // items inherit the array's field name
+      // Scoped exactly as `canon`'s merge is: this walk reproduces canon's view of the tree,
+      // so a position where canon no longer merges must not drop a node here. Getting it wrong
+      // inverts a verdict rather than losing one — the walks disagree about which ids exist,
+      // and a document canon rejects for a duplicate id loads clean.
+      const mergesHere = !blocked && isBlockContentKey(parentKey ?? null);
+      const items = raw && !inTextMarks && mergesHere ? dropAbsorbedTextNodes(value, options.assetMap) : value;
+      for (const el of items) walk(el, inMarks, true, parentKey, inTextMarks, blocked); // items inherit the array's field name
       return;
     }
     if (!isPlainObject(value)) return;
@@ -818,16 +886,16 @@ export function walkContentNodes(
         // whole subtree is preserved either way — `inTextMarks` must be set even for a
         // non-array `marks`, or derived fields inside one get erased here and kept there.
         // `inMarks` still requires an array, matching rewriteIds' dispatch.
-        walk(Array.isArray(child) ? dedupByJcs(child) : child, Array.isArray(child), false, key, true);
+        walk(Array.isArray(child) ? dedupByJcs(child) : child, Array.isArray(child), false, key, true, blocked);
         continue;
       }
       // `Array.isArray` matches rewriteIds' own dispatch: a `marks` value that is not an
       // array is not a mark collection to the canonicalizer, so treating its members as
       // marks here would resolve references the canonicalizer never rewrites.
-      walk(child, key === 'marks' && Array.isArray(child), false, key, childInTextMarks);
+      walk(child, key === 'marks' && Array.isArray(child), false, key, childInTextMarks, blocked || key === CONTENT_BARRIER_KEY);
     }
   };
-  walk(content, false, false, undefined, false);
+  walk(content, false, false, undefined, false, false);
 }
 
 /**
@@ -1307,7 +1375,7 @@ export function firstNonRepresentableNumber(value: unknown): string | null {
   return null;
 }
 
-export function validateStoredByteInvariants(value: unknown): void {
+export function validateStoredByteInvariants(value: unknown, key: string | null = null, blocked = false): void {
   if (typeof value === 'string') {
     checkString(value);
   } else if (typeof value === 'number') {
@@ -1325,10 +1393,16 @@ export function validateStoredByteInvariants(value: unknown): void {
     // has text-node-only children (Content Blocks §4.13–4.14), so a maximal run
     // equals the block's full text content; resetting the run on any non-text
     // element is a defensive path (a break or a nested block severs adjacency).
+    //
+    // Same key test as `canon`'s merge, but not the same reachable positions: `canon` skips a
+    // text node's `marks`, and `content` occurs only there, so at that position this fires and
+    // the merge cannot. Elsewhere a run reported where canon merged would REJECT a document
+    // canonicalization accepts. Every string is still checked individually; only the run is withheld.
+    const inContent = !blocked && isBlockContentKey(key);
     let run = '';
     let runNodes = 0;
     for (const v of value) {
-      if (isPlainObject(v) && v.type === 'text' && typeof v.value === 'string') {
+      if (inContent && isPlainObject(v) && v.type === 'text' && typeof v.value === 'string') {
         run += v.value;
         runNodes++;
       } else {
@@ -1336,13 +1410,13 @@ export function validateStoredByteInvariants(value: unknown): void {
         run = '';
         runNodes = 0;
       }
-      validateStoredByteInvariants(v);
+      validateStoredByteInvariants(v, key, blocked);
     }
     if (runNodes >= 2) checkConcatenatedNfc(run);
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
       checkString(key);
-      validateStoredByteInvariants(value[key]);
+      validateStoredByteInvariants(value[key], key, blocked || key === CONTENT_BARRIER_KEY);
     }
   }
 }
@@ -1433,24 +1507,28 @@ function checkConcatenatedNfc(run: string): void {
  * concatenation, so measuring the run over raw nodes matches the canonical form.
  */
 export function collectStoredTextViolations(value: unknown): { code: string; detail: string } | null {
-  interface Frame { v: unknown; inDerived: boolean; inTextMarks: boolean }
-  const stack: Frame[] = [{ v: value, inDerived: false, inTextMarks: false }];
+  interface Frame { v: unknown; inDerived: boolean; inTextMarks: boolean; key: string | null; blocked: boolean }
+  const stack: Frame[] = [{ v: value, inDerived: false, inTextMarks: false, key: null, blocked: false }];
   const runViolation = (run: string): { code: string; detail: string } | null =>
     run.normalize('NFC') === run
       ? null
       : { code: STORED_TEXT_CODE.NOT_NFC, detail: `concatenated block text is not in NFC — a combining sequence is split across text-node boundaries: ${JSON.stringify(run)}` };
 
   while (stack.length > 0) {
-    const { v, inDerived, inTextMarks } = stack.pop()!;
+    const { v, inDerived, inTextMarks, key, blocked } = stack.pop()!;
     if (typeof v === 'string') {
       if (inDerived) continue;
       const violation = storedTextViolation(v);
       if (violation) return violation;
     } else if (Array.isArray(v)) {
+      // Same key test as `canon`, over the RAW part rather than the transformed one, so a scope
+      // differing by one position shows up as a document canon rejects loading clean. Carries no
+      // `marks` skip, so unlike the merge it reaches a footnote mark's `content`.
+      const inContent = !blocked && isBlockContentKey(key);
       let run = '';
       let runNodes = 0;
       for (const el of v) {
-        if (isPlainObject(el) && el.type === 'text' && typeof el.value === 'string') {
+        if (inContent && isPlainObject(el) && el.type === 'text' && typeof el.value === 'string') {
           run += el.value;
           runNodes++;
         } else {
@@ -1461,7 +1539,7 @@ export function collectStoredTextViolations(value: unknown): { code: string; det
           run = '';
           runNodes = 0;
         }
-        stack.push({ v: el, inDerived, inTextMarks });
+        stack.push({ v: el, inDerived, inTextMarks, key, blocked });
       }
       if (!inDerived && runNodes >= 2) {
         const violation = runViolation(run);
@@ -1481,6 +1559,8 @@ export function collectStoredTextViolations(value: unknown): { code: string; det
           // silent on a document canon rejects.
           inDerived: inDerived || (!inTextMarks && isDerivedField(v, key)),
           inTextMarks: inTextMarks || (key === 'marks' && v.type === 'text'),
+          key,
+          blocked: blocked || key === CONTENT_BARRIER_KEY,
         });
       }
     }

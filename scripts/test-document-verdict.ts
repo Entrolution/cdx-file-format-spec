@@ -39,7 +39,7 @@ import { buildZip, type ZipEntryRecipe } from './lib/zip-writer.js';
 import { readArchive } from './lib/zip-reader.js';
 import { documentVerdict, type ReaderSupport } from './lib/document-verdict.js';
 import { deriveContentVocabulary } from './lib/content-classifier.js';
-import { canonicalContent, collectStoredTextViolations, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
+import { canonicalContent, collectDefinedIds, collectStoredTextViolations, MAX_CANONICALIZATION_DEPTH } from './lib/canonicalize.js';
 
 let passed = 0;
 let failed = 0;
@@ -993,14 +993,79 @@ test('a split run inside a `crdt` on a BLOCK is silent, and canon accepts it', (
   assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon deletes it before validating');
 });
 
-test("a split run inside a `crdt` under a TEXT NODE's `marks` IS reported", () => {
+test("a non-NFC STRING inside a `crdt` under a TEXT NODE's `marks` IS reported", () => {
   // The carve-out, and the case that kills a gate keyed on the field NAME alone: canon does
   // not recurse into a text node's `marks`, so this `crdt` SURVIVES, is hashed, and canon
   // throws. Suppressing it by name would go silent on a document canon rejects — the
   // completeness property broken in the direction that matters.
-  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"v","marks":[{"type":"anchor","id":"a","crdt":{"kids":[{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}]}}]}]}]}';
+  //
+  // Pinned with a single non-NFC STRING rather than a split RUN. A run here would prove
+  // nothing about derived-field suppression once §4.3.2 item 2 is scoped to block content
+  // (BLOCK_CONTENT_KEYS): a `crdt` payload's own member is not a block's text content, so
+  // the run rule is withheld there for a reason that has nothing to do with `crdt`. The
+  // per-string arm isolates the property this test is actually for.
+  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","children":[{"type":"text","value":"v","marks":[{"type":"anchor","id":"a","crdt":{"s":"cafe\\u0301"}}]}]}]}';
   assert.equal(collectStoredTextViolations(JSON.parse(doc))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'a derived field under a text node\'s marks is still hashed');
   assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), 'and canon throws on it');
+});
+
+test('an id under `attributes` reaches the raw walk and canon alike', () => {
+  // Agreement, not correctness: whether such an id belongs in the namespace at all is open.
+  // What must not happen is the two disagreeing — a duplicate canon rejects while the walk
+  // that feeds the verdict reports nothing.
+  const doc = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"semantic":{"@type":"Q","children":[{"@type":"A","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"dup"}]},{"type":"text","value":"a","marks":[{"type":"anchor","id":"dup"}]}]}]}},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.deepEqual(collectDefinedIds(JSON.parse(doc), { rawInput: true }).duplicates, ['dup']);
+  assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), /duplicate id/);
+
+  // Without this the assertion above passes on a walk that reports every id twice.
+  const once = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"semantic":{"@type":"Q","children":[{"@type":"A","children":[{"type":"text","value":"a","marks":[{"type":"anchor","id":"solo"}]}]}]}},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.deepEqual(collectDefinedIds(JSON.parse(once), { rawInput: true }).duplicates, []);
+  assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: once, dublinCore: '{}' }));
+});
+
+test('the run rule is withheld OUTSIDE block content, scan and canon agreeing', () => {
+  // §4.3.1 item 4 and §4.3.2 item 2 are properties of POSITION, not of element shape
+  // (BLOCK_CONTENT_KEYS). These are the positions where an array may hold objects shaped
+  // like text nodes without being block content, and where keying on shape made
+  // canonicalization REJECT a conformant document.
+  //
+  // Both directions asserted on every case. Asserting only the scan would pass under a wrong
+  // model of what canon merges — and a scan that goes silent where canon still throws is not
+  // a smaller defect but an INVERTED one, a document canonicalization rejects loading clean.
+  const pair = '{"type":"text","value":"cafe"},{"type":"text","value":"\\u0301"}';
+  const silent: [string, string][] = [
+    ['attributes.semantic', `{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"semantic":{"h":[${pair}]}},"children":[{"type":"text","value":"ok"}]}]}`],
+    ['an extension block\'s own data array', `{"version":"0.1","blocks":[{"type":"forms:field","history":[${pair}]}]}`],
+  ];
+  for (const [label, doc] of silent) {
+    assert.equal(collectStoredTextViolations(JSON.parse(doc)), null, `${label}: not a block\'s text content, so no run`);
+    assert.doesNotThrow(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), `${label}: and canon accepts it`);
+  }
+
+  // THE CONTROLS. Without them "withhold the run rule" is satisfied by withholding it
+  // everywhere, which is the mutant that matters — it would silence every real split run.
+  // The ROOT array is here because a strict `children` key was measured to lose it, and a
+  // published fixture depends on it.
+  const reported: [string, string][] = [
+    ['the root blocks array', `{"version":"0.1","blocks":[${pair},{"type":"paragraph","children":[{"type":"text","value":"ok"}]}]}`],
+    ['a paragraph\'s children', `{"version":"0.1","blocks":[{"type":"paragraph","children":[${pair}]}]}`],
+    ['a figure caption rich array', `{"version":"0.1","blocks":[{"type":"figure","caption":[${pair}],"children":[]}]}`],
+  ];
+  for (const [label, doc] of reported) {
+    assert.equal(collectStoredTextViolations(JSON.parse(doc))?.code, 'CDX-E-PART-STRING-NOT-NFC', `${label}: a split run IS still reported`);
+    assert.throws(() => canonicalContent({ manifest: '{}', content: doc, dublinCore: '{}' }), `${label}: and canon still rejects it`);
+  }
+});
+
+test('only the RUN rule is withheld — strings inside `attributes` are still checked', () => {
+  // The scoping must not be mistakable for exempting `attributes` wholesale. Every string in
+  // there is still hashed material and still individually bound by §4.3.2 item 2.
+  const nfc = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"style":"cafe\\u0301"},"children":[{"type":"text","value":"ok"}]}]}';
+  const ill = '{"version":"0.1","blocks":[{"type":"paragraph","attributes":{"style":"\\ud83d"},"children":[{"type":"text","value":"ok"}]}]}';
+  assert.equal(collectStoredTextViolations(JSON.parse(nfc))?.code, 'CDX-E-PART-STRING-NOT-NFC', 'a non-NFC attribute value still rejects');
+  assert.equal(collectStoredTextViolations(JSON.parse(ill))?.code, 'CDX-E-PART-STRING-ILL-FORMED', 'an ill-formed attribute value still rejects');
+  assert.throws(() => canonicalContent({ manifest: '{}', content: nfc, dublinCore: '{}' }), 'and canon agrees on the NFC one');
+  assert.throws(() => canonicalContent({ manifest: '{}', content: ill, dublinCore: '{}' }), 'and on the ill-formed one');
 });
 
 test('a split run in a `figure` `caption` rich array IS reported', () => {

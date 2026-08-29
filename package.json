@@ -35,6 +35,7 @@
     "check:structural": "npx tsx scripts/check-structural-constraints.ts",
     "check:manifest-extension-config": "npx tsx scripts/check-manifest-extension-config.ts",
     "check:enumeration-coverage": "npx tsx scripts/check-enumeration-coverage.ts",
+    "check:block-content-positions": "tsx scripts/check-block-content-positions.ts",
     "generate:template": "npx tsx scripts/generate-template.ts"
   },
   "devDependencies": {
