@@ -113,8 +113,8 @@ STRING_MARKS = {"bold", "italic", "underline", "strikethrough", "code", "supersc
 # scripts/check-block-content-positions.ts, which re-derives the set and fails on drift).
 #
 # Document Hashing section 4.3.1 item 4 merges "adjacent sibling text nodes" and section
-# 4.3.2 item 2 binds "the concatenated text content of each BLOCK"; Anchors and References
-# section 3, which both cite, computes that content from a block's text-node CHILDREN. Both
+# 4.3.2 item 2 binds "each maximal run of adjacent text nodes within a BLOCK-CONTENT ARRAY";
+# item 4 enumerates those arrays, reached by field name rather than by owner type. Both
 # rules are therefore properties of WHERE a node sits. Keyed on element SHAPE instead, they
 # reach any array whose members resemble text nodes and REJECT conformant documents.
 #

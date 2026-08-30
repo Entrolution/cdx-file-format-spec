@@ -1431,6 +1431,12 @@ test("a text node's id must not spell a canonical name", () => {
     () => computeDocumentId(parts({ blocks: [{ type: 'blockquote', children: [{ type: 'paragraph', children: [{ type: 'text', id: 'b12', value: 'x' }] }] }] }), 'sha256'),
     /reserved canonical-name form/,
   );
+
+  // Barriered like every other rule. A JSON-LD annotation may carry a text-SHAPED member whose
+  // `id` names nothing, so no generated name can collide with it; rejecting it would be a false
+  // REJECT on a schema-valid document, which is the defect this scoping exists to remove.
+  assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { '@type': 'Q', foo: { type: 'text', id: 'b0', value: 'x' } } }, children: [] }] }), 'sha256'));
 });
 
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------

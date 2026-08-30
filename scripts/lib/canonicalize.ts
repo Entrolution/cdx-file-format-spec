@@ -492,8 +492,8 @@ function resolveAssetRef(ref: string, assetMap: Map<string, string>, external: b
  * The property names whose declared array items are block or text content.
  *
  * WHY THIS EXISTS. §4.3.1 item 4 merges "adjacent sibling text nodes", and §4.3.2 item 2
- * binds "the concatenated text content of each BLOCK" — and Anchors and References §3, which
- * both cite, computes that content by traversing a block's text-node CHILDREN. Both rules are
+ * binds "each maximal run of adjacent text nodes within a BLOCK-CONTENT ARRAY" — the arrays
+ * enumerated in item 4, reached by field name rather than by owner type. Both rules are
  * therefore properties of WHERE a node sits, not of what it looks like. Implemented on element
  * SHAPE instead — "is this object `{type:"text", value:string}`?" — they reach any array whose
  * members happen to resemble text nodes, and canonicalization then REJECTS conformant
@@ -1116,14 +1116,25 @@ function alphaRenameIds(content: unknown): unknown {
 
   // A text node's id is outside the namespace, so the loop above never sees it — but it reaches
   // the canonical output as authored, where an authored `b0` is byte-identical to a generated one.
-  walkContentNodes(content, (node) => {
-    if (node.type === 'text' && typeof node.id === 'string' && CANONICAL_NAME.test(node.id)) {
+  // Barriered like every other rule: beneath `attributes` a text-shaped object is data, its `id`
+  // names nothing, and no generated name can collide with it.
+  const forbidCanonicalTextIds = (value: unknown, blocked: boolean): void => {
+    if (Array.isArray(value)) {
+      for (const el of value) forbidCanonicalTextIds(el, blocked);
+      return;
+    }
+    if (!isPlainObject(value)) return;
+    if (!blocked && value.type === 'text' && typeof value.id === 'string' && CANONICAL_NAME.test(value.id)) {
       throw new CanonicalizationError(
-        `id "${node.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
+        `id "${value.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
           `and must not spell "b<number>"`,
       );
     }
-  });
+    for (const key of Object.keys(value)) {
+      forbidCanonicalTextIds(value[key], blocked || key === CONTENT_BARRIER_KEY);
+    }
+  };
+  forbidCanonicalTextIds(content, false);
 
   // NO early return, on an empty rename map OR an empty namespace. `rewriteIds` is
   // not only the renamer: it also enforces the `#b<digits>` prohibition on

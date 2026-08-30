@@ -61,7 +61,7 @@ Every block has the following base structure — a text node included, which is 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | Yes | Block type identifier |
-| `id` | string | No | Unique block identifier within document |
+| `id` | string | No | Unique block identifier within document (section 3.2; on a text node the `id` is content rather than a label and is not in that namespace) |
 | `children` | array | Varies | Child nodes (blocks or text) |
 | `attributes` | object | No | Standard block attributes (closed set — see below) |
 | `crdt` | object | No | Transient CRDT synchronization state for the collaboration extension. Library-specific and intentionally open; stripped before the document hash is computed (Document Hashing section 4.3.1), so it never affects the document ID or any signature. |
