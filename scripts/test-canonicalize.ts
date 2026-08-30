@@ -1410,6 +1410,29 @@ test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () =
   }
 });
 
+test("a text node's id must not spell a canonical name", () => {
+  // Item 5's prohibition is scoped to namespace MEMBERS. A text node is not one, so an
+  // authored `b0` there reached the canonical output beside a generated `b0` and two
+  // identifiers arrived under one name — the collapse that prohibition exists to prevent.
+  const parts = (content: unknown) => ({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' });
+  assert.throws(
+    () => computeDocumentId(parts({ blocks: [{ type: 'paragraph', id: 'real', children: [{ type: 'text', id: 'b0', value: 'x' }] }] }), 'sha256'),
+    /reserved canonical-name form/,
+  );
+
+  // A text-node id that does NOT spell one is still preserved verbatim — the check must not
+  // have become a blanket ban on text-node ids.
+  const ok = canonicalContent(parts({ blocks: [{ type: 'paragraph', id: 'real', children: [{ type: 'text', id: 'keepme', value: 'x' }] }] })) as any;
+  assert.equal(ok.content.blocks[0].children[0].id, 'keepme');
+  assert.equal(ok.content.blocks[0].id, 'b0', 'and the real block still relabels');
+
+  // The prohibition is about the CANONICAL form, so it must fire on a nested text node too.
+  assert.throws(
+    () => computeDocumentId(parts({ blocks: [{ type: 'blockquote', children: [{ type: 'paragraph', children: [{ type: 'text', id: 'b12', value: 'x' }] }] }] }), 'sha256'),
+    /reserved canonical-name form/,
+  );
+});
+
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------
 // `normalizeMarks` resolves a `link` mark's href to its asset HASH before
 // `mergeAdjacentText` compares mark sets, so whether two adjacent text nodes merge — and

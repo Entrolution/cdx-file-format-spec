@@ -1114,6 +1114,17 @@ function alphaRenameIds(content: unknown): unknown {
     }
   }
 
+  // A text node's id is outside the namespace, so the loop above never sees it — but it reaches
+  // the canonical output as authored, where an authored `b0` is byte-identical to a generated one.
+  walkContentNodes(content, (node) => {
+    if (node.type === 'text' && typeof node.id === 'string' && CANONICAL_NAME.test(node.id)) {
+      throw new CanonicalizationError(
+        `id "${node.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
+          `and must not spell "b<number>"`,
+      );
+    }
+  });
+
   // NO early return, on an empty rename map OR an empty namespace. `rewriteIds` is
   // not only the renamer: it also enforces the `#b<digits>` prohibition on
   // references that resolve to nothing. Skipping it whenever there is nothing to
