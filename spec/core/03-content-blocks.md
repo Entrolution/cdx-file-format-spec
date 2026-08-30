@@ -25,6 +25,8 @@ The content file:
 
 ### 2.2 Root Structure
 
+The root `blocks` array holds block-level content (Introduction, section 1.4). A text node is a block type, so it is admissible there directly; the content root itself is not a block but a JSON object carrying `version` and `blocks` (section 7.1 rule 5).
+
 ```json
 {
   "version": "0.1",
@@ -45,7 +47,7 @@ The content file:
 
 ### 3.1 Block Object
 
-Every block has the following base structure:
+Every block has the following base structure — a text node included, which is why a text node may carry an `id` or `attributes` of its own:
 
 ```json
 {

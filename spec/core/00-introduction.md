@@ -73,6 +73,8 @@ This section defines key terms used throughout the specification.
 
 **Text Node**: A leaf node containing actual text content. Text nodes are the only block type that holds text; all other blocks contain children or are void elements.
 
+**Block-level content**: The values a block-content array may hold — that is, whatever the block definition admits. Because a text node is itself a block type (Content Blocks, section 4.1), a text node is block-level content wherever a block is admitted, including as a direct member of the root `blocks` array. Where a particular array is narrower than that, a rule says so explicitly and in whichever direction it narrows: Content Blocks section 7.2 rule 1 restricts a paragraph's children to text nodes, while section 4.12.1 makes the text-node form of a table cell's children a simplified form producers SHOULD NOT use where maximum compatibility is intended. Absent such a rule the block definition governs, and a consumer MUST NOT reject a member for being a text node alone.
+
 **Mark**: Inline formatting applied to a range of text within a text node. Marks can be simple strings (`"bold"`, `"italic"`) or objects with additional properties (links, citations, math). Marks do not create new blocks — they annotate existing text.
 
 **Annotation**: External commentary attached to content but stored outside the content layer. Annotations include comments, suggestions, and phantoms. Annotations are always outside the content hash boundary.

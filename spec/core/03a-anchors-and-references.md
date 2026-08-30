@@ -270,7 +270,7 @@ This section defines anchor-related terminology used throughout the specificatio
 
 | Term | Description |
 |------|-------------|
-| `blocks` | Top-level array of block objects (used in root document and phantom content) |
+| `blocks` | Top-level array of block-level content, text nodes included (used in root document and phantom content) |
 | `children` | Nested content within a block (paragraphs, list items, etc.) |
 | `content` | Plain text shorthand in specific contexts (e.g., footnote simple form) |
 
