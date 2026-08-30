@@ -1118,23 +1118,29 @@ function alphaRenameIds(content: unknown): unknown {
   // the canonical output as authored, where an authored `b0` is byte-identical to a generated one.
   // Barriered like every other rule: beneath `attributes` a text-shaped object is data, its `id`
   // names nothing, and no generated name can collide with it.
-  const forbidCanonicalTextIds = (value: unknown, blocked: boolean): void => {
+  const forbidCanonicalTextIds = (value: unknown, key: string | null, blocked: boolean): void => {
     if (Array.isArray(value)) {
-      for (const el of value) forbidCanonicalTextIds(el, blocked);
+      // Only a member of a block-content array is a text NODE. A text-shaped object anywhere
+      // else is data — a CSL `entries` member, an extension's own payload — and item 5 leaves
+      // its id as authored, so no generated name can collide with it.
+      const inContent = !blocked && isBlockContentKey(key);
+      for (const el of value) {
+        if (inContent && isPlainObject(el) && el.type === 'text' && typeof el.id === 'string' && CANONICAL_NAME.test(el.id)) {
+          throw new CanonicalizationError(
+            `id "${el.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
+              `and must not spell "b<number>"`,
+          );
+        }
+        forbidCanonicalTextIds(el, key, blocked);
+      }
       return;
     }
     if (!isPlainObject(value)) return;
-    if (!blocked && value.type === 'text' && typeof value.id === 'string' && CANONICAL_NAME.test(value.id)) {
-      throw new CanonicalizationError(
-        `id "${value.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
-          `and must not spell "b<number>"`,
-      );
-    }
-    for (const key of Object.keys(value)) {
-      forbidCanonicalTextIds(value[key], blocked || key === CONTENT_BARRIER_KEY);
+    for (const k of Object.keys(value)) {
+      forbidCanonicalTextIds(value[k], k, blocked || k === CONTENT_BARRIER_KEY);
     }
   };
-  forbidCanonicalTextIds(content, false);
+  forbidCanonicalTextIds(content, null, false);
 
   // NO early return, on an empty rename map OR an empty namespace. `rewriteIds` is
   // not only the renamer: it also enforces the `#b<digits>` prohibition on

@@ -1437,6 +1437,11 @@ test("a text node's id must not spell a canonical name", () => {
   // REJECT on a schema-valid document, which is the defect this scoping exists to remove.
   assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'paragraph',
     attributes: { semantic: { '@type': 'Q', foo: { type: 'text', id: 'b0', value: 'x' } } }, children: [] }] }), 'sha256'));
+
+  // Keyed on POSITION, not shape. A CSL `entries` member is a data payload whose id item 5
+  // leaves as authored, so nothing generated can collide with it — a shape test rejects it.
+  assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'semantic:bibliography',
+    entries: [{ id: 'b0', type: 'text', value: 'x' }] }] }), 'sha256'));
 });
 
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------
