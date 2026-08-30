@@ -1525,7 +1525,7 @@ function checkConcatenatedNfc(run: string): void {
  *
  * Object KEYS are checked as well as values (§4.3.2 binds "all object keys and string
  * values"), and each run of two or more adjacent text nodes is checked as a CONCATENATION,
- * since §4.3.2 applies NFC to a block's whole text content. Merging never changes a
+ * since §4.3.2 applies NFC to the whole of each such run. Merging never changes a
  * concatenation, so measuring the run over raw nodes matches the canonical form.
  */
 export function collectStoredTextViolations(value: unknown): { code: string; detail: string } | null {
