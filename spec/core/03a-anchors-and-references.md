@@ -167,6 +167,7 @@ Authors can place explicit, stable anchor points within text using the `anchor` 
 
 - Anchor IDs share one document-wide identifier namespace with block IDs and with in-content sub-block IDs (academic equation-line ids and subfigure ids)
 - Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line ids, and subfigure ids
+- A text node's `id` is not in this namespace: it is content rather than a label, and is preserved unchanged by canonicalization (Document Hashing, section 4.3.1 items 4 and 5)
 - Anchor IDs MUST use URL-safe characters
 - Named anchors can be referenced by Content Anchor URIs (e.g., `#def-key-concept`) and ContentAnchor objects (e.g., `{ "blockId": "def-key-concept" }`)
 
