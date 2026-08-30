@@ -272,7 +272,7 @@ This section defines anchor-related terminology used throughout the specificatio
 |------|-------------|
 | `blocks` | Top-level array of block-level content, text nodes included (used in root document and phantom content) |
 | `children` | Nested content within a block (paragraphs, list items, etc.) |
-| `content` | Plain text shorthand in specific contexts (e.g., footnote simple form) |
+| `content` | Plain text shorthand in specific contexts (e.g., footnote simple form); on a `presentation:footnote` mark, a block-content array |
 
 The distinction is intentional: `blocks` represents a document-level content array, while `children` represents nested block content.
 

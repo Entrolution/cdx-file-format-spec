@@ -41,7 +41,7 @@ The root `blocks` array holds block-level content (Introduction, section 1.4). A
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `version` | string | Yes | Content model version |
-| `blocks` | array | Yes | Array of block objects |
+| `blocks` | array | Yes | Array of block-level content, text nodes included |
 
 ## 3. Block Model
 
@@ -78,6 +78,8 @@ Block IDs:
 - MUST be stable across edits for documents in REVIEW or later states
 - SHOULD be stable across edits in DRAFT state (for collaboration)
 - SHOULD use URL-safe characters
+
+These requirements are stated of blocks other than text nodes. A text node's `id` is optional, is content-significant rather than a label — Document Hashing section 4.3.1 item 4 preserves it unchanged and makes the node a merge boundary — and is outside the relabeled namespace of item 5. Requiring one on every text node would make that merge unreachable.
 
 Block IDs share one document-wide identifier namespace with named anchor IDs and with in-content sub-block IDs — academic equation-line IDs and subfigure IDs (see Anchors and References specification). Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line IDs, and subfigure IDs.
 
