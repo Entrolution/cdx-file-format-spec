@@ -1410,6 +1410,40 @@ test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () =
   }
 });
 
+test("a text node's id must not spell a canonical name", () => {
+  // Item 5's prohibition is scoped to namespace MEMBERS. A text node is not one, so an
+  // authored `b0` there reached the canonical output beside a generated `b0` and two
+  // identifiers arrived under one name — the collapse that prohibition exists to prevent.
+  const parts = (content: unknown) => ({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' });
+  assert.throws(
+    () => computeDocumentId(parts({ blocks: [{ type: 'paragraph', id: 'real', children: [{ type: 'text', id: 'b0', value: 'x' }] }] }), 'sha256'),
+    /reserved canonical-name form/,
+  );
+
+  // A text-node id that does NOT spell one is still preserved verbatim — the check must not
+  // have become a blanket ban on text-node ids.
+  const ok = canonicalContent(parts({ blocks: [{ type: 'paragraph', id: 'real', children: [{ type: 'text', id: 'keepme', value: 'x' }] }] })) as any;
+  assert.equal(ok.content.blocks[0].children[0].id, 'keepme');
+  assert.equal(ok.content.blocks[0].id, 'b0', 'and the real block still relabels');
+
+  // The prohibition is about the CANONICAL form, so it must fire on a nested text node too.
+  assert.throws(
+    () => computeDocumentId(parts({ blocks: [{ type: 'blockquote', children: [{ type: 'paragraph', children: [{ type: 'text', id: 'b12', value: 'x' }] }] }] }), 'sha256'),
+    /reserved canonical-name form/,
+  );
+
+  // Barriered like every other rule. A JSON-LD annotation may carry a text-SHAPED member whose
+  // `id` names nothing, so no generated name can collide with it; rejecting it would be a false
+  // REJECT on a schema-valid document, which is the defect this scoping exists to remove.
+  assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { '@type': 'Q', foo: { type: 'text', id: 'b0', value: 'x' } } }, children: [] }] }), 'sha256'));
+
+  // Keyed on POSITION, not shape. A CSL `entries` member is a data payload whose id item 5
+  // leaves as authored, so nothing generated can collide with it — a shape test rejects it.
+  assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'semantic:bibliography',
+    entries: [{ id: 'b0', type: 'text', value: 'x' }] }] }), 'sha256'));
+});
+
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------
 // `normalizeMarks` resolves a `link` mark's href to its asset HASH before
 // `mergeAdjacentText` compares mark sets, so whether two adjacent text nodes merge — and

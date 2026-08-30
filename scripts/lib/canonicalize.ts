@@ -492,8 +492,8 @@ function resolveAssetRef(ref: string, assetMap: Map<string, string>, external: b
  * The property names whose declared array items are block or text content.
  *
  * WHY THIS EXISTS. §4.3.1 item 4 merges "adjacent sibling text nodes", and §4.3.2 item 2
- * binds "the concatenated text content of each BLOCK" — and Anchors and References §3, which
- * both cite, computes that content by traversing a block's text-node CHILDREN. Both rules are
+ * binds "each maximal run of adjacent text nodes within a BLOCK-CONTENT ARRAY" — the arrays
+ * enumerated in item 4, reached by field name rather than by owner type. Both rules are
  * therefore properties of WHERE a node sits, not of what it looks like. Implemented on element
  * SHAPE instead — "is this object `{type:"text", value:string}`?" — they reach any array whose
  * members happen to resemble text nodes, and canonicalization then REJECTS conformant
@@ -1114,6 +1114,34 @@ function alphaRenameIds(content: unknown): unknown {
     }
   }
 
+  // A text node's id is outside the namespace, so the loop above never sees it — but it reaches
+  // the canonical output as authored, where an authored `b0` is byte-identical to a generated one.
+  // Barriered like every other rule: beneath `attributes` a text-shaped object is data, its `id`
+  // names nothing, and no generated name can collide with it.
+  const forbidCanonicalTextIds = (value: unknown, key: string | null, blocked: boolean): void => {
+    if (Array.isArray(value)) {
+      // Only a member of a block-content array is a text NODE. A text-shaped object anywhere
+      // else is data — a CSL `entries` member, an extension's own payload — and item 5 leaves
+      // its id as authored, so no generated name can collide with it.
+      const inContent = !blocked && isBlockContentKey(key);
+      for (const el of value) {
+        if (inContent && isPlainObject(el) && el.type === 'text' && typeof el.id === 'string' && CANONICAL_NAME.test(el.id)) {
+          throw new CanonicalizationError(
+            `id "${el.id}" uses the reserved canonical-name form: a text node's id is preserved as authored ` +
+              `and must not spell "b<number>"`,
+          );
+        }
+        forbidCanonicalTextIds(el, key, blocked);
+      }
+      return;
+    }
+    if (!isPlainObject(value)) return;
+    for (const k of Object.keys(value)) {
+      forbidCanonicalTextIds(value[k], k, blocked || k === CONTENT_BARRIER_KEY);
+    }
+  };
+  forbidCanonicalTextIds(content, null, false);
+
   // NO early return, on an empty rename map OR an empty namespace. `rewriteIds` is
   // not only the renamer: it also enforces the `#b<digits>` prohibition on
   // references that resolve to nothing. Skipping it whenever there is nothing to
@@ -1192,7 +1220,7 @@ function definedId(obj: Record<string, unknown>, inMarks: boolean, inArray: bool
     return obj.type === 'anchor' && typeof obj.id === 'string' ? obj.id : undefined;
   }
   if (typeof obj.id !== 'string') return undefined;
-  // A text node is typed but is NOT a content block: its `id` addresses no
+  // A text node is a block type but its `id` is outside the relabeled namespace: it addresses no
   // relabeled namespace and is preserved verbatim (§4.3.1 item 4 — "a text node
   // that also carries an `id` … is preserved unchanged"; item 5's namespace is
   // exhaustively blocks, `anchor` marks, and equation-line/subfigure sub-blocks).
@@ -1503,7 +1531,7 @@ function checkConcatenatedNfc(run: string): void {
  *
  * Object KEYS are checked as well as values (§4.3.2 binds "all object keys and string
  * values"), and each run of two or more adjacent text nodes is checked as a CONCATENATION,
- * since §4.3.2 applies NFC to a block's whole text content. Merging never changes a
+ * since §4.3.2 applies NFC to the whole of each such run. Merging never changes a
  * concatenation, so measuring the run over raw nodes matches the canonical form.
  */
 export function collectStoredTextViolations(value: unknown): { code: string; detail: string } | null {

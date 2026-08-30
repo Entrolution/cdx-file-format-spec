@@ -2136,7 +2136,7 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
   },
   {
     name: 'reject-content-split-combining-sequence',
-    description: 'A combining sequence split across a text-node boundary: one node ends `cafe`, the next is U+0301 alone. EACH node value is individually in NFC — a per-string check passes this document — but their concatenation is not, which is the arm Document Hashing section 4.3.2 states explicitly ("This applies to the concatenated text content of each block, not merely to individual text-node values"). The two nodes carry different marks so canonicalization does not merge them, leaving the split observable in the stored bytes.',
+    description: 'A combining sequence split across a text-node boundary: one node ends `cafe`, the next is U+0301 alone. EACH node value is individually in NFC — a per-string check passes this document — but their concatenation is not, which is the arm Document Hashing section 4.3.2 states explicitly ("This applies to the concatenated text content of each maximal run of adjacent text nodes within a block-content array, not merely to individual text-node values"). The two nodes carry different marks so canonicalization does not merge them, leaving the split observable in the stored bytes.',
     layer: 'document',
     requires: ['container', 'document'],
     clause: 'Document Hashing section 4.3.2; State Machine section 5.4.3',

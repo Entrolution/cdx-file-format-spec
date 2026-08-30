@@ -25,6 +25,8 @@ The content file:
 
 ### 2.2 Root Structure
 
+The root `blocks` array holds block-level content (Introduction, section 1.4). A text node is a block type, so it is admissible there directly; the content root itself is not a block but a JSON object carrying `version` and `blocks` (section 7.1 rule 5).
+
 ```json
 {
   "version": "0.1",
@@ -39,13 +41,13 @@ The content file:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `version` | string | Yes | Content model version |
-| `blocks` | array | Yes | Array of block objects |
+| `blocks` | array | Yes | Array of block-level content, text nodes included |
 
 ## 3. Block Model
 
 ### 3.1 Block Object
 
-Every block has the following base structure:
+Every block has the following base structure — a text node included, which is why a text node may carry an `id` or `attributes` of its own:
 
 ```json
 {
@@ -59,7 +61,7 @@ Every block has the following base structure:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | Yes | Block type identifier |
-| `id` | string | No | Unique block identifier within document |
+| `id` | string | No | Unique block identifier within document (section 3.2; on a text node the `id` is content rather than a label and is not in that namespace) |
 | `children` | array | Varies | Child nodes (blocks or text) |
 | `attributes` | object | No | Standard block attributes (closed set — see below) |
 | `crdt` | object | No | Transient CRDT synchronization state for the collaboration extension. Library-specific and intentionally open; stripped before the document hash is computed (Document Hashing section 4.3.1), so it never affects the document ID or any signature. |
@@ -76,6 +78,8 @@ Block IDs:
 - MUST be stable across edits for documents in REVIEW or later states
 - SHOULD be stable across edits in DRAFT state (for collaboration)
 - SHOULD use URL-safe characters
+
+These requirements are stated of blocks other than text nodes. A text node's `id` is optional, is content-significant rather than a label — Document Hashing section 4.3.1 item 4 preserves it unchanged and makes the node a merge boundary — and is outside the relabeled namespace of item 5. Requiring one on every text node would make that merge unreachable.
 
 Block IDs share one document-wide identifier namespace with named anchor IDs and with in-content sub-block IDs — academic equation-line IDs and subfigure IDs (see Anchors and References specification). Every ID in this namespace MUST be unique across all of block IDs, anchor IDs, equation-line IDs, and subfigure IDs.
 
