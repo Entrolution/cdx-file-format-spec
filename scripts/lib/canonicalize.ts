@@ -810,7 +810,7 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
         ids.push(id);
         // Recorded on the FIRST occurrence only, alongside `ids` — a repeat is a
         // duplicate and throws before any of this is consumed.
-        if (!ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type)) {
+        if (ctx.blocked || (!ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type))) {
           preserved.add(id);
         }
         // Classified on the SAME first-occurrence branch as `ids`, so the two cannot
@@ -840,6 +840,14 @@ export interface WalkContext {
    * it models a rewrite the canonicalizer never performs.
    */
   inTextMarks: boolean;
+  /**
+   * The node sits at or below `attributes` (CONTENT_BARRIER_KEY) — a closed set of authored
+   * values (Content Blocks §3.1) whose members are data. An id there is content, not a label:
+   * it stays in the uniqueness namespace but is never relabeled, exactly as a
+   * PRESERVED_ID_BLOCK_TYPES id is. Removing it from the namespace instead relabels it via
+   * `rewriteIds`, which maps it onto a generated name.
+   */
+  blocked: boolean;
 }
 
 /**
@@ -874,7 +882,7 @@ export function walkContentNodes(
       return;
     }
     if (!isPlainObject(value)) return;
-    visit(value, { inMarks, inArray, parentKey, inTextMarks });
+    visit(value, { inMarks, inArray, parentKey, inTextMarks, blocked });
     for (const key of Object.keys(value).sort()) {
       if (raw && !inTextMarks && isDerivedField(value, key)) continue; // canon deletes it before relabeling
       const child = value[key];
@@ -1108,8 +1116,9 @@ function alphaRenameIds(content: unknown): unknown {
   for (const id of preserved) {
     if (CANONICAL_NAME.test(id)) {
       throw new CanonicalizationError(
-        `id "${id}" uses the reserved canonical-name form: the id of a block whose type is left as authored ` +
-          `(${[...PRESERVED_ID_BLOCK_TYPES].sort().join(', ')}) must not spell "b<number>"`,
+        `id "${id}" uses the reserved canonical-name form: an id left as authored — carried under ` +
+          `\`${CONTENT_BARRIER_KEY}\`, or on a ${[...PRESERVED_ID_BLOCK_TYPES].sort().join(' / ')} block ` +
+          `— must not spell "b<number>"`,
       );
     }
   }
