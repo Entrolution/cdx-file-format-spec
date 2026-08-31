@@ -891,6 +891,17 @@
       },
       "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"exercises\":[{\"children\":[{\"children\":[{\"type\":\"text\",\"value\":\"Q\"}],\"type\":\"paragraph\"}],\"type\":\"academic:exercise\"}],\"preamble\":[{\"type\":\"text\",\"value\":\"Show your working.\"}],\"type\":\"academic:exercise-set\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
       "expectedId": "sha256:21b661a2486cef3c6fc7363e7fde5029b48facc1b4202ae6c5c15e9ac4d1eb26"
+    },
+    {
+      "name": "attributes-id-preserved-not-relabeled",
+      "description": "An `id` carried under `attributes` is preserved as authored, not relabeled (§4.3.1 item 5). Item 5's alpha-equivalence exists so two documents differing only in author-chosen LABELS share an id; `attributes.semantic` is a JSON-LD annotation holding third-party vocabulary data, where an `id` is CONTENT — a CSL citation key a `citation` mark's `refs` resolves against. Item 5 already exempts a `semantic:bibliography` entry's `id` for that reason; this is the same data one field over. An implementation that relabels it computes the SAME document id for two bibliographies with entirely different citation keys, so a signature over one verifies the other. Note what is NOT withheld: the id stays in the shared uniqueness namespace, because that material is reachable — a `link` mark's `href` resolves into it — so a duplicate there is a real collision.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"citation\":[{\"id\":\"smith2020\",\"type\":\"article-journal\"}]}},\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"attributes\":{\"semantic\":{\"citation\":[{\"id\":\"smith2020\",\"type\":\"article-journal\"}]}},\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:291f85c407099eb2b1bbbbff29abe4b6609059197b64b1a3929646c24bed9537"
     }
   ]
 }

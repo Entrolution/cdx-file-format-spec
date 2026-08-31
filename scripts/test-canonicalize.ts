@@ -1444,6 +1444,56 @@ test("a text node's id must not spell a canonical name", () => {
     entries: [{ id: 'b0', type: 'text', value: 'x' }] }] }), 'sha256'));
 });
 
+test('an id under `attributes` is preserved, not relabeled', () => {
+  const parts = (content: unknown) => ({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' });
+  const canon = (content: unknown) => canonicalContent(parts(content)) as any;
+  const cited = (k1: string, k2: string) => ({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { citation: [{ id: k1, type: 'article-journal' }, { id: k2, type: 'book' }] } },
+    children: [{ type: 'text', value: 'x' }] }] });
+
+  // Alpha-equivalence is for author-chosen LABELS. Applied to third-party vocabulary data it
+  // erases content: two bibliographies with different citation keys hashed identically, so a
+  // signature over one verified the other.
+  assert.notEqual(
+    computeDocumentId(parts(cited('smith2020', 'jones2019')), 'sha256'),
+    computeDocumentId(parts(cited('OTHER-KEY', 'DIFFERENT')), 'sha256'),
+  );
+  assert.equal(canon(cited('smith2020', 'jones2019')).content.blocks[0].attributes.semantic.citation[0].id, 'smith2020');
+
+  // Preserved means preserved-and-still-counted: it consumes no index, so a real sibling takes
+  // the name the preserved occurrence would have had (§4.3.1 item 5).
+  const shifted = canon({ blocks: [
+    { type: 'paragraph', attributes: { semantic: { '@type': 'Q', note: { type: 'heading', id: 'ghost', children: [] } } }, children: [] },
+    { type: 'paragraph', id: 'real', children: [] }] });
+  assert.equal(shifted.content.blocks[0].attributes.semantic.note.id, 'ghost');
+  assert.equal(shifted.content.blocks[1].id, 'b0', 'the preserved occurrence consumed no index');
+
+  // ... and still in the UNIQUENESS namespace. That material is reachable — a `link` href
+  // resolves into it — so a duplicate there is a real collision, not a false positive.
+  assert.throws(() => computeDocumentId(parts({ blocks: [
+    { type: 'paragraph', id: 'dup', children: [] },
+    { type: 'paragraph', attributes: { semantic: { '@type': 'Q', n: { type: 'heading', id: 'dup', children: [] } } }, children: [] }] }), 'sha256'),
+    /duplicate id/);
+
+  // A reference INTO the barriered subtree keeps resolving, because the target keeps its name.
+  const linked = canon({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { '@type': 'Q', children: [{ type: 'text', value: 't', marks: [{ type: 'anchor', id: 'hidden' }] }] } },
+    children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#hidden' }] }] }] });
+  assert.equal(linked.content.blocks[0].children[0].marks[0].href, '#hidden');
+
+  // Inherits item 5's canonical-name prohibition: left as authored beside a generated `b0`,
+  // two identifiers would reach the canonical output under one name.
+  assert.throws(() => computeDocumentId(parts({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { '@type': 'Q', n: { type: 'heading', id: 'b0', children: [] } } }, children: [] }] }), 'sha256'),
+    /reserved canonical-name form/);
+
+  // CONTROL. Ordinary content must be untouched by all of the above — without this the
+  // assertions are equally satisfied by a canonicalizer that stopped relabeling entirely.
+  const plain = canon({ blocks: [{ type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 't', marks: [{ type: 'anchor', id: 'a2' }] }] }] });
+  assert.equal(plain.content.blocks[0].id, 'b0', 'a real block still relabels');
+  assert.equal(plain.content.blocks[0].children[0].marks[0].id, 'b1', 'and a real anchor mark still relabels');
+});
+
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------
 // `normalizeMarks` resolves a `link` mark's href to its asset HASH before
 // `mergeAdjacentText` compares mark sets, so whether two adjacent text nodes merge — and
