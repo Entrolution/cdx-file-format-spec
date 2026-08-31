@@ -894,14 +894,14 @@
     },
     {
       "name": "attributes-id-preserved-not-relabeled",
-      "description": "An `id` carried under `attributes` is preserved as authored, not relabeled (§4.3.1 item 5). Item 5's alpha-equivalence exists so two documents differing only in author-chosen LABELS share an id; `attributes.semantic` is a JSON-LD annotation holding third-party vocabulary data, where an `id` is CONTENT — a CSL citation key a `citation` mark's `refs` resolves against. Item 5 already exempts a `semantic:bibliography` entry's `id` for that reason; this is the same data one field over. An implementation that relabels it computes the SAME document id for two bibliographies with entirely different citation keys, so a signature over one verifies the other. Note what is NOT withheld: the id stays in the shared uniqueness namespace, because that material is reachable — a `link` mark's `href` resolves into it — so a duplicate there is a real collision.",
+      "description": "An `id` carried under `attributes` is preserved as authored, not relabeled, and consumes no index — the sibling block takes `b0` (§4.3.1 item 5). Item 5's alpha-equivalence exists so two documents differing only in author-chosen LABELS share an id; `attributes` is a closed set of authored values (Content Blocks §3.1), so an id there is a vocabulary key a JSON-LD or CSL consumer resolves against, and relabeling it makes two documents whose keys differ entirely hash identically. The id sits on a SINGULAR sub-object deliberately. Item 5 separately leaves as authored an id in an extension block's own DATA ARRAY, so a case putting this id in an array would be reproduced by an implementation that never applied the `attributes` rule at all — it would pin the outcome and not the rule. Nothing but the `attributes` rule reaches this position. Note what is NOT withheld: the id stays in the shared uniqueness namespace, because the material is reachable — a `link` mark's `href` resolves against it — so a duplicate there is a real collision.",
       "parts": {
         "manifest": "{}",
-        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"citation\":[{\"id\":\"smith2020\",\"type\":\"article-journal\"}]}},\"children\":[{\"type\":\"text\",\"value\":\"x\"}]}]}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"attributes\":{\"semantic\":{\"@type\":\"Q\",\"note\":{\"type\":\"heading\",\"id\":\"keepme\",\"children\":[]}}},\"children\":[]},{\"type\":\"paragraph\",\"id\":\"real\",\"children\":[]}]}",
         "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
       },
-      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"attributes\":{\"semantic\":{\"citation\":[{\"id\":\"smith2020\",\"type\":\"article-journal\"}]}},\"children\":[{\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
-      "expectedId": "sha256:291f85c407099eb2b1bbbbff29abe4b6609059197b64b1a3929646c24bed9537"
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"attributes\":{\"semantic\":{\"@type\":\"Q\",\"note\":{\"children\":[],\"id\":\"keepme\",\"type\":\"heading\"}}},\"children\":[],\"type\":\"paragraph\"},{\"children\":[],\"id\":\"b0\",\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:15e27b0632507a2206be473dff14e151fdb4ec87a9ca8c96377058f06aa2a1e8"
     }
   ]
 }
