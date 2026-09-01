@@ -1403,10 +1403,30 @@ test('collectDefinedIds: rawInput reproduces canon, checked AGAINST canon', () =
     ['duplicate block id under attributes.semantic', { blocks: [{ type: 'paragraph', attributes: { semantic: {
       '@type': 'Q', children: [{ type: 'paragraph', id: 'dup', children: [] }, { type: 'paragraph', id: 'dup', children: [] }] } },
       children: [] }] }],
+    // The two rows above both REJECT, so the `preserved` comparison below skips them. These do
+    // not, which is what lets it reach the barrier at all — without them two barrier mutations
+    // survive every gate in the repository.
+    ['unique id under attributes.semantic', { blocks: [
+      { type: 'paragraph', attributes: { semantic: { '@type': 'Q', n: { type: 'heading', id: 'kept', children: [] } } }, children: [] },
+      { type: 'paragraph', id: 'real', children: [] }] }],
+    // The barrier must survive the raw walk's dedicated `marks` branch. It only bites when
+    // `blocked` is ALREADY set, so the mark has to sit INSIDE `attributes`, not carry it.
+    ['unique anchor id in marks INSIDE attributes', { blocks: [
+      { type: 'paragraph', attributes: { semantic: { '@type': 'Q', children: [
+        { type: 'text', value: 'x', marks: [{ type: 'anchor', id: 'deep' }] }] } }, children: [] },
+      { type: 'paragraph', id: 'real', children: [] }] }],
   ];
   for (const [label, content] of cases) {
-    const { duplicates } = collectDefinedIds(content, { rawInput: true });
-    assert.equal(duplicates.length > 0, rejectsForDuplicateId(content), `raw walk disagrees with canonicalization: ${label}`);
+    const raw = collectDefinedIds(content, { rawInput: true });
+    assert.equal(raw.duplicates.length > 0, rejectsForDuplicateId(content), `raw walk disagrees with canonicalization: ${label}`);
+
+    // `preserved` too, not only `duplicates`. The docstring above says this differential asserts
+    // the raw walk reproduces canon; comparing one field of three made that broader than what it
+    // checked, and two barrier mutations survived every gate in the repository because of it.
+    if (!rejectsForDuplicateId(content)) {
+      const canonical = collectDefinedIds((canonicalContent({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' }) as any).content);
+      assert.deepEqual([...raw.preserved].sort(), [...canonical.preserved].sort(), `raw vs canonical preserved: ${label}`);
+    }
   }
 });
 
@@ -1442,6 +1462,67 @@ test("a text node's id must not spell a canonical name", () => {
   // leaves as authored, so nothing generated can collide with it — a shape test rejects it.
   assert.doesNotThrow(() => computeDocumentId(parts({ blocks: [{ type: 'semantic:bibliography',
     entries: [{ id: 'b0', type: 'text', value: 'x' }] }] }), 'sha256'));
+});
+
+test('an id under `attributes` is preserved, not relabeled', () => {
+  const parts = (content: unknown) => ({ manifest: '{}', content: JSON.stringify(content), dublinCore: '{}' });
+  const canon = (content: unknown) => canonicalContent(parts(content)) as any;
+  const cited = (k1: string, k2: string) => ({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { citation: [{ id: k1, type: 'article-journal' }, { id: k2, type: 'book' }] } },
+    children: [{ type: 'text', value: 'x' }] }] });
+
+  // Alpha-equivalence is for author-chosen LABELS. Applied to third-party vocabulary data it
+  // erases content: two bibliographies with different citation keys hashed identically, so a
+  // signature over one verified the other.
+  assert.notEqual(
+    computeDocumentId(parts(cited('smith2020', 'jones2019')), 'sha256'),
+    computeDocumentId(parts(cited('OTHER-KEY', 'DIFFERENT')), 'sha256'),
+  );
+  assert.equal(canon(cited('smith2020', 'jones2019')).content.blocks[0].attributes.semantic.citation[0].id, 'smith2020');
+
+  // Preserved means preserved-and-still-counted: it consumes no index, so a real sibling takes
+  // the name the preserved occurrence would have had (§4.3.1 item 5).
+  const shifted = canon({ blocks: [
+    { type: 'paragraph', attributes: { semantic: { '@type': 'Q', note: { type: 'heading', id: 'ghost', children: [] } } }, children: [] },
+    { type: 'paragraph', id: 'real', children: [] }] });
+  assert.equal(shifted.content.blocks[0].attributes.semantic.note.id, 'ghost');
+  assert.equal(shifted.content.blocks[1].id, 'b0', 'the preserved occurrence consumed no index');
+
+  // ... and still in the UNIQUENESS namespace. That material is reachable — a `link` href
+  // resolves into it — so a duplicate there is a real collision, not a false positive.
+  assert.throws(() => computeDocumentId(parts({ blocks: [
+    { type: 'paragraph', id: 'dup', children: [] },
+    { type: 'paragraph', attributes: { semantic: { '@type': 'Q', n: { type: 'heading', id: 'dup', children: [] } } }, children: [] }] }), 'sha256'),
+    /duplicate id/);
+
+  // A reference INTO the barriered subtree keeps resolving, because the target keeps its name.
+  const linked = canon({ blocks: [{ type: 'paragraph',
+    attributes: { semantic: { '@type': 'Q', children: [{ type: 'text', value: 't', marks: [{ type: 'anchor', id: 'hidden' }] }] } },
+    children: [{ type: 'text', value: 'x', marks: [{ type: 'link', href: '#hidden' }] }] }] });
+  assert.equal(linked.content.blocks[0].children[0].marks[0].href, '#hidden');
+
+  // NOT subject to item 5's canonical-name prohibition, which is scoped to the TYPE-preserved
+  // blocks. `b1`, `b2` is the CrossRef/JATS reference convention, so CSL exported from such a
+  // source carries exactly these keys — rejecting them would fail the documents this scoping
+  // exists to protect, and the identical data in an `entries` array is accepted.
+  const cslKeys = (where: 'attributes' | 'entries') => where === 'attributes'
+    ? { blocks: [{ type: 'paragraph', attributes: { semantic: { citation: [{ id: 'b1', type: 'article-journal' }] } }, children: [] }, { type: 'paragraph', id: 'p', children: [] }] }
+    : { blocks: [{ type: 'semantic:bibliography', entries: [{ id: 'b1', type: 'article-journal' }] }, { type: 'paragraph', id: 'p', children: [] }] };
+  for (const where of ['attributes', 'entries'] as const) {
+    const out = canon(cslKeys(where)) as any;
+    assert.doesNotThrow(() => computeDocumentId(parts(cslKeys(where)), 'sha256'), `${where}: a b<n> vocabulary key is not an error`);
+    assert.equal(out.content.blocks[1].id, 'b0', `${where}: the real block still relabels`);
+  }
+
+  // The prohibition still binds where item 5 scopes it — a TYPE-preserved block id.
+  assert.throws(() => computeDocumentId(parts({ blocks: [
+    { type: 'semantic:term', id: 'b0', children: [] }] }), 'sha256'), /reserved canonical-name form/);
+
+  // CONTROL. Ordinary content must be untouched by all of the above — without this the
+  // assertions are equally satisfied by a canonicalizer that stopped relabeling entirely.
+  const plain = canon({ blocks: [{ type: 'paragraph', id: 'p1', children: [{ type: 'text', value: 't', marks: [{ type: 'anchor', id: 'a2' }] }] }] });
+  assert.equal(plain.content.blocks[0].id, 'b0', 'a real block still relabels');
+  assert.equal(plain.content.blocks[0].children[0].marks[0].id, 'b1', 'and a real anchor mark still relabels');
 });
 
 // --- The asset map in the raw walk (B1b-3b-2) --------------------------------

@@ -706,6 +706,14 @@ export interface CollectedIds {
    */
   preserved: Set<string>;
   /**
+   * The subset of `preserved` held back by TYPE (`PRESERVED_ID_BLOCK_TYPES`) rather than by
+   * position. Only these carry item 5's canonical-name prohibition: an id under `attributes` is
+   * third-party vocabulary data the author does not choose — `b1`, `b2` is the CrossRef/JATS
+   * reference convention — and rejecting it would fail the documents this scoping protects,
+   * while the identical data in an `entries` array is accepted.
+   */
+  preservedByType: Set<string>;
+  /**
    * Whatever `CollectOptions.classify` returned for each id, keyed by id. Empty when no
    * classifier was supplied.
    *
@@ -797,6 +805,7 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
   const ids: string[] = [];
   const duplicates: string[] = [];
   const preserved = new Set<string>();
+  const preservedByType = new Set<string>();
   const classified = new Map<string, unknown>();
 
   walkContentNodes(
@@ -810,9 +819,9 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
         ids.push(id);
         // Recorded on the FIRST occurrence only, alongside `ids` — a repeat is a
         // duplicate and throws before any of this is consumed.
-        if (!ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type)) {
-          preserved.add(id);
-        }
+        const byType = !ctx.inMarks && typeof node.type === 'string' && PRESERVED_ID_BLOCK_TYPES.has(node.type);
+        if (ctx.blocked || byType) preserved.add(id);
+        if (byType) preservedByType.add(id);
         // Classified on the SAME first-occurrence branch as `ids`, so the two cannot
         // disagree about which ids exist or about which node defines one.
         if (options.classify !== undefined) classified.set(id, options.classify(node, ctx));
@@ -821,7 +830,7 @@ export function collectDefinedIds(content: unknown, options: CollectOptions = {}
     options,
   );
 
-  return { ids, duplicates, preserved, classified };
+  return { ids, duplicates, preserved, preservedByType, classified };
 }
 
 /** Where a visited node sits, which is what decides namespace membership (`definedId`). */
@@ -840,6 +849,14 @@ export interface WalkContext {
    * it models a rewrite the canonicalizer never performs.
    */
   inTextMarks: boolean;
+  /**
+   * The node sits at or below `attributes` (CONTENT_BARRIER_KEY) — a closed set of authored
+   * values (Content Blocks §3.1) whose members are data. An id there is content, not a label:
+   * it stays in the uniqueness namespace but is never relabeled, exactly as a
+   * PRESERVED_ID_BLOCK_TYPES id is. Removing it from the namespace instead relabels it via
+   * `rewriteIds`, which maps it onto a generated name.
+   */
+  blocked: boolean;
 }
 
 /**
@@ -874,7 +891,7 @@ export function walkContentNodes(
       return;
     }
     if (!isPlainObject(value)) return;
-    visit(value, { inMarks, inArray, parentKey, inTextMarks });
+    visit(value, { inMarks, inArray, parentKey, inTextMarks, blocked });
     for (const key of Object.keys(value).sort()) {
       if (raw && !inTextMarks && isDerivedField(value, key)) continue; // canon deletes it before relabeling
       const child = value[key];
@@ -1095,7 +1112,7 @@ function alphaRenameIds(content: unknown): unknown {
   // Canonical content: `canon` has already stripped derived fields and deduped each
   // text node's marks, so the default (non-raw) collection is exactly pass 1 of the
   // original in-place traversal.
-  const { ids, duplicates, preserved } = collectDefinedIds(content);
+  const { ids, duplicates, preserved, preservedByType } = collectDefinedIds(content);
   if (duplicates.length > 0) {
     throw new CanonicalizationError(`duplicate id "${duplicates[0]}" in the shared identifier namespace`);
   }
@@ -1105,7 +1122,7 @@ function alphaRenameIds(content: unknown): unknown {
   // not collide with the `b0` the sequence below generates for some other block, and
   // both would reach the canonical output carrying the same id — with a `#b0`
   // reference silently binding to whichever the reader met first.
-  for (const id of preserved) {
+  for (const id of preservedByType) {
     if (CANONICAL_NAME.test(id)) {
       throw new CanonicalizationError(
         `id "${id}" uses the reserved canonical-name form: the id of a block whose type is left as authored ` +

@@ -2267,6 +2267,23 @@ export const FIXTURE_CORPUS: AuthoredCase[] = [
     expect: rejectOnly('CDX-E-PART-STRING-NOT-NFC'),
   },
   {
+    name: 'integrity-error-attributes-id-collision',
+    description: 'A block `id` duplicated by an `id` carried under another block\'s `attributes.semantic`. INTEGRITY-ERROR, state-invariant (Anchors and References section 7.2 makes an id collision an Error in all states), escalating with the document state as the other collision cases do. An id there is preserved as authored rather than relabeled — it is third-party vocabulary data, where an id is content — but it remains a full member of the shared UNIQUENESS namespace, exactly as a `semantic:term` id does (Document Hashing section 4.3.1 item 5: "a preserved id remains a full member of the namespace in every other respect… Only the renaming skips it"). That is not a technicality: the material is reachable, since a `link` mark\'s `href` resolves into it, so two nodes carrying one id genuinely leave a reference with two candidate referents. This is the case that distinguishes "preserved" from "outside the namespace" — an implementation choosing the latter reports nothing here, and then relabels the id anyway, computing one document id for two documents whose citation keys differ.',
+    layer: 'document',
+    requires: ['container', 'document'],
+    clause: 'Document Hashing section 4.3.1 item 5; Anchors and References section 4',
+    recipe: documentArchive(
+      manifestJson({ content: { path: 'content/document.json', hash: 'sha256:446334981f62833557fe195c5d7a14d276b63967d7834bf3217599232123e0b7' } }),
+      contentBody('{"version":"0.1","blocks":[{"type":"paragraph","id":"dup","children":[]},{"type":"paragraph","attributes":{"semantic":{"@type":"Q","n":{"type":"heading","id":"dup","children":[]}}},"children":[]}]}', 'Attributes Id Collision'),
+    ),
+    // A RANGE, not a pin: section 5.4.2 assigns INTEGRITY-ERROR and the later states escalate
+    // it, exactly as the other id-collision cases express it.
+    expect: {
+      documentDisposition: { atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' },
+      findings: [{ code: 'CDX-E-ID-COLLISION', atLeast: 'INTEGRITY-ERROR', atMost: 'REJECT' }],
+    },
+  },
+  {
     name: 'positive-content-astral-text',
     description: 'A text node carrying an astral character (U+1F600, stored as the well-formed surrogate PAIR U+D83D U+DE00) in NFC. A reader that flagged any surrogate code unit rather than an UNPAIRED one would false-REJECT this — every non-BMP character in every conformant document is a surrogate pair.',
     layer: 'document',
