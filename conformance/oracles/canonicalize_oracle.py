@@ -78,11 +78,19 @@ def check(path: str) -> int:
         doc = json.load(fh)
     failures = 0
     checked = 0
+    skipped = 0
     for v in doc.get("vectors", []):
         body = v.get("expectedCanonicalJcs")
         expected = v.get("expectedId")
         if body is None or expected is None:
-            continue  # a reject vector, or one that pins no id
+            # Only a reject vector may pin no id. Any other vector reaching here is COUNTED AS
+            # A PASS by every gate with its id never compared, so it fails here instead (#137).
+            if v.get("expectReject") is True:
+                skipped += 1
+                continue
+            print(f"  UNPINNED {v['name']}: no expectedId and not a reject vector")
+            failures += 1
+            continue
         algorithm = v.get("algorithm", "sha256")
         actual = digest(algorithm, body)
         if actual != expected:
@@ -93,7 +101,12 @@ def check(path: str) -> int:
     if failures:
         print(f"{failures} vector(s) failed the independent byte->hash check.")
         return 1
-    print(f"OK: {checked} canonicalize vector id(s) match the independent digest of their bytes.")
+    if checked == 0:
+        # A run that compared nothing reports the same "OK" as one that compared everything.
+        print("no vector ids were compared — the selection is wrong, not the corpus.")
+        return 1
+    print(f"OK: {checked} canonicalize vector id(s) match the independent digest of their bytes "
+          f"({skipped} reject vector(s) pin none).")
     return 0
 
 

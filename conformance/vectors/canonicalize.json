@@ -589,6 +589,61 @@
       "expectedId": "sha256:19f93f04a4ec53c391fe66bd68421c6352b4417b0ef0a7f415ddcfa79d277631"
     },
     {
+      "name": "relabel-marks-resort-not-only-anchor-or-href",
+      "description": "The post-rewrite mark re-sort is unconditional, not scoped to an `anchor` id or a `link` `href`: an `academic:equation-ref` `target` is rewritten by the same item and changes its mark's sort key too. Ten equation-line ids put the two targets at `#b9` and `#b10`, which order oppositely to the authored `#L8`, `#L9` because canonical names sort as strings (§4.3.1 items 3, 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:equation-group\",\"id\":\"eg\",\"lines\":[{\"id\":\"L0\",\"value\":\"a\"},{\"id\":\"L1\",\"value\":\"a\"},{\"id\":\"L2\",\"value\":\"a\"},{\"id\":\"L3\",\"value\":\"a\"},{\"id\":\"L4\",\"value\":\"a\"},{\"id\":\"L5\",\"value\":\"a\"},{\"id\":\"L6\",\"value\":\"a\"},{\"id\":\"L7\",\"value\":\"a\"},{\"id\":\"L8\",\"value\":\"a\"},{\"id\":\"L9\",\"value\":\"a\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#L8\"},{\"type\":\"academic:equation-ref\",\"target\":\"#L9\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"id\":\"b0\",\"lines\":[{\"id\":\"b1\",\"value\":\"a\"},{\"id\":\"b2\",\"value\":\"a\"},{\"id\":\"b3\",\"value\":\"a\"},{\"id\":\"b4\",\"value\":\"a\"},{\"id\":\"b5\",\"value\":\"a\"},{\"id\":\"b6\",\"value\":\"a\"},{\"id\":\"b7\",\"value\":\"a\"},{\"id\":\"b8\",\"value\":\"a\"},{\"id\":\"b9\",\"value\":\"a\"},{\"id\":\"b10\",\"value\":\"a\"}],\"type\":\"academic:equation-group\"},{\"children\":[{\"marks\":[{\"target\":\"#b10\",\"type\":\"academic:equation-ref\"},{\"target\":\"#b9\",\"type\":\"academic:equation-ref\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:1195893a9ba7bca83f4eb41089e15af1f34eb5f537639b66e649e7d07b4bbd96"
+    },
+    {
+      "name": "relabel-marks-resort-id-inside-mark-content",
+      "description": "The re-sort also fires where no field of the mark itself was rewritten: an id relabeled inside a `presentation:footnote` mark's `content` changes the enclosing mark's bytes. Nine preceding block ids put the two footnote bodies at `b9` and `b10`, so the marks re-sort into `b10`, `b9` (§4.3.1 items 3, 5). Distinct from the vector above: an implementation re-sorting on a recognized set of mark FIELDS passes that one and fails this.",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"id\":\"p0\",\"children\":[{\"type\":\"text\",\"value\":\"0\"}]},{\"type\":\"paragraph\",\"id\":\"p1\",\"children\":[{\"type\":\"text\",\"value\":\"1\"}]},{\"type\":\"paragraph\",\"id\":\"p2\",\"children\":[{\"type\":\"text\",\"value\":\"2\"}]},{\"type\":\"paragraph\",\"id\":\"p3\",\"children\":[{\"type\":\"text\",\"value\":\"3\"}]},{\"type\":\"paragraph\",\"id\":\"p4\",\"children\":[{\"type\":\"text\",\"value\":\"4\"}]},{\"type\":\"paragraph\",\"id\":\"p5\",\"children\":[{\"type\":\"text\",\"value\":\"5\"}]},{\"type\":\"paragraph\",\"id\":\"p6\",\"children\":[{\"type\":\"text\",\"value\":\"6\"}]},{\"type\":\"paragraph\",\"id\":\"p7\",\"children\":[{\"type\":\"text\",\"value\":\"7\"}]},{\"type\":\"paragraph\",\"id\":\"p8\",\"children\":[{\"type\":\"text\",\"value\":\"8\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"presentation:footnote\",\"content\":[{\"type\":\"paragraph\",\"id\":\"aa\",\"children\":[{\"type\":\"text\",\"value\":\"n\"}]}]},{\"type\":\"presentation:footnote\",\"content\":[{\"type\":\"paragraph\",\"id\":\"zz\",\"children\":[{\"type\":\"text\",\"value\":\"n\"}]}]}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"type\":\"text\",\"value\":\"0\"}],\"id\":\"b0\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"1\"}],\"id\":\"b1\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"2\"}],\"id\":\"b2\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"3\"}],\"id\":\"b3\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"4\"}],\"id\":\"b4\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"5\"}],\"id\":\"b5\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"6\"}],\"id\":\"b6\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"7\"}],\"id\":\"b7\",\"type\":\"paragraph\"},{\"children\":[{\"type\":\"text\",\"value\":\"8\"}],\"id\":\"b8\",\"type\":\"paragraph\"},{\"children\":[{\"marks\":[{\"content\":[{\"children\":[{\"type\":\"text\",\"value\":\"n\"}],\"id\":\"b10\",\"type\":\"paragraph\"}],\"type\":\"presentation:footnote\"},{\"content\":[{\"children\":[{\"type\":\"text\",\"value\":\"n\"}],\"id\":\"b9\",\"type\":\"paragraph\"}],\"type\":\"presentation:footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:a0e52f7ac814ecfe431a781086c9d8571010ba5ef997ea3a32e17475ff0c37fb"
+    },
+    {
+      "name": "relabel-marks-resort-two-ids-authored-order",
+      "description": "The same rule at two relabeled ids, so the mechanism does not need eleven to be seen. Item 3 sorts the marks on the AUTHORED form (`#aa` before `#zz`) while the walk names by DOCUMENT order (`zz` to `b0`, `aa` to `b1`), so the array rewrites out of order and must be re-sorted. `relabel-marks-resort-after-rewrite` shows the same shape through a `link` `href`; the cause here is an `academic:equation-ref` `target` (§4.3.1 items 3, 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"academic:equation-group\",\"lines\":[{\"id\":\"zz\",\"value\":\"a\"},{\"id\":\"aa\",\"value\":\"a\"}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"academic:equation-ref\",\"target\":\"#zz\"},{\"type\":\"academic:equation-ref\",\"target\":\"#aa\"}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"lines\":[{\"id\":\"b0\",\"value\":\"a\"},{\"id\":\"b1\",\"value\":\"a\"}],\"type\":\"academic:equation-group\"},{\"children\":[{\"marks\":[{\"target\":\"#b0\",\"type\":\"academic:equation-ref\"},{\"target\":\"#b1\",\"type\":\"academic:equation-ref\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:ca34b7a4fda2ac77c9c4f22d7c46149877fc9e8a9fcdb4fde99614cb4a948adf"
+    },
+    {
+      "name": "relabel-marks-resort-inside-mark-content-no-relabel",
+      "description": "The re-sort reaches a text node inside a `presentation:footnote` mark's `content` — a position item 4 never reaches, so item 3 never normalized it and item 5's pass is the ONLY ordering those marks get: `italic`,`bold`,`italic` sorts to `bold`,`italic` and the duplicate is dropped. No id is relabeled anywhere, which isolates the every-text-node clause from the rewrite clause (§4.3.1 items 3, 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"presentation:footnote\",\"content\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"n\",\"marks\":[\"italic\",\"bold\",\"italic\"]}]}]}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"content\":[{\"children\":[{\"marks\":[\"bold\",\"italic\"],\"type\":\"text\",\"value\":\"n\"}],\"type\":\"paragraph\"}],\"type\":\"presentation:footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:dfd56a21a3898439dc25213527901be7f41133663ddc6be94daa6ca12a18d2d2"
+    },
+    {
+      "name": "relabel-marks-resort-inside-mark-content-permuted",
+      "description": "The alpha-equivalence half of the pair: the same marks authored in a different order as its twin `relabel-marks-resort-inside-mark-content-no-relabel`, carrying an IDENTICAL `expectedCanonicalJcs` and `expectedId` from a different `parts.content`. A single vector pins one input's bytes; the two together pin that mark order is not semantic at a position where item 3 never ordered them, so the post-rewrite pass is the only thing that can make them agree (§4.3.1 items 3, 5).",
+      "parts": {
+        "manifest": "{}",
+        "content": "{\"version\":\"0.1\",\"blocks\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"x\",\"marks\":[{\"type\":\"presentation:footnote\",\"content\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"n\",\"marks\":[\"italic\",\"italic\",\"bold\"]}]}]}]}]}]}",
+        "dublinCore": "{\"version\":\"1.1\",\"terms\":{\"title\":\"T\",\"creator\":\"C\"}}"
+      },
+      "expectedCanonicalJcs": "{\"content\":{\"blocks\":[{\"children\":[{\"marks\":[{\"content\":[{\"children\":[{\"marks\":[\"bold\",\"italic\"],\"type\":\"text\",\"value\":\"n\"}],\"type\":\"paragraph\"}],\"type\":\"presentation:footnote\"}],\"type\":\"text\",\"value\":\"x\"}],\"type\":\"paragraph\"}],\"version\":\"0.1\"},\"metadata\":{\"creator\":[\"C\"],\"title\":\"T\"}}",
+      "expectedId": "sha256:dfd56a21a3898439dc25213527901be7f41133663ddc6be94daa6ca12a18d2d2"
+    },
+    {
       "name": "relabel-dangling-hash-b-no-digits-verbatim",
       "description": "A #ref of \"#b\" (b with NO digits) does not spell a generated canonical name, so it is left verbatim (§4.3.1 item 5).",
       "parts": {
