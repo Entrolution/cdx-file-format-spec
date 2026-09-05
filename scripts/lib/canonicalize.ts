@@ -625,8 +625,8 @@ function normalizeMarks(marks: unknown[], assetMap: Map<string, string>): unknow
 /**
  * Sort marks by JCS serialization (UTF-16 code-unit order) and remove marks with
  * identical serializations (§4.3.1 item 3). Shared by the marks pipeline and by
- * the post-alpha-rename re-sort — relabeling an `anchor` mark id or a `link`
- * href changes that mark's JCS sort key, so its array must be re-sorted.
+ * the post-alpha-rename re-sort, which item 5 requires of every text node
+ * unconditionally.
  */
 function sortDedupMarks(marks: unknown[]): unknown[] {
   const keyed = marks.map((m) => ({ mark: m, jcs: jcsOf(m) }));
@@ -1283,18 +1283,16 @@ function rewriteIds(value: unknown, map: Map<string, string>, inMarks: boolean, 
   const obj: Record<string, unknown> = { ...value };
   const type = obj.type;
 
-  // Recurse first; a TEXT node's `marks` array is re-sorted+deduped after its members
-  // are rewritten, since relabeling an anchor id or link href changes a mark's JCS
-  // sort key (§4.3.1 item 5's closing sentence, which re-applies item 3). Mark
-  // order/multiplicity is non-semantic there, so the re-sort is safe.
+  // Recurse first; a TEXT node's `marks` array is sorted+deduped after its members are
+  // rewritten. §4.3.1 item 5 requires that of EVERY text node, including one inside a
+  // mark's `content` — which item 3 never reached, so this is the only ordering those
+  // marks get. Mark order/multiplicity is non-semantic there, so it is safe.
   //
-  // ONLY a text node's. Item 3 is scoped "within each text node" and `canon`
-  // normalizes marks under `case 'text'` alone, so re-sorting a `marks` array carried
-  // anywhere else — inside an open JSON-LD annotation or a CSL entry, both of which
-  // permit arbitrary members — would normalize a field the canonical form never
-  // touched, collapsing two documents that differ only in that array's order onto one
-  // document id. The traversal itself is unchanged: every member is still visited with
-  // `inMarks`, matching `walkContentNodes`, so namespace membership does not move.
+  // ONLY a text node's, matching `canon`, which normalizes marks under `case 'text'` alone.
+  // That arm keys on TYPE, not position, so a text-SHAPED object anywhere — a CSL entry, an
+  // extension block's data array, under `attributes` — is normalized too, which #136 covers.
+  // The traversal itself is unchanged: every member is still visited with `inMarks`, matching
+  // `walkContentNodes`, so namespace membership does not move.
   for (const key of Object.keys(obj)) {
     if (key === 'marks' && Array.isArray(obj[key])) {
       const rewritten = (obj[key] as unknown[]).map((m) => rewriteIds(m, map, true, true, 'marks'));

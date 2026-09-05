@@ -915,6 +915,25 @@ test('relabel: a marks array is re-sorted after rewriting (so output stays JCS-o
   assert.deepEqual(marks, [{ type: 'link', href: '#b0' }, { type: 'link', href: '#b1' }]);
 });
 
+test('relabel: mark order is not semantic — two authored orderings share one document ID', () => {
+  // The property the re-sort exists to deliver. INSIDE a mark's `content` deliberately: canon
+  // never reaches there, so item 5's pass is the only thing making these two equal. The same
+  // pair in block content is already equal before item 5 runs and would pass with the re-sort
+  // deleted.
+  const doc = (marks: string[]) => makeParts({
+    content: {
+      version: '0.1',
+      blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'x', marks: [{
+        type: 'presentation:footnote',
+        content: [{ type: 'paragraph', children: [{ type: 'text', value: 'n', marks }] }],
+      }] }] }],
+    },
+  });
+  assert.equal(computeDocumentId(doc(['italic', 'bold']), 'sha256'), computeDocumentId(doc(['bold', 'italic']), 'sha256'));
+  // Floor: the equality above is satisfied by an id that ignores the marks entirely.
+  assert.notEqual(computeDocumentId(doc(['bold', 'italic']), 'sha256'), computeDocumentId(doc(['bold', 'underline']), 'sha256'));
+});
+
 test('relabel: academic uses/of/target rewrite to block and equation-line ids', () => {
   const blocks = canonContent({
     content: {
@@ -1143,11 +1162,11 @@ test('relabel: an unresolved #b<digits> is rejected when EVERY defined id is pre
 });
 
 test('relabel: a `marks` array that is NOT a text node\'s is left unsorted, so it stays content-significant', () => {
-  // §4.3.1 item 3 is scoped "within each text node" and `canon` normalizes marks under
-  // `case 'text'` alone. `rewriteIds` walks every `marks` array, so re-sorting there
-  // unconditionally would normalize a field the canonical form never touched. A JSON-LD
-  // annotation permits arbitrary members, so `attributes.semantic.marks` is a reachable
-  // vehicle — and these two documents would otherwise collapse onto one document id.
+  // `canon` normalizes marks under `case 'text'` alone and `rewriteIds` re-sorts only a
+  // text node's, so a `marks` array on a NON-text object keeps its authored order. The
+  // annotation here is `{'@type':'X', marks}` — deliberately not text-shaped, because a
+  // text-SHAPED member under `attributes` IS normalized by canon (issue #136); this test
+  // pins the non-text case only.
   const mk = (marks: string[]) => ({
     content: {
       version: '0.1',
@@ -1157,7 +1176,7 @@ test('relabel: a `marks` array that is NOT a text node\'s is left unsorted, so i
   const a = JSON.stringify(canonContent(mk(['italic', 'bold'])));
   const b = JSON.stringify(canonContent(mk(['bold', 'italic'])));
   assert.notEqual(a, b, 'a non-text-node `marks` array must keep its authored order');
-  // The text-node case still normalizes, which is what item 5's closing sentence requires.
+  // The text-node case still normalizes — item 3, which is what sorts marks in block content.
   const t = (marks: unknown[]) => ({
     content: { version: '0.1', blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'x', marks }] }] },
   });
